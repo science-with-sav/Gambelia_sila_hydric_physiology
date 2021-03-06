@@ -239,10 +239,117 @@ temp_osmol %>%
         ) #-> EWL_plot
 ```
 
+*I predict that *
+
+
+
 
 # Humidity Effects on Hydrophysiology
 
+
 ## Create FAKE Data
+
+Fake, predicted relationship between EWL ~ temperature:
+
+```{r}
+# make predicted data for EWL ~ RH for supplementally hydrated lizards
+RH_EWL_supp <- data.frame(RH = c(seq(0, 100, by = 0.1))) %>%
+  mutate(relative_EWL = 0.1/(1+exp((RH-60)/9)),
+         tmt_group = rep("Supplementally Hydrated", nrow(.)))
+# make predicted data for EWL ~ RH for CONTROL lizards
+RH_EWL_control <- data.frame(RH = c(seq(0, 100, by = 0.1))) %>%
+  mutate(relative_EWL = 0.1/(1+exp((RH-60)/9))/2.5,
+         tmt_group = rep("Control", nrow(.)))
+# put into one dataframe
+RH_EWL <- rbind(RH_EWL_supp, RH_EWL_control)
+```
+
+Fake, predicted relationship between blood osmolarity ~ temperature:
+
+```{r}
+# supplementally hydrated lizards
+RH_osmol_supp <- data.frame(RH = c(seq(0, 100, by = 0.1))) %>%
+  mutate(relative_osmol = 0.1/(1+exp((RH-20)/10)), #still working on
+         tmt_group = rep("Supplementally Hydrated", nrow(.)))
+# CONTROL lizards
+RH_osmol_control <- data.frame(RH = c(seq(0, 100, by = 0.1))) %>%
+  mutate(relative_osmol = 4, # tbd
+         tmt_group = rep("Control", nrow(.)))
+# put into one dataframe
+RH_osmol <- rbind(RH_osmol_supp, RH_osmol_control)
+```
+
+
+
+## EWL Effects Plot
+
+```{r}
+RH_EWL %>%
+  ggplot(data = .) +
+  geom_line(aes(x = RH,
+                  y = relative_EWL,
+                  color = tmt_group
+                  ),
+              size = 1.6, 
+              alpha = 1
+              ) +
+  scale_colour_brewer(name = "Treatment",
+                        palette = "Set1"
+                        ) +
+  theme_classic() + 
+  xlab("Relative Humidity (%)") +
+  ylab("Evaporative Water Loss") +
+  theme(plot.margin = unit(c(0.5,0.5,0,1.5), "lines"), # buffer for ggarrange labels
+        text = element_text(color = "black", 
+                            family = "sans",
+                            size = 14),
+        axis.text = element_text(color = "black", 
+                            family = "sans",
+                            size = 14),
+        legend.text.align = 0,
+        #axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        legend.position = "bottom" # put legend inside plot at this point
+        ) #-> EWL_plot
+```
+
+*I predict that *
+
+
+
+## Blood Osmolarity Effects Plot
+
+```{r}
+RH_osmol_supp %>%
+  ggplot(data = .) +
+  geom_line(aes(x = RH,
+                  y = relative_osmol,
+                  color = tmt_group
+                  ),
+              size = 1.6, 
+              alpha = 1
+              ) +
+  scale_colour_brewer(name = "Treatment",
+                        palette = "Set1"
+                        ) +
+  theme_classic() + 
+  xlab("Relative Humidity (%)") +
+  ylab("Blood Osmolarity (mOsm)") +
+  theme(plot.margin = unit(c(0.5,0.5,0,1.5), "lines"), # buffer for ggarrange labels
+        text = element_text(color = "black", 
+                            family = "sans",
+                            size = 14),
+        axis.text = element_text(color = "black", 
+                            family = "sans",
+                            size = 14),
+        legend.text.align = 0,
+        #axis.text.x = element_blank(),
+        #axis.text.y = element_blank(),
+        legend.position = "bottom" # put legend inside plot at this point
+        ) #-> EWL_plot
+```
+
+*I predict that *
 
 
 
