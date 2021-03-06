@@ -1,0 +1,489 @@
+---
+title: "Experimental Hydration Predictions"
+author: "Savannah Weaver"
+output: github_document
+---
+
+# Packages
+
+```{r setup, echo=T, results='hide', message=FALSE}
+if (!require("tidyverse")) install.packages("tidyverse")
+library("tidyverse") # for dplyr workflow of calculations
+if (!require("UsingR")) install.packages("UsingR")
+library("UsingR") # just need
+if (!require("broom")) install.packages("broom")
+library("broom") # just need
+if (!require("RColorBrewer")) install.packages("RColorBrewer")
+library("RColorBrewer") # color scheme
+if (!require("hrbrthemes")) install.packages("hrbrthemes")
+library("hrbrthemes") # for special ggplot stuff 
+if (!require("ggpubr")) install.packages("ggpubr")
+library("ggpubr") # for multi-panel plots
+```
+
+
+
+# Hydrophysiology Over Time Throughout Active Season
+
+## Create FAKE Data
+
+Make very basic data to get at my predictions.
+
+```{r}
+hydro_active_szn <- data.frame(date = rep(c(10,20,30,40,50), 2),
+                               tmt_group = c(rep("Hydrated", 5),
+                                             rep("Control", 5)),
+                               EWL = c(0.7, 0.75, 0.76, 0.76, 0.73, # hydrated
+                                       0.7, 0.7, 0.69, 0.67, 0.6), # control
+                               bld_osm = c(0, 0, 0, 0.1, 0.1, # hydrated
+                                           0, 0.3, 0.4, 0.45, 0.5) # control
+                               )
+
+summary(hydro_active_szn)
+```
+
+
+
+## Simple EWL Plot
+
+```{r}
+hydro_active_szn %>%
+  ggplot(data = .) +
+  geom_smooth(aes(x = date,
+                  y = EWL,
+                  color = tmt_group
+                  ),
+              formula = y ~ x,
+              method = "loess",
+              span = 1,
+              se = F, 
+              size = 1.6, 
+              alpha = 1
+              ) +
+  scale_colour_brewer(name = "Treatment",
+                        #labels = c("Control", "Hydrated"),
+                        palette = "Set1"
+                        ) +
+  theme_classic() + 
+  scale_x_continuous(breaks = seq(from = 10, to = 50, by=10),
+                     labels = c("April", "May", "June", "July", "Aug"),
+                     limits = c(10,50)
+                     ) +
+  xlab("") +
+  ylab("Evaporative Water Loss") +
+  theme(plot.margin = unit(c(0,0.5,0,1.5), "lines"), # buffer for ggarrange labels
+        text = element_text(color = "black", 
+                            family = "sans",
+                            size = 14),
+        axis.text = element_text(color = "black", 
+                            family = "sans",
+                            size = 14),
+        legend.text.align = 0,
+        #axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        legend.position = "bottom" # put legend inside plot at this point
+        ) #-> EWL_plot
+```
+
+*I predict that lizard EWL will change throughout the active season, starting at the same level for both treatment groups, then diverging as they receive supplemental hydration or not. Supplementally hydrated lizards will be able to increase EWL for evaporative cooling at the summer gets hotter, but control lizards will not. Both groups will decrease EWL as their environment gets drier in the late summer, making lizards increasingly water stressed. Throughout the active season, supplementally hydrated lizards will be able to maintain much higher EWL compared to control lizards, regardless of environmental effects.*
+
+
+## Simple Blood Osmolarity Plot
+
+```{r}
+hydro_active_szn %>%
+  ggplot(data = .) +
+  geom_smooth(aes(x = date,
+                  y = bld_osm,
+                  color = names
+                  ),
+              formula = y ~ x,
+              method = "loess",
+              span = 1,
+              se = F, 
+              size = 1.6, 
+              alpha = 1
+              ) +
+  scale_colour_brewer(name = "Treatment",
+                        #labels = c("Control", "Hydrated"),
+                        palette = "Set1"
+                        ) +
+  theme_classic() + 
+  scale_x_continuous(breaks = seq(from = 10, to = 50, by=10),
+                     labels = c("April", "May", "June", "July", "Aug"),
+                     limits = c(10,50)
+                     ) +
+  xlab("") +
+  ylab("Blood Osmolarity") +
+  theme(plot.margin = unit(c(0,0.5,0,1.5), "lines"), # buffer for ggarrange labels
+        text = element_text(color = "black", 
+                            family = "sans",
+                            size = 14),
+        axis.text = element_text(color = "black", 
+                            family = "sans",
+                            size = 14),
+        legend.text.align = 0,
+        #axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        legend.position = "bottom" # put legend inside plot at this point
+        ) #-> blood_osmo_plot
+```
+
+*I predict that supplementally hydrated lizards will be able to maintain lower blood osmolarity (higher body water content) compared to control lizards throughout the active season. Both groups will start the active season with the same, low blood osmolarity, then diverge as hydrated lizards are able to maintain the same low blood osmolarity while control lizard blood osmolarity increases as the environment gets hotter and drier. Hydrated lizards will also increase in blood osmolarity in the hot, dry late-summer, but they will still maintain much lower blood osmolarity with that increase.*
+
+
+
+
+# Temperature Effects on Hydrophysiology
+
+
+## Create FAKE Data
+
+Fake, predicted relationship between EWL ~ temperature:
+
+```{r}
+# make predicted data for EWL ~ temp for supplementally hydrated lizards
+temp_EWL_supp <- data.frame(temp = c(seq(0, 50, by = 0.01))) %>%
+  mutate(relative_EWL = 0.1/(1+exp((-temp+30)/4)),
+         tmt_group = rep("Supplementally Hydrated", nrow(.)))
+# make predicted data for EWL ~ temp for CONTROL lizards
+temp_EWL_control <- data.frame(temp = c(seq(0, 50, by = 0.01))) %>%
+  mutate(relative_EWL = (0.1/(1+exp((-temp+30)/4))/3),
+         tmt_group = rep("Control", nrow(.)))
+# put into one dataframe
+temp_EWL <- rbind(temp_EWL_supp, temp_EWL_control)
+```
+
+Fake, predicted relationship between blood osmolarity ~ temperature:
+
+```{r}
+# supplementally hydrated lizards
+temp_osmol_supp <- data.frame(temp = c(seq(0, 50, by = 0.01))) %>%
+  mutate(relative_osmol = 0.5/(1+exp((-temp+38)/8)),
+         tmt_group = rep("Supplementally Hydrated", nrow(.)))
+# CONTROL lizards
+temp_osmol_control <- data.frame(temp = c(seq(0, 50, by = 0.01))) %>%
+  mutate(relative_osmol = 1-exp((-temp)/15),
+         tmt_group = rep("Control", nrow(.)))
+# put into one dataframe
+temp_osmol <- rbind(temp_osmol_supp, temp_osmol_control)
+```
+
+
+
+## EWL Effects Plot
+
+```{r}
+temp_EWL %>%
+  ggplot(data = .) +
+  geom_line(aes(x = temp,
+                  y = relative_EWL,
+                  color = tmt_group
+                  ),
+              size = 1.6, 
+              alpha = 1
+              ) +
+  scale_colour_brewer(name = "Treatment",
+                        palette = "Set1"
+                        ) +
+  theme_classic() + 
+  xlab("Macroclimate Temperature (°C)") +
+  ylab("Evaporative Water Loss") +
+  theme(plot.margin = unit(c(0.5,0.5,0,1.5), "lines"), # buffer for ggarrange labels
+        text = element_text(color = "black", 
+                            family = "sans",
+                            size = 14),
+        axis.text = element_text(color = "black", 
+                            family = "sans",
+                            size = 14),
+        legend.text.align = 0,
+        #axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        legend.position = "bottom" # put legend inside plot at this point
+        ) #-> EWL_plot
+```
+
+*I predict that as temperature increases, EWL will increase sigmoidally. At extremely low temperatures, EWL levels-off because lizards do not need evaporative cooling and want to conserve water, so after a certain threshold, they will no longer lose water via EWL. Alternatively, at extremely high temperatures, EWL will level-off because evaporative cooling will be at its maximum rate. As temperatures continue to rise, lizards would undoubtedly begin to reach their thermal maximum and/or run out of water for evaporative cooling, potentially leading to a drop in EWL at the highest temperatures. Also note, I doubt we will collect data that fully elucidates this curve. The vertical dashed lines delineate the expected observational range.*
+
+
+
+## Blood Osmolarity Effects Plot
+
+```{r}
+temp_osmol %>%
+  ggplot(data = .) +
+  geom_line(aes(x = temp,
+                  y = relative_osmol,
+                  color = tmt_group
+                  ),
+              size = 1.6, 
+              alpha = 1
+              ) +
+  scale_colour_brewer(name = "Treatment",
+                        palette = "Set1"
+                        ) +
+  theme_classic() + 
+  xlab("Macroclimate Temperature (°C)") +
+  ylab("Blood Osmolarity (mOsm)") +
+  theme(plot.margin = unit(c(0.5,0.5,0,1.5), "lines"), # buffer for ggarrange labels
+        text = element_text(color = "black", 
+                            family = "sans",
+                            size = 14),
+        axis.text = element_text(color = "black", 
+                            family = "sans",
+                            size = 14),
+        legend.text.align = 0,
+        #axis.text.x = element_blank(),
+        #axis.text.y = element_blank(),
+        legend.position = "bottom" # put legend inside plot at this point
+        ) #-> EWL_plot
+```
+
+
+# Humidity Effects on Hydrophysiology
+
+## Create FAKE Data
+
+
+
+
+
+
+
+
+# Hydration Treatment Effects on Behavior, Physiology, Fitness
+
+## Create FAKE Data
+
+I predict that hydrated = 
+      move more
+      spend more time in open microhabitat 
+      less time in burrow refugia, 
+      begin estivation later in the summer, 
+      have larger home ranges, 
+      higher Tset 
+      better db
+      higher EWL
+      better body condition
+      more clutches
+      more eggs/clutch
+      bigger eggs
+
+```{r}
+# treatment groups
+tmt <- c("Control", "Hydrated")
+
+# movement, time aboveground, home range
+# Tset, EWL, BCI, #clutches, #eggs, egg size
+H_greater <- c(3,7)
+# db and blood osmolarity would be reverse relationship
+
+# compile 
+tmt_pred_dat <- data.frame(Treatment = as.factor(tmt),
+                           resp = H_greater
+                           )
+```
+
+
+## Bar Graph for Hydrated > Control
+
+```{r}
+tmt_pred_dat %>%
+  ggplot(data = .) +
+  geom_bar(aes(x = Treatment,
+               y = resp,
+               fill = Treatment
+                  ),
+           stat = "identity"
+              ) +
+  scale_fill_brewer(name = "Treatment",
+                        #labels = c("Control", "Hydrated"),
+                        palette = "Set1"
+                        ) +
+  theme_classic() + 
+  xlab("") +
+  ylab("Relative Values") +
+  theme(plot.margin = unit(c(0,0,0,1.5), "lines"), # buffer for ggarrange labels
+        text = element_text(color = "black", 
+                            family = "sans",
+                            size = 14),
+        axis.text = element_text(color = "black", 
+                            family = "sans",
+                            size = 14),
+        legend.text.align = 0,
+        #axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        legend.position = "none" # put legend inside plot at this point
+        ) -> hyd_con_bar
+```
+
+## Bar Graph for Hydrated < Control
+
+```{r}
+tmt_pred_dat %>%
+  ggplot(data = .) +
+  geom_bar(aes(x = Treatment,
+               y = rev(resp),
+               fill = Treatment
+                  ),
+           stat = "identity"
+              ) +
+  scale_fill_brewer(name = "Treatment",
+                        #labels = c("Control", "Hydrated"),
+                        palette = "Set1"
+                        ) +
+  theme_classic() + 
+  xlab("") +
+  ylab("Relative Values") +
+  theme(plot.margin = unit(c(0,0,0,1.5), "lines"), # buffer for ggarrange labels
+        text = element_text(color = "black", 
+                            family = "sans",
+                            size = 14),
+        axis.text = element_text(color = "black", 
+                            family = "sans",
+                            size = 14),
+        legend.text.align = 0,
+        #axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        legend.position = "none" # put legend inside plot at this point
+        ) -> con_hyd_bar
+```
+
+
+
+# Put Plots Together
+
+On my first try, I arrange in pairs, then into quad:
+
+```{r}
+# make 2x2 arrangement
+lines <- ggpubr::ggarrange(blood_osmo_plot, EWL_plot,
+                            labels = c("A", "B"),
+                           hjust = 0.2,
+                           vjust = 1,
+                            ncol = 1, nrow = 2,
+                           common.legend = T,
+                           legend = "bottom"
+                           )
+bars <- ggpubr::ggarrange(hyd_con_bar, con_hyd_bar,
+                            labels = c("C", "D"),
+                          hjust = 0.2,
+                          vjust = 1,
+                            ncol = 1, nrow = 2
+                          #common.legend = T,
+                          #legend = "bottom"
+                          )
+full_arrange <- ggpubr::ggarrange(lines, bars,
+                    #labels = c("A", ""),
+                    ncol = 2, nrow = 1
+                    )
+# view
+full_arrange
+
+# export
+#ggsave(filename = "exp_predicts.tiff",
+ #      plot = full_arrange,
+  #     path = ".",
+   #    device = "tiff",
+    #   width = 15, height = 12, 
+     #  units = "cm")
+```
+
+On my second try, I did all four at once. I think this is better because I knew more about ggarrange when making it:
+
+```{r}
+# arrange together
+all4 <- ggpubr::ggarrange(blood_osmo_plot, hyd_con_bar,
+                          EWL_plot, con_hyd_bar,
+                          labels = c("A", "C", "B", "D"),
+                          #hjust = 0.2,
+                          #vjust = 1,
+                          ncol = 2, nrow = 2,
+                          widths = c(2,1.5),
+                          common.legend = T,
+                          legend = "bottom"
+                           )
+
+# view
+all4
+
+# export
+ggsave(filename = "exp_predicts.tiff",
+       plot = all4,
+       path = ".",
+       device = "tiff",
+       width = 15, height = 12, 
+       units = "cm")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Try to Make Double-Y-Axis Plot
+
+I found info online about how to do dual y-axis:
+https://www.r-graph-gallery.com/line-chart-dual-Y-axis-ggplot2.html
+
+```{r}
+temperatureColor <- "#69b3a2"
+priceColor <- rgb(0.2, 0.6, 0.9, 1)
+
+ggplot(dat, aes(x = time)) +
+  
+  geom_smooth(aes(y = EWL), size = 2, 
+              linetype = names,
+              formula = y ~ x,
+              method = "loess",
+              se = F, 
+              size = 1.6, 
+              alpha = 1
+            ) + 
+  geom_smooth(aes(y = blood_osmolarity), size = 2, 
+              linetype = names,
+              formula = y ~ x,
+              method = "loess",
+              se = F, 
+              size = 1.6, 
+              alpha = 1
+            ) +
+  scale_linetype_manual(name = "Treatment",
+                        labels = c("Control", "Hydrated"),
+                        values = c("solid", "dotted")
+                        ) +
+  scale_y_continuous(
+    
+    # Features of the first axis
+    name = "Evaporative Water Loss",
+    
+    # Add a second axis and specify its features
+    sec.axis = sec_axis(~.*1, name = "Blood Osmolarity")
+  ) + 
+  
+  theme_ipsum() +
+
+  theme(
+    axis.title.y = element_text(color = temperatureColor, size=13),
+    axis.title.y.right = element_text(color = priceColor, size=13)
+  ) +
+
+  ggtitle("Predicted Effects")
+
+```
+
+
