@@ -2,6 +2,8 @@ Experimental Hydration Predictions
 ================
 Savannah Weaver
 
+true
+
 # Packages
 
 ``` r
@@ -85,7 +87,10 @@ hydro_active_szn %>%
         axis.text.y = element_blank(),
         legend.position = "bottom" # put legend inside plot at this point
         ) -> szn_EWL_plot
+szn_EWL_plot
 ```
+
+![](predictions_files/figure-gfm/unnamed-chunk-2-1.png)<!-- -->
 
 *I predict that lizard EWL will change throughout the active season,
 starting at the same level for both treatment groups, then diverging as
@@ -136,7 +141,10 @@ hydro_active_szn %>%
         axis.text.y = element_blank(),
         legend.position = "bottom" # put legend inside plot at this point
         ) -> szn_bldosm_plot1
+szn_bldosm_plot1
 ```
+
+![](predictions_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
 
 *I predict that supplementally hydrated lizards will be able to maintain
 lower blood osmolarity (higher body water content) compared to control
@@ -199,7 +207,10 @@ alt %>%
         axis.text.y = element_blank(),
         legend.position = "bottom" # put legend inside plot at this point
         ) -> szn_bldosm_plot2
+szn_bldosm_plot2
 ```
+
+![](predictions_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
 
 # Temperature Effects on Hydrophysiology
 
@@ -268,7 +279,10 @@ temp_EWL %>%
         axis.text.y = element_blank(),
         legend.position = "bottom" # put legend inside plot at this point
         ) -> temp_EWL_plot
+temp_EWL_plot
 ```
+
+![](predictions_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
 
 *I predict that as temperature increases, EWL will increase sigmoidally.
 At extremely low temperatures, EWL levels-off because lizards do not
@@ -315,7 +329,10 @@ temp_osmol %>%
         axis.text.y = element_blank(),
         legend.position = "bottom" # put legend inside plot at this point
         ) -> temp_bldosm_plot
+temp_bldosm_plot
 ```
+
+![](predictions_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
 
 *I predict that as temperature increases, blood osmolarity for both
 supplementally hydrated and control lizards will increase. However,
@@ -390,7 +407,10 @@ RH_EWL %>%
         axis.text.y = element_blank(),
         legend.position = "bottom" # put legend inside plot at this point
         ) -> RH_EWL_plot
+RH_EWL_plot
 ```
+
+![](predictions_files/figure-gfm/unnamed-chunk-12-1.png)<!-- -->
 
 *I predict that as relative humidity increases, we will see a decrease
 in EWL for both treatment groups due to a decreasing vapor pressure
@@ -432,7 +452,10 @@ RH_osmol %>%
         axis.text.y = element_blank(),
         legend.position = "bottom" # put legend inside plot at this point
         ) -> RH_bldosm_plot
+RH_bldosm_plot
 ```
+
+![](predictions_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
 
 *I predict that lizards will be able to maintain lower blood osmolarity
 at higher environmental RH because they will be losing less water from
@@ -497,7 +520,10 @@ tmt_pred_dat %>%
         axis.text.y = element_blank(),
         legend.position = "none" # put legend inside plot at this point
         ) -> hyd_con_bar
+hyd_con_bar
 ```
+
+![](predictions_files/figure-gfm/unnamed-chunk-15-1.png)<!-- -->
 
 ## Control \> Hydrated Bar Graph
 
@@ -529,7 +555,10 @@ tmt_pred_dat %>%
         axis.text.y = element_blank(),
         legend.position = "none" # put legend inside plot at this point
         ) -> con_hyd_bar
+con_hyd_bar
 ```
+
+![](predictions_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
 
 # Put Plots Together
 
