@@ -614,7 +614,7 @@ all
 # export
 ggsave(filename = "exp_predicts_lines.tiff",
        plot = all,
-       path = ".",
+       path = "./prediction_figures",
        device = "tiff",
        width = 20, height = 12, 
        units = "cm")
@@ -644,7 +644,7 @@ both
 # export
 ggsave(filename = "exp_predicts_bars.tiff",
        plot = both,
-       path = ".",
+       path = "./prediction_figures",
        device = "tiff",
        width = 12, height = 6, 
        units = "cm")
