@@ -24,6 +24,14 @@ library("ggpubr") # for multi-panel plots
 
 
 
+# General Info
+
+The RColorBrewer Palette used here is fine under all types of color blindness except for monochromatic.
+
+
+
+
+
 # Hydrophysiology Over Time Throughout Active Season
 
 ## Create FAKE Data
@@ -62,8 +70,7 @@ hydro_active_szn %>%
               alpha = 1
               ) +
   scale_colour_brewer(name = "Treatment",
-                        #labels = c("Control", "Hydrated"),
-                        palette = "Set1"
+                      palette = "Set1" # this is supposed to be color-blind friendly 
                         ) +
   theme_classic() + 
   scale_x_continuous(breaks = seq(from = 10, to = 50, by=10),
