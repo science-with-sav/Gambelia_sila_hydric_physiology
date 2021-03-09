@@ -2,7 +2,30 @@ Experimental Hydration Predictions
 ================
 Savannah Weaver
 
-true
+  - [Packages](#packages)
+  - [General Info](#general-info)
+  - [Hydrophysiology Over Time Throughout Active
+    Season](#hydrophysiology-over-time-throughout-active-season)
+      - [Create FAKE Data](#create-fake-data)
+      - [EWL Plot](#ewl-plot)
+      - [Blood Osmolarity Plot](#blood-osmolarity-plot)
+  - [Temperature Effects on
+    Hydrophysiology](#temperature-effects-on-hydrophysiology)
+      - [Create FAKE Data](#create-fake-data-1)
+      - [EWL Effects Plot](#ewl-effects-plot)
+      - [Blood Osmolarity Effects Plot](#blood-osmolarity-effects-plot)
+  - [Humidity Effects on
+    Hydrophysiology](#humidity-effects-on-hydrophysiology)
+      - [Create FAKE Data](#create-fake-data-2)
+      - [EWL Effects Plot](#ewl-effects-plot-1)
+      - [Blood Osmolarity Effects
+        Plot](#blood-osmolarity-effects-plot-1)
+  - [Hydration Treatment Effects on Behavior, Physiology,
+    Fitness](#hydration-treatment-effects-on-behavior-physiology-fitness)
+      - [Create FAKE Data](#create-fake-data-3)
+      - [Hydrated \> Control Bar Graph](#hydrated-control-bar-graph)
+      - [Control \> Hydrated Bar Graph](#control-hydrated-bar-graph)
+  - [Put Plots Together](#put-plots-together)
 
 # Packages
 
@@ -20,6 +43,11 @@ library("hrbrthemes") # for special ggplot stuff
 if (!require("ggpubr")) install.packages("ggpubr")
 library("ggpubr") # for multi-panel plots
 ```
+
+# General Info
+
+The RColorBrewer Palette used here is fine under all types of color
+blindness except for monochromatic.
 
 # Hydrophysiology Over Time Throughout Active Season
 
@@ -65,8 +93,7 @@ hydro_active_szn %>%
               alpha = 1
               ) +
   scale_colour_brewer(name = "Treatment",
-                        #labels = c("Control", "Hydrated"),
-                        palette = "Set1"
+                      palette = "Set1" # this is supposed to be color-blind friendly 
                         ) +
   theme_classic() + 
   scale_x_continuous(breaks = seq(from = 10, to = 50, by=10),

@@ -1,8 +1,9 @@
 ---
 title: "Experimental Hydration Predictions"
 author: "Savannah Weaver"
-output: github_document
-toc: TRUE
+output: 
+  github_document:
+    toc: TRUE
 ---
 
 # Packages
