@@ -1,0 +1,141 @@
+---
+title: "BNLL hydrophysiology analyses"
+author: "Savannah Weaver"
+date: "4/29/2021"
+output: pdf_document
+---
+
+
+# Packages
+
+```{r setup, echo=T, results='hide', message=FALSE}
+if (!require("tidyverse")) install.packages("tidyverse") 
+library("tidyverse")# for dplyr workflow of calculations
+if (!require("UsingR")) install.packages("UsingR") 
+library("UsingR")
+if (!require("MASS")) install.packages("MASS") 
+library("MASS")
+if (!require("leaps")) install.packages("leaps") 
+library("leaps") # for best subsets model selection
+if (!require("PerformanceAnalytics")) install.packages("PerformanceAnalytics")
+library("PerformanceAnalytics") # pretty multicollinearity plots
+```
+
+
+# Load in Data
+
+This data was collected during fieldwork with Blunt-nosed Leopard Lizards (*Gambelia sila*) in the Elkhorn Plain of the Carrizo Plain National Monument in California, USA during the 2021 active season (April-August). See _ for complete methods and discussion of these analyses. 
+
+
+### CEWL Data
+
+Variables:
+- date/time
+- weekend = sequential sampling outing labels
+- ID = lizard unique identifier
+- TEWL = transepidermal water loss (same as CEWL, cutaneous evaporative water loss)
+- CV = coefficient of variation when measurement was taken
+- SSWL = ??
+- ambient climate conditions (temperature, RH)
+info about each variabl etc...
+
+```{r, get CEWL data}
+# weekend 1
+CEWL_April_23_25 <- read.csv("./data/BNLL CEWL 4-23-2021 to 4-25-2021.csv") %>%
+  dplyr::mutate(weekend = "1") # add weekend index for throughout season
+
+# weekend 2
+# etc etc 
+
+# merge all CEWL datafiles & reformat
+CEWL <- CEWL_April_23_25 %>%
+  # join
+  #rbind(., CEWL_May_xx, CEWL_May_xx, etc
+    #      ) %>%
+  # reformat data
+  dplyr::select(Date, Time,
+                ID = Comments,
+                TEWL_g_m2h = TEWL..g..m2h.., # rename
+                CV = CV...., # rename
+                SSWL_g_m2 = SSWL..g..m2.., # rename
+                ambient_temp_C = AmbT..C., # rename
+                ambient_RH_percent = AmbRH...., # rename
+                weekend
+                ) %>%
+  dplyr::mutate(date_time = as.POSIXct(paste(Date, Time), format = "%m/%d/%y %I:%M:%S %p"),
+                # date only
+                Date = as.Date(Date, format = "%m/%d/%y"),
+                # time with arbitrary date, need to figure out how to remove
+                Time = as.POSIXct(Time, format = "%I:%M:%S %p"),
+                # get length of current ID for editing
+                length_ID = nchar((ID)),
+                # extract CEWL replicate number
+                replicate = as.numeric(substring(ID, length_ID, length_ID)),
+                # extract group (male, female, widespread)
+                ID_group = substring(ID, 1, 1),
+                # extract ID number within group
+                ID_number = substring(ID, 2, (length_ID-2)),
+                # merge IDs to match format in other data files
+                ID = paste(ID_group, "-", ID_number, sep = ""),
+                weekend = as.numeric(weekend)
+                ) %>%
+  dplyr::select(-length_ID, # remove these since no longer need
+                -ID_group,
+                -ID_number
+                )
+summary(CEWL)
+```
+
+
+
+# CEWL replicates
+
+I need to check whether it even makes sense to do three CEWL measurements, as opposed to just one. 
+
+```{r}
+CEWL_rep_avg <- CEWL %>%
+  group_by(Date, ID, weekend) %>% # put all keeps here
+  # summaries
+  summarise(mean_TEWL_g_m2h = mean(TEWL_g_m2h), 
+            sd_TEWL_g_m2h = sd(TEWL_g_m2h),
+            mean_CV = mean(CV),
+            sd_CV = sd(CV),
+            mean_SSWL_g_m2 = mean(SSWL_g_m2),
+            sd_SSWL_g_m2 = sd(SSWL_g_m2),
+            mean_temp_C = mean(ambient_temp_C),
+            sd_temp_C = sd(ambient_temp_C),
+            mean_RH_percent = mean(ambient_RH_percent),
+            sd_RH_percent = sd(ambient_RH_percent)
+            )
+avg_TEWL_sd <- mean(CEWL_rep_avg$sd_TEWL_g_m2h)
+avg_TEWL_sd
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
