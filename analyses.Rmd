@@ -27,6 +27,18 @@ library("PerformanceAnalytics") # pretty multicollinearity plots
 This data was collected during fieldwork with Blunt-nosed Leopard Lizards (*Gambelia sila*) in the Elkhorn Plain of the Carrizo Plain National Monument in California, USA during the 2021 active season (April-August). See _ for complete methods and discussion of these analyses. 
 
 
+### Treatment, Morphometrics, and Blood Sample Data
+
+Variables:
+
+```{r}
+
+```
+
+
+
+
+
 ### CEWL Data
 
 Variables:
