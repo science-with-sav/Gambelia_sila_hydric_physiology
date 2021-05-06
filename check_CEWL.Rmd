@@ -1,8 +1,10 @@
 ---
-title: "BNLL hydrophysiology analyses"
+title: "Blunt-nosed Leopard Lizard CEWL Measurement Triplicate Tests"
 author: "Savannah Weaver"
-date: "4/29/2021"
-output: pdf_document
+date: "April 2021"
+output: 
+  pdf_document:
+    toc: true
 ---
 
 
@@ -10,50 +12,28 @@ output: pdf_document
 
 ```{r setup, echo=T, results='hide', message=FALSE}
 if (!require("tidyverse")) install.packages("tidyverse") 
-library("tidyverse")# for dplyr workflow of calculations
+library("tidyverse")
 if (!require("UsingR")) install.packages("UsingR") 
 library("UsingR")
 if (!require("MASS")) install.packages("MASS") 
 library("MASS")
 if (!require("lme4")) install.packages("lme4") 
 library("lme4")
-if (!require("leaps")) install.packages("leaps") 
-library("leaps") # for best subsets model selection
-if (!require("PerformanceAnalytics")) install.packages("PerformanceAnalytics")
-library("PerformanceAnalytics") # pretty multicollinearity plots
-library(pbkrtest)
-
 ```
 
 
 # Load in Data
 
-This data was collected during fieldwork with Blunt-nosed Leopard Lizards (*Gambelia sila*) in the Elkhorn Plain of the Carrizo Plain National Monument in California, USA during the 2021 active season (April-August). See _ for complete methods and discussion of these analyses. 
+This data was collected during fieldwork with Blunt-nosed Leopard Lizards (*Gambelia sila*) in the Elkhorn Plain of the Carrizo Plain National Monument in California, USA during the 2021 active season (April-August). 
 
 
-### Treatment, Morphometrics, and Blood Sample Data
-
-Variables:
-
-```{r}
-
-```
+This is a preliminary analysis to decide whether CEWL measurements should be taken in triplicate or can be just one measurement.
 
 
 
+# Load CEWL Data
 
-
-### CEWL Data
-
-Variables:
-- date/time
-- weekend = sequential sampling outing labels
-- ID = lizard unique identifier
-- TEWL = transepidermal water loss (same as CEWL, cutaneous evaporative water loss)
-- CV = coefficient of variation when measurement was taken
-- SSWL = ??
-- ambient climate conditions (temperature, RH)
-info about each variabl etc...
+Only the first weekend is loaded for now, but we can check with other replicates later. 
 
 ```{r, get CEWL data}
 # weekend 1
@@ -104,13 +84,10 @@ summary(CEWL)
 
 
 
-# CEWL replicates
+# Plot Replicates
 
-I need to check whether it even makes sense to do three CEWL measurements, as opposed to just one. 
 
-First, plot:
-
-```{r}
+```{r, plot CEWL reps}
 CEWL %>% 
   ggplot(data = .) + 
   geom_point(aes(x = ID,
@@ -119,11 +96,6 @@ CEWL %>%
                  ), 
              size = 1, 
              alpha = 0.6) + 
-  #scale_colour_manual(name = "Treatment", 
-   #                   #labels = c("Burrow", "Open", "Shrub"), 
-    #                  values = c("salmon1", "royalblue") ) +
-  #scale_shape_discrete(name = "Microhabitat", 
-   #                    labels = c("Burrow", "Open", "Shrub") ) + 
   theme_classic() + 
   xlab("BNLL Individual ID") + 
   ylab("CEWL replicate values (g/m2h)") + 
@@ -138,9 +110,12 @@ CEWL %>%
 )
 ```
 
-next, get mean values for each lizard:
+It looks like there are two unusually high measurements - one replicate for the fifth lizard listed and one replicate for the third-to-last lizard listed. I think they're both above 40, so I could see how filtering them out affects replicability. 
 
-```{r}
+
+Get mean values for each lizard:
+
+```{r, CEWL means and sds}
 CEWL_rep_avg <- CEWL %>%
   group_by(Date, ID, weekend) %>% # put all keeps here
   # summaries
@@ -160,9 +135,9 @@ avg_TEWL_sd
 ```
 
 
-plot the mean:
+Plot means:
 
-```{r}
+```{r, plot CEWL means}
 CEWL_rep_avg %>% 
   ggplot(data = .) + 
   geom_point(aes(x = ID,
@@ -171,11 +146,6 @@ CEWL_rep_avg %>%
                  ), 
              size = 1, 
              alpha = 0.6) + 
-  #scale_colour_manual(name = "Treatment", 
-   #                   #labels = c("Burrow", "Open", "Shrub"), 
-    #                  values = c("salmon1", "royalblue") ) +
-  #scale_shape_discrete(name = "Microhabitat", 
-   #                    labels = c("Burrow", "Open", "Shrub") ) + 
   theme_classic() + 
   xlab("BNLL Individual ID") + 
   ylab("Mean CEWL (g/m2h)") + 
@@ -191,20 +161,76 @@ CEWL_rep_avg %>%
 ```
 
 
+# Model Replicates
+
 make a GLMM to figure out whether replicates have significantly different CEWL values:
 
-```{r}
+```{r, CEWL model}
 mod <- lme4::lmer(data = CEWL, TEWL_g_m2h ~ replicate + (1|ID))
-mod2 <- nlme::lme(data = CEWL, TEWL_g_m2h ~ replicate, random = ~ 1|ID)
+mod2 <- nlme::lme(data = CEWL, TEWL_g_m2h ~ replicate, random = ~ 1|ID) # for p-values
 summary(mod)
 summary(mod2)
 ```
 
 
 
+# Remove Unusual Points
+
+```{r, remove unusual pts}
+CEWL_sub <- CEWL %>%
+  dplyr::filter(TEWL_g_m2h <= 40)
+```
 
 
 
+
+# Re-Plot
+
+```{r, plot CEWL unusual pts removed}
+CEWL_sub %>% 
+  ggplot(data = .) + 
+  geom_point(aes(x = ID,
+                 y = TEWL_g_m2h, 
+                 color = ID
+                 ), 
+             size = 1, 
+             alpha = 0.6) + 
+  theme_classic() + 
+  xlab("BNLL Individual ID") + 
+  ylab("CEWL replicate values (g/m2h)") + 
+  theme(text = element_text(color = "black", 
+                            family = "sans", 
+                            size = 12),
+        axis.text = element_text(color = "black", 
+                                 family = "sans", 
+                                 size = 10),
+        legend.text.align = 0,
+        legend.position = "none"
+)
+```
+
+This looks a lot better....
+
+
+
+# Re-Model
+
+
+```{r, CEWL model unusual pts removed}
+mod3 <- lme4::lmer(data = CEWL_sub, TEWL_g_m2h ~ replicate + (1|ID))
+mod4 <- nlme::lme(data = CEWL_sub, TEWL_g_m2h ~ replicate, random = ~ 1|ID) # for p-values
+summary(mod3)
+summary(mod4)
+```
+
+
+The p-values are still 0 even after removing the two unusually high points... 
+
+
+
+# Conclusion
+
+There's definitely a lot of variation among triplicate measurements for a given lizard, and the models show that variation is significant. I would conclude that it is important to take these measurements in triplicate to even out the variation in measurements. Taking measurements in triplicate will also allow us to exclude unusual points like the two in the first weekend's dataset, while still having the other replicates for that lizard for us to analyse.
 
 
 
