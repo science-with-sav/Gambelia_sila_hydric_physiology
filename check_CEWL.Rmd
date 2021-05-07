@@ -22,7 +22,7 @@ library("lme4")
 ```
 
 
-# Load in Data
+# Data Info
 
 This data was collected during fieldwork with Blunt-nosed Leopard Lizards (*Gambelia sila*) in the Elkhorn Plain of the Carrizo Plain National Monument in California, USA during the 2021 active season (April-August). 
 
@@ -84,6 +84,74 @@ summary(CEWL)
 
 
 
+# Basic Calculations
+
+
+Get mean, sd, and CV values for each lizard's CEWL:
+
+```{r, CEWL means and sds}
+CEWL_rep_avg <- CEWL %>%
+  group_by(Date, ID) %>% # put all keeps here
+  # summaries
+  summarise(mean_TEWL_g_m2h = mean(TEWL_g_m2h), 
+            sd_TEWL_g_m2h = sd(TEWL_g_m2h),
+            TEWL_CV = (sd_TEWL_g_m2h/mean_TEWL_g_m2h)*100
+            )
+```
+
+
+
+# Plot CV Histogram
+
+
+```{r}
+CEWL_rep_avg %>%
+  ggplot(., aes(x = TEWL_CV)) +
+  geom_histogram(color = "black", fill="steelblue", bins=50) +
+  theme_classic() +
+  xlab("Coefficient of Variation") + 
+  ylab("Count") +
+  labs(title = "All Three Replicates")
+```
+
+
+
+# Find CV of two most similar replicates
+
+first, save out the CEWL data, remove the most different replicate for each lizard, and re-load the data
+
+```{r}
+write.csv(CEWL, "CEWL.csv")
+CEWL_duplicates_only <- read.csv("./CEWL_culled.csv")
+```
+
+calculate CV again:
+
+```{r}
+CEWL_dup_avg <- CEWL_duplicates_only %>%
+  group_by(Date, ID) %>% 
+  summarise(mean_TEWL_g_m2h = mean(TEWL_g_m2h), 
+            sd_TEWL_g_m2h = sd(TEWL_g_m2h),
+            TEWL_CV = (sd_TEWL_g_m2h/mean_TEWL_g_m2h)*100
+            )
+```
+
+
+replot:
+
+```{r}
+CEWL_dup_avg %>%
+  ggplot(., aes(x = TEWL_CV)) +
+  geom_histogram(color = "black", fill="steelblue", bins=50) +
+  theme_classic() +
+  xlab("Coefficient of Variation") + 
+  ylab("Count") +
+  labs(title = "Only Two Closest Replicates")
+```
+
+
+
+
 # Plot Replicates
 
 
@@ -112,27 +180,6 @@ CEWL %>%
 
 It looks like there are two unusually high measurements - one replicate for the fifth lizard listed and one replicate for the third-to-last lizard listed. I think they're both above 40, so I could see how filtering them out affects replicability. 
 
-
-Get mean values for each lizard:
-
-```{r, CEWL means and sds}
-CEWL_rep_avg <- CEWL %>%
-  group_by(Date, ID, weekend) %>% # put all keeps here
-  # summaries
-  summarise(mean_TEWL_g_m2h = mean(TEWL_g_m2h), 
-            sd_TEWL_g_m2h = sd(TEWL_g_m2h),
-            mean_CV = mean(CV),
-            sd_CV = sd(CV),
-            mean_SSWL_g_m2 = mean(SSWL_g_m2),
-            sd_SSWL_g_m2 = sd(SSWL_g_m2),
-            mean_temp_C = mean(ambient_temp_C),
-            sd_temp_C = sd(ambient_temp_C),
-            mean_RH_percent = mean(ambient_RH_percent),
-            sd_RH_percent = sd(ambient_RH_percent)
-            )
-avg_TEWL_sd <- mean(CEWL_rep_avg$sd_TEWL_g_m2h)
-avg_TEWL_sd
-```
 
 
 Plot means:
@@ -225,6 +272,10 @@ summary(mod4)
 
 
 The p-values are still 0 even after removing the two unusually high points... 
+
+
+
+
 
 
 
