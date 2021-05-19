@@ -1,0 +1,42 @@
+radio_collar_serial,PIT_tag_ID,individual_ID,sex,tmt,radio_collar_mass_g,notes
+245-761,844-866-016,M-01,M,hydration,2,
+252-886,844-858-121,M-02,M,hydration,2.3,
+245-762,844-862-532,M-03,M,hydration,2.5,"dropped collar found, no evidence of predation"
+245-762-a,845-578-768,M-03a,M,hydration,2.2,
+252-887,844-865-031,M-04,M,hydration,2.2,
+245-753,844-851-282,M-05,M,hydration,2,
+245-752,844-848-062,M-06,M,hydration,2.6,
+245-754,844-869-876,M-07,M,hydration,2.4,"consistently off the map, hard to track for FO"
+229-079,844-866-068,M-08,M,hydration,2.5,
+245-744,844-858-279,M-09,M,hydration,1.9,
+229-069,844-870-279,M-10,M,hydration,1.9,
+245-748,844-852-314,M-11,M,control,2.7,
+252-882,844-857-065,M-12,M,control,2.1,signal went missing immediately after deployment
+252-881,844-848-784,M-13,M,control,2.1,
+229-078,844-849-319,M-14,M,control,2.2,
+245-750,844-867-364,M-15,M,control,2.2,
+229-080,844-870-612,M-16,M,control,2.6,
+245-760,844-850-123,M-17,M,control,2.3,
+245-746,844-848-375,M-18,M,control,2,
+245-745,844-847-539,M-19,M,control,2,
+245-742,844-869-264,M-20,M,control,2,
+252-885,844-847-124,F-01,F,hydration,2.4,
+245-759,844-854-292,F-02,F,hydration,2.1,
+245-751,844-865-793,F-03,F,hydration,2.2,died
+245-757,844-852-005,F-04,F,hydration,2.2,
+229-059,844-855-588,F-05,F,hydration,2,
+229-063,844-849-615,F-06,F,hydration,2,
+245-747,844-848-809,F-07,F,hydration,1.9,
+229-070,844-866-633,F-08,F,hydration,2,"dropped collar found, no evidence of predation"
+229-070-a,845-578-525,F-08a,F,hydration,2,
+229-065,844-868-610,F-09,F,hydration,2.1,
+245-741,844-846-768,F-10,F,hydration,2.1,
+252-884,844-850-298,F-11,F,control,2.4,
+252-883,844-851-318,F-12,F,control,2.1,
+245-756,844-869-839,F-13,F,control,2.3,
+229-073,844-863-117,F-14,F,control,2,"dropped collar found, no evidence of predation"
+229-066,844-853-615,F-15,F,control,1.9,
+229-072,844-865-560,F-16,F,control,2.3,
+229-060,844-858-549,F-17,F,control,2.1,
+229-074,845-578-540,F-18,F,control,2.1,"radio-collar found on Wednesday, April 28, clearly predation because chew marks on the antenna"
+229-077,845-578-626,F-19,F,control,2,

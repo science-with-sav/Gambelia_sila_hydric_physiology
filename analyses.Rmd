@@ -19,10 +19,10 @@ if (!require("lme4")) install.packages("lme4")
 library("lme4")
 if (!require("leaps")) install.packages("leaps") 
 library("leaps") # for best subsets model selection
+if (!require("pwr")) install.packages("pwr") 
+library("pwr") # power analyses
 if (!require("PerformanceAnalytics")) install.packages("PerformanceAnalytics")
 library("PerformanceAnalytics") # pretty multicollinearity plots
-library(pbkrtest)
-
 ```
 
 
@@ -36,7 +36,26 @@ This data was collected during fieldwork with Blunt-nosed Leopard Lizards (*Gamb
 Variables:
 
 ```{r}
-
+dat <- read.csv("data/Supplemental Hydration collared BNLL.csv") %>%
+  dplyr::mutate(capture_process_date = as.POSIXct(capture_process_date, format = "%m/%d/%y"),
+                treatment_date = as.Date(treatment_date, format = "%m/%d/%y"),
+                # time with arbitrary date, need to figure out how to remove
+                capture_time = as.POSIXct(capture_time, format = "%H:%M"),
+                processing_time = as.POSIXct(processing_time, format = "%H:%M"),
+                tmt_start_time = as.POSIXct(tmt_start_time, format = "%H:%M"),
+                tmt_end_time = as.POSIXct(tmt_end_time, format = "%H:%M"),
+                pre_mass_w_collar. = as.factor(pre_mass_w_collar.),
+                post_mass_w_collar. = as.factor(post_mass_w_collar.),
+                hemolyzed. = as.factor(hemolyzed.)
+                ) %>%
+  dplyr::select(-date_blood_processed, # remove these since no longer need
+                -notes) %>%
+  left_join(read.csv("data/collared_BNLL_tmt_assignments.csv"),
+            by = 'individual_ID') %>%
+  dplyr::mutate(sex = as.factor(sex),
+                tmt = as.factor(tmt)) %>%
+  dplyr::filter(complete.cases(sex, osmolality_mmol_kg))
+summary(dat)
 ```
 
 
@@ -104,18 +123,15 @@ summary(CEWL)
 
 
 
-# CEWL replicates
 
-I need to check whether it even makes sense to do three CEWL measurements, as opposed to just one. 
-
-First, plot:
+# Basic Trends
 
 ```{r}
-CEWL %>% 
+dat %>% 
   ggplot(data = .) + 
-  geom_point(aes(x = ID,
-                 y = TEWL_g_m2h, 
-                 color = ID
+  geom_line(aes(x = capture_process_date,
+                 y = osmolality_mmol_kg, 
+                color = individual_ID
                  ), 
              size = 1, 
              alpha = 0.6) + 
@@ -125,8 +141,8 @@ CEWL %>%
   #scale_shape_discrete(name = "Microhabitat", 
    #                    labels = c("Burrow", "Open", "Shrub") ) + 
   theme_classic() + 
-  xlab("BNLL Individual ID") + 
-  ylab("CEWL replicate values (g/m2h)") + 
+  xlab("Date") + 
+  ylab("Osmolality") + 
   theme(text = element_text(color = "black", 
                             family = "sans", 
                             size = 12),
@@ -134,40 +150,24 @@ CEWL %>%
                                  family = "sans", 
                                  size = 10),
         legend.text.align = 0,
-        legend.position = "none"
-)
-```
-
-next, get mean values for each lizard:
-
-```{r}
-CEWL_rep_avg <- CEWL %>%
-  group_by(Date, ID, weekend) %>% # put all keeps here
-  # summaries
-  summarise(mean_TEWL_g_m2h = mean(TEWL_g_m2h), 
-            sd_TEWL_g_m2h = sd(TEWL_g_m2h),
-            mean_CV = mean(CV),
-            sd_CV = sd(CV),
-            mean_SSWL_g_m2 = mean(SSWL_g_m2),
-            sd_SSWL_g_m2 = sd(SSWL_g_m2),
-            mean_temp_C = mean(ambient_temp_C),
-            sd_temp_C = sd(ambient_temp_C),
-            mean_RH_percent = mean(ambient_RH_percent),
-            sd_RH_percent = sd(ambient_RH_percent)
-            )
-avg_TEWL_sd <- mean(CEWL_rep_avg$sd_TEWL_g_m2h)
-avg_TEWL_sd
+        #legend.position = c(0.9, 0.145)
+  )
 ```
 
 
-plot the mean:
+```{r}
+dat_by_tmt <- dat %>%
+  group_by(tmt, weekend) %>%
+  summarise(mean_osmol = mean(osmolality_mmol_kg))
+```
+
 
 ```{r}
-CEWL_rep_avg %>% 
+dat_by_tmt %>% 
   ggplot(data = .) + 
-  geom_point(aes(x = ID,
-                 y = mean_TEWL_g_m2h, 
-                 color = ID
+  geom_line(aes(x = weekend,
+                 y = mean_osmol, 
+                color = tmt
                  ), 
              size = 1, 
              alpha = 0.6) + 
@@ -177,8 +177,8 @@ CEWL_rep_avg %>%
   #scale_shape_discrete(name = "Microhabitat", 
    #                    labels = c("Burrow", "Open", "Shrub") ) + 
   theme_classic() + 
-  xlab("BNLL Individual ID") + 
-  ylab("Mean CEWL (g/m2h)") + 
+  xlab("Date") + 
+  ylab("Osmolality") + 
   theme(text = element_text(color = "black", 
                             family = "sans", 
                             size = 12),
@@ -186,19 +186,64 @@ CEWL_rep_avg %>%
                                  family = "sans", 
                                  size = 10),
         legend.text.align = 0,
-        legend.position = "none"
-)
+        #legend.position = c(0.9, 0.145)
+  )
 ```
 
 
-make a GLMM to figure out whether replicates have significantly different CEWL values:
+
+
+
+# Power Analysis
+
+calculate f for ANOVA power analysis
 
 ```{r}
-mod <- lme4::lmer(data = CEWL, TEWL_g_m2h ~ replicate + (1|ID))
-mod2 <- nlme::lme(data = CEWL, TEWL_g_m2h ~ replicate, random = ~ 1|ID)
-summary(mod)
-summary(mod2)
+# grand mean
+grand_mean_osmol <- dat %>%
+  dplyr::filter(weekend == 1) %>%
+  summarise(grand_mean = mean(osmolality_mmol_kg))
+
+# control mean
+mean_osmol_control <- dat %>%
+  dplyr::filter(tmt == 'control' & weekend == 1) %>%
+  summarise(control_mean = mean(osmolality_mmol_kg))
+
+# control p = control n / total n
+
+
+# hydration mean
+mean_osmol_hydration <- dat %>%
+  dplyr::filter(tmt == 'hydration' & weekend == 1) %>%
+  summarise(hydration_mean = mean(osmolality_mmol_kg))
+
+# between group variance 
+# sum ( n * (group mean - grand mean)^2 )
 ```
+
+
+power analysis
+
+```{r}
+# ANOVA with our current sample sizes
+pwr.anova.test(k = 4, # number of groups (M/F x control/hydration)
+               n = 8, # ~8 individuals in each group, due to dropped collars 
+               f = 0.1, # want to be able to detect small effects 
+               sig.level = 0.05
+                 )
+
+# ANOVA to find out n per group
+pwr.anova.test(k = 4, # number of groups (M/F x control/hydration)
+               f = 0.1, # want to be able to detect small effects 
+               sig.level = 0.05, 
+               power = 0.9
+                 )
+```
+
+
+
+
+
 
 
 
