@@ -1,8 +1,9 @@
 ---
 title: "BNLL hydrophysiology analyses"
 author: "Savannah Weaver"
-date: "4/29/2021"
-output: pdf_document
+output: 
+    pdf_document:
+    toc: TRUE
 ---
 
 
@@ -17,228 +18,186 @@ if (!require("MASS")) install.packages("MASS")
 library("MASS")
 if (!require("lme4")) install.packages("lme4") 
 library("lme4")
-if (!require("leaps")) install.packages("leaps") 
-library("leaps") # for best subsets model selection
-if (!require("pwr")) install.packages("pwr") 
-library("pwr") # power analyses
-if (!require("PerformanceAnalytics")) install.packages("PerformanceAnalytics")
-library("PerformanceAnalytics") # pretty multicollinearity plots
 ```
 
 
 # Load in Data
 
-This data was collected during fieldwork with Blunt-nosed Leopard Lizards (*Gambelia sila*) in the Elkhorn Plain of the Carrizo Plain National Monument in California, USA during the 2021 active season (April-August). See _ for complete methods and discussion of these analyses. 
+This data was collected during fieldwork with Blunt-nosed Leopard Lizards (*Gambelia sila*) in the Elkhorn Plain of the Carrizo Plain National Monument in California, USA during the 2021 active season (April-August). See published paper (doi) for complete methods and discussion of these analyses. 
 
 
-### Treatment, Morphometrics, and Blood Sample Data
+## Collared Lizards
 
-Variables:
+The first dataset loaded in is for lizards we radio-collared and tracked throughout the summer.
 
-```{r}
-dat <- read.csv("data/Supplemental Hydration collared BNLL.csv") %>%
-  dplyr::mutate(capture_process_date = as.POSIXct(capture_process_date, format = "%m/%d/%y"),
-                treatment_date = as.Date(treatment_date, format = "%m/%d/%y"),
+```{r get data collared lizards}
+lizards_collared <- read.csv("data/collared_measurements.csv") %>%
+                
+                # format data classes
+  dplyr::mutate(capture_process_date_time = as.POSIXct(paste(capture_process_date, capture_time, sep = " "), format = "%m/%d/%y %H:%M"),
+                # time with arbitrary date, need to figure out how to remove
+                #capture_time = as.POSIXct(capture_time, format = "%H:%M"),
+                #processing_time = as.POSIXct(processing_time, format = "%H:%M"),
+                SVL_mm = as.numeric(SVL_mm),
+                pre_tmt_mass_g = as.numeric(pre_tmt_mass_g),
+                pre_mass_w_collar_Y_N = as.factor(pre_mass_w_collar_Y_N),
+                post_tmt_mass_g = as.numeric(post_tmt_mass_g),
+                post_mass_w_collar_Y_N = as.factor(post_mass_w_collar_Y_N),
+                treatment_date_time = as.POSIXct(paste(treatment_date, processing_time, sep = " "), format = "%m/%d/%y %H:%M"),
+                tmt_start_time = as.POSIXct(tmt_start_time, format = "%H:%M"),
+                tmt_end_time = as.POSIXct(tmt_end_time, format = "%H:%M"),
+                hematocrit_percent = as.numeric(hematocrit_percent),
+                osmolality_mmol_kg = as.numeric(osmolality_mmol_kg),
+                hemolyzed_Y_N = as.factor(hemolyzed_Y_N),
+                cloacal_temp_C = as.numeric(cloacal_temp_C)
+                ) %>%
+  
+  # add tmt group info
+  left_join(read.csv("data/collared_identification.csv"),
+            by = 'individual_ID') %>%
+  
+  # add osmolality values from blood samples
+  #left_join(read.csv(osml)) %>%
+  
+  # add CEWL values from AquaFlux measurements
+  #left_join(read.csv(CEWL)) %>%
+  
+                # format data classes
+  dplyr::mutate(individual_ID = as.factor(individual_ID),
+                sex_M_F = as.factor(sex),
+                tmt = as.factor(tmt),
+                radio_collar_mass_g = as.numeric(radio_collar_mass_g),
+                
+                #statistics
+                capture_to_msmt = as.numeric(treatment_date_time - capture_process_date_time),
+                tmt_time_elapsed = as.numeric(tmt_end_time - tmt_start_time),
+                #test = capture_process_date == treatment_date,
+                actual_pre_tmt_mass_g = pre_tmt_mass_g - radio_collar_mass_g*(pre_mass_w_collar_Y_N == "Y"),
+                actual_post_tmt_mass_g = post_tmt_mass_g - radio_collar_mass_g*(post_mass_w_collar_Y_N == "Y"),
+                tmt_mass_change_g = actual_post_tmt_mass_g - actual_pre_tmt_mass_g
+                )
+
+summary(lizards_collared)
+```
+
+
+## Widespread Lizards
+
+The second dataset loaded in is for lizards we caught opportunistically and who we did not radio-collar or track throughout the summer.
+
+```{r get data widespread lizards}
+lizards_widespread <- read.csv("data/widespread_measurements.csv") %>%
+  
+                # format data classes
+  dplyr::mutate(date = as.POSIXct(date, format = "%m/%d/%y"),
                 # time with arbitrary date, need to figure out how to remove
                 capture_time = as.POSIXct(capture_time, format = "%H:%M"),
                 processing_time = as.POSIXct(processing_time, format = "%H:%M"),
-                tmt_start_time = as.POSIXct(tmt_start_time, format = "%H:%M"),
-                tmt_end_time = as.POSIXct(tmt_end_time, format = "%H:%M"),
-                pre_mass_w_collar. = as.factor(pre_mass_w_collar.),
-                post_mass_w_collar. = as.factor(post_mass_w_collar.),
-                hemolyzed. = as.factor(hemolyzed.)
+                individual_ID = as.factor(individual_ID),
+                SVL_mm = as.numeric(SVL_mm),
+                mass_g = as.numeric(mass_g),
+                sex_M_F = as.factor(sex_M_F),
+                hematocrit_percent = as.numeric(hematocrit_percent),
+                osmolality_mmol_kg = as.numeric(osmolality_mmol_kg),
+                hemolyzed_Y_N = as.factor(hemolyzed.),
+                cloacal_temp_C = as.numeric(cloacal_temp_C)
                 ) %>%
-  dplyr::select(-date_blood_processed, # remove these since no longer need
-                -notes) %>%
-  left_join(read.csv("data/collared_BNLL_tmt_assignments.csv"),
-            by = 'individual_ID') %>%
-  dplyr::mutate(sex = as.factor(sex),
-                tmt = as.factor(tmt)) %>%
-  dplyr::filter(complete.cases(sex, osmolality_mmol_kg))
-summary(dat)
-```
 
+  # add osmolality values from blood samples
+  #left_join(read.csv(osml)) %>%
+  
+  # add CEWL values from AquaFlux measurements
+  #left_join(read.csv(CEWL)) %>%
 
-
-
-
-### CEWL Data
-
-Variables:
-- date/time
-- weekend = sequential sampling outing labels
-- ID = lizard unique identifier
-- TEWL = transepidermal water loss (same as CEWL, cutaneous evaporative water loss)
-- CV = coefficient of variation when measurement was taken
-- SSWL = ??
-- ambient climate conditions (temperature, RH)
-info about each variabl etc...
-
-```{r, get CEWL data}
-# weekend 1
-CEWL_April_23_25 <- read.csv("./data/BNLL CEWL 4-23-2021 to 4-25-2021.csv") %>%
-  dplyr::mutate(weekend = "1") # add weekend index for throughout season
-
-# weekend 2
-# etc etc 
-
-# merge all CEWL datafiles & reformat
-CEWL <- CEWL_April_23_25 %>%
-  # join
-  #rbind(., CEWL_May_xx, CEWL_May_xx, etc
-    #      ) %>%
-  # reformat data
-  dplyr::select(Date, Time,
-                ID = Comments,
-                TEWL_g_m2h = TEWL..g..m2h.., # rename
-                CV = CV...., # rename
-                SSWL_g_m2 = SSWL..g..m2.., # rename
-                ambient_temp_C = AmbT..C., # rename
-                ambient_RH_percent = AmbRH...., # rename
-                weekend
-                ) %>%
-  dplyr::mutate(date_time = as.POSIXct(paste(Date, Time), format = "%m/%d/%y %I:%M:%S %p"),
-                # date only
-                Date = as.Date(Date, format = "%m/%d/%y"),
-                # time with arbitrary date, need to figure out how to remove
-                Time = as.POSIXct(Time, format = "%I:%M:%S %p"),
-                # get length of current ID for editing
-                length_ID = nchar((ID)),
-                # extract CEWL replicate number
-                replicate = as.numeric(substring(ID, length_ID, length_ID)),
-                # extract group (male, female, widespread)
-                ID_group = substring(ID, 1, 1),
-                # extract ID number within group
-                ID_number = substring(ID, 2, (length_ID-2)),
-                # merge IDs to match format in other data files
-                ID = paste(ID_group, "-", ID_number, sep = ""),
-                weekend = as.numeric(weekend)
-                ) %>%
-  dplyr::select(-length_ID, # remove these since no longer need
-                -ID_group,
-                -ID_number
+                #statistics
+  dplyr::mutate(capture_to_msmt = as.numeric(processing_time - capture_time)
                 )
-summary(CEWL)
+
+summary(lizards_widespread)
+```
+
+
+## Variable Explanation
+
+
+
+## Methods Stats
+
+```{r capture to msmt}
+# collared
+mean(lizards_collared$capture_to_msmt, na.rm = TRUE)/60
+median(lizards_collared$capture_to_msmt, na.rm = TRUE)/60
+hist(lizards_collared$capture_to_msmt)
+300/60
+
+# widespread
+mean(lizards_widespread$capture_to_msmt, na.rm = TRUE)
+max(lizards_widespread$capture_to_msmt, na.rm = TRUE)
+```
+
+Most collared lizards were measured within 5 hours of capture, with the majority being measured within 2 hours of capture, and a few being measured the day after capture.
+
+Widespread lizards were always measured within 5 hours of capture, and usually within 2 hours.
+
+```{r tmt time}
+mean(lizards_collared$tmt_time_elapsed, na.rm = T)
+hist(lizards_collared$tmt_time_elapsed, na.rm = T)
+```
+
+Lizards were put in bins with shallow water for 1 hour, on average, to promote drinking behavior.
+
+
+## Treatment Effects
+
+Are there *ANY* differences between lizards who we gave water vs no water??
+
+```{r tmt diffs}
+lizards_collared %>%
+  group_by(tmt, sex_M_F) %>%
+  summarise(SVL_mean = mean(SVL_mm, na.rm = T),
+            hct_mean = mean(hematocrit_percent, na.rm = T),
+            osml_mean = mean(osmolality_mmol_kg, na.rm = T),
+            mass_change_mean = mean(tmt_mass_change_g, na.rm = T)
+            )
+```
+
+Potentially......
+
+Are the widespread-caught lizards any different?
+
+```{r wd diffs}
+lizards_widespread %>%
+  group_by(sex_M_F) %>%
+  summarise(SVL_mean = mean(SVL_mm, na.rm = T),
+            hct_mean = mean(hematocrit_percent, na.rm = T),
+            osml_mean = mean(osmolality_mmol_kg, na.rm = T)
+            )
+```
+
+Widespread lizards were simply the smaller ones that couldn't be radio-collared, so that's slightly different. Osmolality for those females seems higher than radio-collared control, but hct values seem on-par. 
+
+We did recapture several widespread lizards, so I think it makes sense to put them on the same figures? Because that way, we can compare them to our control group. Maybe rename widespread -> "no intervention", control -> "sham tmt", and hydration -> "water tmt". :)
+
+
+## Purge & Merge !
+
+```{r p n m}
+
 ```
 
 
 
 
-# Basic Trends
-
-```{r}
-dat %>% 
-  ggplot(data = .) + 
-  geom_line(aes(x = capture_process_date,
-                 y = osmolality_mmol_kg, 
-                color = individual_ID
-                 ), 
-             size = 1, 
-             alpha = 0.6) + 
-  #scale_colour_manual(name = "Treatment", 
-   #                   #labels = c("Burrow", "Open", "Shrub"), 
-    #                  values = c("salmon1", "royalblue") ) +
-  #scale_shape_discrete(name = "Microhabitat", 
-   #                    labels = c("Burrow", "Open", "Shrub") ) + 
-  theme_classic() + 
-  xlab("Date") + 
-  ylab("Osmolality") + 
-  theme(text = element_text(color = "black", 
-                            family = "sans", 
-                            size = 12),
-        axis.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 10),
-        legend.text.align = 0,
-        #legend.position = c(0.9, 0.145)
-  )
-```
 
 
-```{r}
-dat_by_tmt <- dat %>%
-  group_by(tmt, weekend) %>%
-  summarise(mean_osmol = mean(osmolality_mmol_kg))
-```
+# Experimental Hydration Effects
 
-
-```{r}
-dat_by_tmt %>% 
-  ggplot(data = .) + 
-  geom_line(aes(x = weekend,
-                 y = mean_osmol, 
-                color = tmt
-                 ), 
-             size = 1, 
-             alpha = 0.6) + 
-  #scale_colour_manual(name = "Treatment", 
-   #                   #labels = c("Burrow", "Open", "Shrub"), 
-    #                  values = c("salmon1", "royalblue") ) +
-  #scale_shape_discrete(name = "Microhabitat", 
-   #                    labels = c("Burrow", "Open", "Shrub") ) + 
-  theme_classic() + 
-  xlab("Date") + 
-  ylab("Osmolality") + 
-  theme(text = element_text(color = "black", 
-                            family = "sans", 
-                            size = 12),
-        axis.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 10),
-        legend.text.align = 0,
-        #legend.position = c(0.9, 0.145)
-  )
-```
+map hct, osml, mass, and CEWL over time, lines by indiv, color by tmt/sex
 
 
 
 
 
-# Power Analysis
-
-calculate f for ANOVA power analysis
-
-```{r}
-# grand mean
-grand_mean_osmol <- dat %>%
-  dplyr::filter(weekend == 1) %>%
-  summarise(grand_mean = mean(osmolality_mmol_kg))
-
-# control mean
-mean_osmol_control <- dat %>%
-  dplyr::filter(tmt == 'control' & weekend == 1) %>%
-  summarise(control_mean = mean(osmolality_mmol_kg))
-
-# control p = control n / total n
-
-
-# hydration mean
-mean_osmol_hydration <- dat %>%
-  dplyr::filter(tmt == 'hydration' & weekend == 1) %>%
-  summarise(hydration_mean = mean(osmolality_mmol_kg))
-
-# between group variance 
-# sum ( n * (group mean - grand mean)^2 )
-```
-
-
-power analysis
-
-```{r}
-# ANOVA with our current sample sizes
-pwr.anova.test(k = 4, # number of groups (M/F x control/hydration)
-               n = 8, # ~8 individuals in each group, due to dropped collars 
-               f = 0.1, # want to be able to detect small effects 
-               sig.level = 0.05
-                 )
-
-# ANOVA to find out n per group
-pwr.anova.test(k = 4, # number of groups (M/F x control/hydration)
-               f = 0.1, # want to be able to detect small effects 
-               sig.level = 0.05, 
-               power = 0.9
-                 )
-```
 
 
 
