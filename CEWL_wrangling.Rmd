@@ -1,22 +1,17 @@
 ---
 title: "Climate Water Loss Experiment - CEWL Data Wrangling"
 author: "Savannah Weaver"
-date: "August 2021"
 output: pdf_document
+toc: TRUE
 ---
 
 
 # Packages
 
 ```{r setup, include=FALSE}
+`%nin%` = Negate(`%in%`)
 if (!require("tidyverse")) install.packages("tidyverse")
 library("tidyverse") # workflow and plots
-if (!require("UsingR")) install.packages("UsingR")
-library("UsingR")
-if (!require("lme4")) install.packages("lme4")
-library("lme4") # for LMMs
-if (!require("lmerTest")) install.packages("lmerTest")
-library("lmerTest") # for p-values
 ```
 
 
@@ -85,7 +80,7 @@ read_CEWL_file <- function(filename) {
 }
 ```
 
-3. Apply the function I made to all of the filenames I compiled, then put all of those dataframes into one dataframe. This will print warnings saying that header and col.names are different lengths, because the data has extra notes cols that we read-in, but get rid of. Additionally, filter out failed measurements, properly format data classes, and attach cloacal temperature recorded at the time of measurements.
+3. Apply the function I made to all of the filenames I compiled, then put all of those dataframes into one dataframe. This will print warnings saying that header and col.names are different lengths, because the data has extra notes cols that we read-in, but get rid of. Additionally, filter out failed measurements and properly format data classes.
 
 ```{r}
 # apply function to get data from all csvs
@@ -104,257 +99,27 @@ summary(all_CEWL_data)
 ```
 
 
-4. Reorder individual_ID factor.
-
-```{r}
-IDs <- c(# female radio collared IDs
-         "F01", "F02", "F03", "F04", "F05", 
-         "F06", "F07", "F08", "F08A", "F09", "F10", 
-         "F11", "F12", "F13", "F14", "F15", 
-         "F16", "F17", "F18", "F19",
-         # male radio collared IDs
-         "M01", "M02", "M03", "M03A", "M04", "M05", 
-         "M06", "M07", "M08", "M09", "M10", 
-         "M11", "M12", "M13", "M14", "M15", 
-         "M16", "M17", "M18", "M19", "M20",
-         # not-collared individual IDs (male and female)
-         "W001", "W002", "W003", "W004", "W005", 
-         "W006", "W007", "W008", "W009", "W010", 
-         "W011", "W012", "W013", "W014", "W015", 
-         "W016", "W017", "W018", "W019", "W020",
-         "W021", "W022", "W023", "W024", "W025", 
-         "W026", "W027", "W028", "W029", "W030", 
-         "W031", "W032", "W033", "W034", "W035", 
-         "W036", "W037", "W038", "W039")
-
-unique(all_CEWL_data$individual_ID)
-all_CEWL_data$individual_ID <- factor(all_CEWL_data$individual_ID,
-                                       levels = IDs)
-unique(all_CEWL_data$individual_ID)
-```
-
-
-
-5. 
-
-```{r}
-cloacal_temp_C <- read.csv("./data/c_temps.csv", # filename
-                             na.strings=c("","NA") # fix empty cells
-                             ) %>%
-  dplyr::select(date, 
-                temp_time = CEWL_time, 
-                day, 
-                individual_ID, 
-                cloacal_temp_C) %>%
-  mutate(date = as.Date(date, format = "%m/%d/%y"),
-         temp_time = (as.POSIXct(temp_time, format = "%H:%M")),
-         day = as.factor(day),
-         individual_ID = as.factor(individual_ID),
-         cloacal_temp_C = as.numeric(cloacal_temp_C)
-         ) %>%
-  dplyr::filter(complete.cases(.))
-summary(cloacal_temp_C)
-```
-
 
 
 # Check Data
-*THis is all leftover from scelops CWL2, edit to be useful*
 
-Each individual should have 10 total measurements (5 before the experiment, 5 after). However, this is not the case. So, check how many measurements each individual has under each replicate number for each date to see if there are duplicates.
-
-```{r}
-rep_check_1 <- all_CEWL_data %>%
-                group_by(individual_ID, date) %>%
-                summarise(n = n()) %>% 
-                arrange(n)
-rep_check_1
-unique(rep_check_1$n)
-```
-
-Individuals 206, 215, 237, and 302 have too many measurements. Others only have 3-4.
-
-## Extra Measurements
+Each lizard measured on each date should have 3-5 technical replicates, and those measurements should have been taken around the same time. 
 
 ```{r}
-rep_check_2 <- all_CEWL_data %>%
-                group_by(individual_ID, date, replicate_no) %>%
-                summarise(n = n()) %>% 
-                arrange(n)
-rep_check_2
-unique(rep_check_2$n)
-```
-
-Individual 206 has two values named replicate 2.
-Individual 215 has two values named replicate 1.
-Individual 233 has two values named replicate 5.
-Individuals 237 and 302 each have two values for each of the five replicates named 1-5...
-
-
-## Missing Measurements
-
-Which individuals are missing replicates?
-
-```{r}
-individuals_missing_reps <- rep_check_1 %>%
-  dplyr::filter(n < 5)
-individuals_missing_reps
-```
-
-Maybe 215 stole one of the 216 measurements?
-
-Specifically check how many replicates individuals on either side of the jumbo-replicates had.
-
-```{r}
-IDs_to_check <- c(205, 207, 214, 216, 232, 234, 236, 238, 301, 303)
-at_risk_missing_reps <- rep_check_1 %>%
-  dplyr::filter(individual_ID %in% IDs_to_check) %>%
-  arrange(individual_ID)
-at_risk_missing_reps
-```
-
-Individual 216 is missing a measurement on June 24 and individual 303 is missing all their measurements on August 8.
-
-Individuals 205, 207, 214, 232, 234, 236, 238, and 301 have all expected measurements.
-
-Also check whether any other individuals are missing all measurements for a given date:
-
-```{r}
-rep_check_1 %>% # should have 2 occurrences per individual ID
-  group_by(individual_ID) %>%
-  summarise(n = n()) %>%
-  dplyr::filter(n == 1)
-```
-
-8 Individuals are missing data for one date. 
-Individuals 212, 233, 248, 254, 283, and 284 died during or were removed from the experiment, so it would make sense to only have one date of CEWL measurements (capture day, pre-experiment). I will leave these in the dataset because I can still use them for 'capture_analysis'.
-
-Individuals 239 and 303 should have measurements for 2 dates, so there's potential that their measurements were "stolen".
-
-
-## Associations
-
-View the measurements in question:
-
-```{r}
-rep_check_3 <- all_CEWL_data %>%
-  dplyr::filter(individual_ID %in% c(216, 239, 303 # adjacent missing ones
-                                     #215, 302 # adjacent extra ones
-                                     #206, 233, 237 # other extra ones
-                                     ) 
-                ) %>%
-  arrange(individual_ID, date, time)
-rep_check_3
-```
-
-*The duplicates for Individual 206 seem fine. I'll rename one "6".*
-
-The extra value for Individual 233 is a completely different time, so I'm going to omit that value. 
-
-Individual 237 has two rounds of measurements on July 4, I'll need to figure out which group of values to use because they're so different.
-
-The extra value for Individual 215 on June 24 was taken ~40 minutes later than the rest of the measurements, at 11:53:32 AM, so definitely possible that the individual ID was a typo.
-
-The two groups of values taken for Individual 302 on August 8 are clearly in two groupings, so one group is probably for a different Individual.
-
-*Individual 216 I think only had 4 measurements. Emily must have skipped "4".* The time doesn't match up with the extra value for Individual 215, so *the extra value for Individual 215 should be omitted*.
-
-*Individual 239 is missing their post-experiment measurements from July 4, which is probably one of the groups labeled as Individual 237.* 
-
-*Individual 303 is missing their pre-experiment measurements from August 8, which is probably one of the groups labeled as Individual 302.*
-
-To figure out which groups of CEWL measurements were assigned incorrectly, I can use the time noted at cloacal temperature measurement:
-
-```{r}
-cloacal_temp_C %>%
-  dplyr::filter(individual_ID %in% c(239, 237, 303, 302))
 all_CEWL_data %>%
-  dplyr::filter(individual_ID %in% c(239, 237, 303, 302))
+                group_by(individual_ID, date) %>%
+                summarise(n = n(),
+                          time_range = max(time) - min(time)) %>% 
+                arrange(n)
 ```
 
-Cloacal temperature measurement times:
-I239, July 4: 10:33
-I237, July 4: 12:24
-I303, Aug 8: 12:49 PM
-I302, Aug 8: 12:55 PM
-
-So, assigned groups of times of CEWL measurements:
-I239, July 4: 10:26 - 10:33
-I237, July 4: 12:21 - 12:25
-
-The times don't match up for these ones weirdly, but based on interrelation:
-I303, Aug 8: 1:01 - 1:06 PM
-I302, Aug 8: 1:09 - 1:13 PM
-
-
-## Properly Re-Assigning Measurements
-
-Measurements for individuals currently labeled 206, 215, 237, and 302 need to have editing done.
-
-1. Reassign one of the 206 replicates as "replicate 6":
+The number of measurements taken is good! Almost always 3 or 5, with two lizards who only got 4 measurements, which is fine. But, M01 on April 23 and M03a on July 14 have abnormal time ranges of 43140 seconds (almost 12h), so we need to check that data.
 
 ```{r}
-all_CEWL_data[228, "replicate_no"] <- 6
+all_CEWL_data %>% dplyr::filter(individual_ID %in% c("M01", "M03A"))
 ```
 
-2. Reassign some 237 values to 239:
-
-```{r}
-all_CEWL_data[801:805, "individual_ID"]
-all_CEWL_data[801:805, "individual_ID"] <- 239
-all_CEWL_data[801:805, "individual_ID"]
-```
-
-3. Reassign some 302 values to 303:
-
-```{r}
-all_CEWL_data[1074:1078, "individual_ID"]
-all_CEWL_data[1074:1078, "individual_ID"] <- 303
-all_CEWL_data[1074:1078, "individual_ID"]
-```
-
-4. In looking at the dataframe, I realized the weird 215 value is actually a mis-labeled value for individual 213, so reassign that:
-
-```{r}
-all_CEWL_data[241, "individual_ID"] <- 213
-all_CEWL_data[241, "replicate_no"] <- 5
-```
-
-
-
-# Format Data
-
-```{r}
-clean_CEWL <- all_CEWL_data %>%
-  mutate(date = as.Date(date, format = "%m/%d/%y"),
-         time = as.POSIXct(time, format = "%H:%M"),
-         status = as.factor(status),
-         individual_ID = as.factor(individual_ID),
-         replicate_no = as.factor(replicate_no)
-  )
-summary(clean_CEWL)
-```
-
-
-# Re-Check Data
-
-## Number of Measurements
-
-Re-check how many measurements each individual has:
-
-```{r}
-
-```
-
-
-## Measurement Times
-
-Also check that all the measurement times for a given individual on a certain date are within ~10 minutes:
-
-```{r}
-
-```
-
+Aha, it seems the problem is that the time isn't perfectly formatted, so 1 pm is coded as 1 am --> the measurements in question went across hours of 12 noon to 1 pm, so when reformatted, it seems like 1 am to 12 pm. It's fine as-is, and nothing is amiss with the data.
 
 
 
@@ -362,104 +127,209 @@ Also check that all the measurement times for a given individual on a certain da
 
 # Replicates
 
-## Check Distribution
+## Assess Variation
+
+We want the Coefficient of Variation (CV) among our technical replicates to be small. We need to calculate it to identify whether there may be outliers.
+
+```{r asses variation}
+CVs <- all_CEWL_data %>%
+  group_by(individual_ID, date) %>%
+  summarise(mean = mean(CEWL_g_m2h),
+            SD = sd(CEWL_g_m2h),
+            CV = (SD/mean) *100,
+            min = min(CEWL_g_m2h),
+            max = max(CEWL_g_m2h),
+            range = max - min
+            )
+summary(CVs)
+hist(CVs$CV)
+hist(CVs$range) 
+```
+
+We expect CV for technical replicates to be < 10-15%, so we must determine whether the CVs > 15% are due to outlier replicates.
+
+
+## Find Outliers
+
+First, create a function to look at the replicates for each individual on each day. For each iteration, I will make a boxplot and extract any outliers, compiling a dataframe of outliers that I want to exclude from the final dataset. By printing the boxplots and compiling a dataframe of outliers, I can check the data against the plots to ensure confidence in the outliers quantified.
+
+```{r function to find outliers}
+# write function to find outliers for each individual on each date
+find_outliers <- function(df) {
+  
+  # initiate dataframe to compile info and list to compile plots
+  outliers <- data.frame()
+  #boxplots <- list()
+
+  # initiate a for loop to go through every who in df
+  for(indiv_ch in unique(df$individual_ID)) {
+    
+    # select data for only the individual of interest
+    df_sub <- df %>%
+      dplyr::filter(individual_ID == (indiv_ch))
+    
+    # make a boxplot
+    df_sub %>%
+      ggplot(.) +
+      geom_boxplot(aes(x = as.factor(date),
+                       y = CEWL_g_m2h,
+                       fill = as.factor(date))) +
+      ggtitle(paste("Individual", indiv_ch)) +
+      theme_classic() -> plot
+    
+    # print/save
+    print(plot)
+    #boxplots[[indiv_ch]] <- plot
+    
+    # extract outliers
+    outs <- df_sub %>%
+      group_by(individual_ID, date) %>%
+      summarise(outs = boxplot.stats(CEWL_g_m2h)$out)
+    
+    # add to running dataframe of outliers
+    outliers <- outliers %>%
+      rbind(outs)
+  }
+  #return(boxplots)
+  return(outliers)
+}
+```
+
+
+Now apply the function to the data:
+
+```{r show outliers, fig.show = "hold", out.width = "50%"}
+par(mfrow = c(71, 2))
+outliers_found <- find_outliers(all_CEWL_data)
+outliers_found
+par(mfrow = c(1, 1))
+```
+
+Based on the plots, the dataframe of outliers I compiled is correct. (yay!)
+
 
 ## Remove Outliers
 
-## Re-Check Distribution
+Now I will create a secondary version of the same function, but instead of compiling outliers, I will omit them from the dataset.
+
+```{r function to remove outliers}
+# write function to find and exclude outliers
+omit_outliers <- function(df) {
+  
+  # initiate dataframe to compile info and list to compile plots
+  cleaned <- data.frame()
+
+  # initiate a for loop to go through every who in df
+  for(indiv_ch in unique(df$individual_ID)) {
+    
+    # select data for only the individual of interest
+    df_sub <- df %>%
+      dplyr::filter(individual_ID == (indiv_ch))
+    
+    # extract outliers
+    outs <- df_sub %>%
+      group_by(individual_ID, date) %>%
+      summarise(outs = boxplot.stats(CEWL_g_m2h)$out)
+    
+    # filter outliers from data subset for this individual
+    filtered <- df_sub %>%
+      dplyr::filter(CEWL_g_m2h %nin% outs$outs)
+    
+    # add to running dataframe of cleaned data
+    cleaned <- cleaned %>%
+      rbind(filtered)
+  }
+  return(cleaned)
+}
+```
 
 
-## Average Replicates (outliers now removed) & Join Cloacal Temp Data
+Apply function to data and check that the new data subsets still contain the right amount of data:
 
-```{r}
-CEWL_final <- all_CEWL_data %>%
+```{r omit outliers, message = FALSE}
+outliers_omitted <- omit_outliers(all_CEWL_data)
+nrow(all_CEWL_data) == nrow(outliers_omitted) + nrow(outliers_found)
+```
+
+
+
+
+## Re-Assess Variation
+
+```{r re-check variation}
+new_CVs <- outliers_omitted %>%
+  group_by(individual_ID, date) %>%
+  summarise(mean = mean(CEWL_g_m2h),
+            SD = sd(CEWL_g_m2h),
+            CV = (SD/mean) *100,
+            min = min(CEWL_g_m2h),
+            max = max(CEWL_g_m2h),
+            range = max - min)
+summary(new_CVs)
+hist(new_CVs$CV)
+hist(CVs$CV)
+hist(new_CVs$range) 
+hist(CVs$range) 
+```
+
+
+Unfortunately, CVs are still skewed to the right, but many CVs were improved. We will continue with this dataset.
+
+
+## Average Replicates (outliers removed)
+
+```{r get replicate means}
+CEWL_final <- outliers_omitted %>%
   group_by(date, individual_ID) %>%
-  summarise(CEWL_g_m2h = mean(CEWL_g_m2h)) #%>%
-  #left_join(cloacal_temp_C, by = c('date', 'individual_ID'))
+  summarise(CEWL_g_m2h = mean(CEWL_g_m2h),
+            msmt_temp_C = mean(msmt_temp_C),
+            msmt_RH_percent = mean(msmt_RH_percent))
+head(CEWL_final)
+```
+
+
+# Final Synthesis
+
+## Re-Check Data
+
+Check that we still have data for every individual.
+
+I can check this by comparing a list of the individual IDs used (201-341) to the individual IDs in our final dataset, then selecting/printing the IDs used that are not in the final dataset.
+
+```{r re-check individual IDs}
+unique(CEWL_final$individual_ID) %in% unique(all_CEWL_data$individual_ID)
+unique(all_CEWL_data$individual_ID) %in% unique(CEWL_final$individual_ID)
+```
+
+All is as expected. :)
+
+Check how many observations were used to calculate mean CEWL for each individual on each date:
+
+```{r re-check n obs}
+outliers_omitted %>%
+  group_by(individual_ID, date) %>%
+  summarise(n = n()) %>% 
+  arrange(n)
+```
+
+
+Between 3-5, awesome! That means we omitted 2 or less replicates for each individual on each measurement date. 
+
+
+## Export
+
+Save the cleaned data for models and figures.
+
+```{r save clean data}
+write.csv(CEWL_final, "./data/CEWL_dat_all_clean.csv")
 ```
 
 
 
 
 
-# Figure
+## Reporting
 
-
-```{r}
-CEWL_final %>% 
-  dplyr::filter(complete.cases(CEWL_g_m2h)) %>%
-  ggplot(data = .) + 
-  geom_point(aes(x = date,
-                 y = CEWL_g_m2h, 
-                 color = individual_ID
-                 ), 
-             size = 1, 
-             alpha = 0.6) +
-  geom_line(aes(x = date,
-                y = CEWL_g_m2h,
-                group = individual_ID,
-                color = individual_ID),
-            alpha = 0.2) +
-  stat_smooth(aes(x = date, 
-                  y = CEWL_g_m2h
-                  ),
-              formula = y ~ x, 
-              method = "lm", 
-              se = F, 
-              color = "gray",
-              size = 1.6, 
-              alpha = 1) + 
-  theme_classic() + 
-  xlab("Date") + 
-  ylab(bquote('CEWL (g/'*m^2*'h)')) + 
-  theme(text = element_text(color = "black", 
-                            family = "sans", 
-                            size = 12),
-        axis.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 10),
-        legend.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 10),
-        legend.text.align = 0,
-        legend.position = "none"
-) -> CEWL_over_time_fig
-CEWL_over_time_fig
-
-# export figure
-ggsave(filename = "BNLL_CEWL.jpeg",
-       plot = CEWL_over_time_fig,
-       path = ".",
-       device = "jpeg",
-       dpi = 1200,
-       width = 6, height = 4)
-```
-
-
-# Export
-
-```{r}
-#write.csv(CEWL_final, "./data/CEWL_dat_all_clean.csv")
-```
-
-
-
-*other stuff*
-after finishing CEWL, go straight to avg osml
-do very simple invert analysis of just water content over time
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+We omitted a total of 24 measurements from our CEWL dataset. We used the boxplot.stats function in R to extract outliers from each set of technical replicates, totaling 24 points qualifying as outliers which were thus removed. After data cleaning, every individual still had 3-5 technical replicates for each of their measurement dates. The distribution of coefficient of variation values was slightly better after data cleaning than before. For the individuals who only had 3 replicates taken, they probably didn't have enough reps for outliers to be found and omitted, so that's probably what made CVs stay high. 
 
 

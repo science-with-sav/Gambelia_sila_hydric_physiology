@@ -1,9 +1,8 @@
 ---
 title: "BNLL hydrophysiology analyses"
 author: "Savannah Weaver"
-output: 
-    pdf_document:
-    toc: TRUE
+output: pdf_document
+toc: TRUE
 ---
 
 
@@ -18,6 +17,8 @@ if (!require("MASS")) install.packages("MASS")
 library("MASS")
 if (!require("lme4")) install.packages("lme4") 
 library("lme4")
+if (!require("lmerTest")) install.packages("lmerTest") 
+library("lmerTest")
 ```
 
 
@@ -35,6 +36,8 @@ lizards_collared <- read.csv("data/collared_measurements.csv") %>%
                 
                 # format data classes
   dplyr::mutate(capture_process_date_time = as.POSIXct(paste(capture_process_date, capture_time, sep = " "), format = "%m/%d/%y %H:%M"),
+                capture_process_date = as.POSIXct(capture_process_date, 
+                                                  format = "%m/%d/%y"),
                 # time with arbitrary date, need to figure out how to remove
                 #capture_time = as.POSIXct(capture_time, format = "%H:%M"),
                 #processing_time = as.POSIXct(processing_time, format = "%H:%M"),
@@ -179,10 +182,66 @@ Widespread lizards were simply the smaller ones that couldn't be radio-collared,
 We did recapture several widespread lizards, so I think it makes sense to put them on the same figures? Because that way, we can compare them to our control group. Maybe rename widespread -> "no intervention", control -> "sham tmt", and hydration -> "water tmt". :)
 
 
+
+
 ## Purge & Merge !
 
-```{r p n m}
+columns I want to have in BOTH:
+- date
+- ID
+- SVL
+- mass
+- sex
+- hct
+- osml
+- CEWL
+- cloacal temp
 
+```{r p n m}
+widespread_clean <- lizards_widespread %>%
+  dplyr::select(date,
+                individual_ID,
+                SVL_mm,
+                mass_g,
+                sex_M_F,
+                hematocrit_percent,
+                osmolality_mmol_kg,
+                #CEWL,
+                cloacal_temp_C
+                ) %>%
+  dplyr::mutate(tmt = as.factor("No Tmt"))
+
+collared_clean <- lizards_collared %>%
+  dplyr::select(date = capture_process_date,
+                individual_ID,
+                SVL_mm,
+                mass_g = actual_pre_tmt_mass_g,
+                sex_M_F,
+                hematocrit_percent,
+                osmolality_mmol_kg,
+                #CEWL,
+                cloacal_temp_C,
+                tmt
+                )
+
+lizards_all <- rbind(widespread_clean, collared_clean) %>%
+  dplyr::mutate(time_pt = as.factor(case_when(date == "2021-04-23 PDT" ~ 1, 
+                                              date == "2021-04-24 PDT" ~ 1, 
+                                              date == "2021-04-25 PDT" ~ 1,
+                                              date == "2021-05-07 PDT" ~ 2,
+                                              date == "2021-05-08 PDT" ~ 2,
+                                              date == "2021-07-14 PDT" ~ 3)))
+
+lizards_all$tmt <- factor(lizards_all$tmt,
+                          levels = c("hydration", "control", "No Tmt"),
+                          labels = c("Water Tmt", "Sham Tmt", "No Tmt")
+                          )
+
+lizards_all$time_pt <- factor(lizards_all$time_pt,
+                              labels = c("April", "May", "July")
+                              )
+
+summary(lizards_all)
 ```
 
 
@@ -192,7 +251,224 @@ We did recapture several widespread lizards, so I think it makes sense to put th
 
 # Experimental Hydration Effects
 
-map hct, osml, mass, and CEWL over time, lines by indiv, color by tmt/sex
+```{r tmt mass change plot}
+ggplot(data = lizards_collared) + 
+  geom_boxplot(aes(x = tmt, 
+                   y = tmt_mass_change_g, 
+                   color = tmt
+                   )) +
+  geom_jitter(aes(x = tmt, 
+                   y = tmt_mass_change_g, 
+                   color = tmt
+                   ), 
+               size = 0.6,
+               alpha = 0.6) +
+  geom_point(aes(x = tmt, 
+                   y = mean(tmt_mass_change_g, na.rm = T), 
+                   color = tmt,
+                   ), 
+               size = 6,
+               alpha = 1) +
+  geom_hline(yintercept = 0) +
+  theme_classic() + 
+  xlab("Treatment Group") + 
+  ylab("Mass Change (g)") + 
+  #annotate("text", x = 1, y = 64, label = "a", size = 6) +
+  scale_color_brewer(palette = "Set2") +
+  theme(text = element_text(color = "black", 
+                            family = "sans", 
+                            size = 18),
+        axis.text = element_text(color = "black", 
+                                 family = "sans", 
+                                 size = 14),
+        legend.text.align = 0,
+        legend.position = "none"
+)
+```
+
+
+
+```{r tmt mass change stats}
+summary(lm(data = lizards_collared, tmt_mass_change_g ~ tmt))
+```
+
+
+So, it did result in a significant change in mass, but only 1.1g, on average.
+
+
+
+
+
+# Tmt x Time Stats
+
+
+```{r change by tmt * time}
+# osmolality
+summary(lm(data = lizards_all, osmolality_mmol_kg ~ tmt:time_pt))
+TukeyHSD(aov(lm(data = lizards_all, osmolality_mmol_kg ~ tmt + time_pt)))
+
+# hematocrit
+summary(lm(data = lizards_all, hematocrit_percent ~ tmt:time_pt))
+
+# mass
+summary(lm(data = lizards_all, mass_g ~ tmt:time_pt))
+
+# CEWL
+
+```
+
+There was NO effect of treatment on osmolality, hematocrit, or mass change throughout the season. 
+
+So, we can carry on with all 3 treatment groups aggregated.
+
+
+# Time Stats
+
+```{r change over time only}
+# only do for individuals measured at time points 1 and 2
+indiv_over_time <- lizards_all %>%
+  group_by(individual_ID) %>%
+  summarise(n = n()) %>%
+  dplyr::filter(n > 1)
+lizards_over_time <- lizards_all %>%
+  dplyr::filter(individual_ID %in% indiv_over_time$individual_ID)
+
+# now the following stats will be "for lizards measured at >1 time pt..."
+
+# osmolality
+summary(lmerTest::lmer(data = lizards_over_time, 
+                       osmolality_mmol_kg ~ time_pt + (1|individual_ID)))
+
+# hematocrit
+summary(lmerTest::lmer(data = lizards_over_time, 
+                       hematocrit_percent ~ time_pt + (1|individual_ID)))
+
+# mass
+summary(lmerTest::lmer(data = lizards_over_time, 
+                       mass_g ~ time_pt + (1|individual_ID)))
+
+# CEWL
+
+```
+
+On average, with individual variation accounted for, osmolality and hematocrit both increased from April to May (but not for July). Mass increased from April to May, then decreased in July. 
+
+
+
+# Figures
+
+## Osmolality
+
+```{r osml ~ time fig}
+ggplot(data = lizards_over_time) + 
+  geom_point(aes(x = time_pt, 
+                   y = osmolality_mmol_kg, 
+                group = individual_ID,
+                color = individual_ID), 
+               size = 2,
+               alpha = 1) +
+  geom_line(aes(x = time_pt, 
+                   y = osmolality_mmol_kg, 
+                group = individual_ID,
+                color = individual_ID),
+            alpha = 0.8) +
+  theme_classic() + 
+  xlab("Time (not to scale)") + 
+  ylab("Osmolality (mmol/kg)") + 
+  xlim(c("April", "May")) +
+  #annotate("text", x = 1, y = 64, label = "a", size = 6) +
+  #scale_color_brewer(palette = "Set2") +
+  theme(text = element_text(color = "black", 
+                            family = "sans", 
+                            size = 18),
+        axis.text = element_text(color = "black", 
+                                 family = "sans", 
+                                 size = 14),
+        legend.text.align = 0,
+        legend.position = "none"
+)
+```
+
+
+## Hct
+
+```{r hct ~ time fig}
+ggplot(data = lizards_over_time) + 
+  geom_point(aes(x = time_pt, 
+                   y = hematocrit_percent, 
+                group = individual_ID,
+                color = individual_ID), 
+               size = 2,
+               alpha = 1) +
+  geom_line(aes(x = time_pt, 
+                   y = hematocrit_percent, 
+                group = individual_ID,
+                color = individual_ID),
+            alpha = 0.8) +
+  theme_classic() + 
+  xlab("Time (not to scale)") + 
+  ylab("Hematocrit (%)") + 
+  xlim(c("April", "May")) +
+  #annotate("text", x = 1, y = 64, label = "a", size = 6) +
+  #scale_color_brewer(palette = "Set2") +
+  theme(text = element_text(color = "black", 
+                            family = "sans", 
+                            size = 18),
+        axis.text = element_text(color = "black", 
+                                 family = "sans", 
+                                 size = 14),
+        legend.text.align = 0,
+        legend.position = "none"
+)
+```
+
+
+It might make sense to remove what looks like a few outliers from April. If those lizards had very little blood drawn, their hct values would be unreliable.
+
+
+
+## Mass
+
+```{r mass ~ time fig}
+ggplot(data = lizards_over_time) + 
+  geom_point(aes(x = time_pt, 
+                   y = mass_g, 
+                group = individual_ID,
+                color = individual_ID), 
+               size = 2,
+               alpha = 1) +
+  geom_line(aes(x = time_pt, 
+                   y = mass_g, 
+                group = individual_ID,
+                color = individual_ID),
+            alpha = 0.8) +
+  theme_classic() + 
+  xlab("Time (not to scale)") + 
+  ylab("Mass (g)") + 
+  #annotate("text", x = 1, y = 64, label = "a", size = 6) +
+  #scale_color_brewer(palette = "Set2") +
+  theme(text = element_text(color = "black", 
+                            family = "sans", 
+                            size = 18),
+        axis.text = element_text(color = "black", 
+                                 family = "sans", 
+                                 size = 14),
+        legend.text.align = 0,
+        legend.position = "none"
+)
+```
+
+
+
+
+# CEWL
+
+## Time
+
+## Body Temp
+
+## Body Condition
+
 
 
 
