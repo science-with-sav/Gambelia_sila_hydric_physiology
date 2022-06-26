@@ -13,12 +13,18 @@ if (!require("tidyverse")) install.packages("tidyverse")
 library("tidyverse")# for dplyr workflow of calculations
 if (!require("UsingR")) install.packages("UsingR") 
 library("UsingR")
-if (!require("MASS")) install.packages("MASS") 
-library("MASS")
 if (!require("lme4")) install.packages("lme4") 
 library("lme4")
 if (!require("lmerTest")) install.packages("lmerTest") 
 library("lmerTest")
+if (!require("broom")) install.packages("broom")
+library("broom") # lmer model export
+if (!require("broom.mixed")) install.packages("broom.mixed")
+library("broom.mixed") # lmer model export
+if (!require("ggplot2")) install.packages("ggplot2")
+library("ggplot2")
+if (!require("ggpubr")) install.packages("ggpubr")
+library("ggpubr") # for multi-ggplot figs
 ```
 
 
@@ -36,7 +42,7 @@ lizards_collared <- read.csv("data/collared_measurements.csv") %>%
                 
                 # format data classes
   dplyr::mutate(capture_process_date_time = as.POSIXct(paste(capture_process_date, capture_time, sep = " "), format = "%m/%d/%y %H:%M"),
-                capture_process_date = as.POSIXct(capture_process_date, 
+                capture_process_date = as.Date(capture_process_date, 
                                                   format = "%m/%d/%y"),
                 # time with arbitrary date, need to figure out how to remove
                 #capture_time = as.POSIXct(capture_time, format = "%H:%M"),
@@ -92,7 +98,7 @@ The second dataset loaded in is for lizards we caught opportunistically and who 
 lizards_widespread <- read.csv("data/widespread_measurements.csv") %>%
   
                 # format data classes
-  dplyr::mutate(date = as.POSIXct(date, format = "%m/%d/%y"),
+  dplyr::mutate(date = as.Date(date, format = "%m/%d/%y"),
                 # time with arbitrary date, need to figure out how to remove
                 capture_time = as.POSIXct(capture_time, format = "%H:%M"),
                 processing_time = as.POSIXct(processing_time, format = "%H:%M"),
@@ -118,6 +124,23 @@ lizards_widespread <- read.csv("data/widespread_measurements.csv") %>%
 
 summary(lizards_widespread)
 ```
+
+
+## CEWL Data
+
+```{r load CEWL dat}
+CEWL <- read.csv("./data/CEWL_dat_all_clean.csv") %>%
+  dplyr::mutate(date = as.Date(date, format = "%Y-%m-%d"),
+                ID_len = nchar(individual_ID),
+                individual_ID = as.factor(paste(substr(individual_ID, 1, 1), "-", substr(individual_ID, 2, ID_len), sep = "")),
+                CEWL_g_m2h = as.numeric(CEWL_g_m2h),
+                msmt_temp_C = as.numeric(msmt_temp_C),
+                msmt_RH_percent = as.numeric(msmt_RH_percent)
+                ) %>%
+  dplyr::select(-X, -ID_len)
+summary(CEWL)
+```
+
 
 
 ## Variable Explanation
@@ -206,7 +229,6 @@ widespread_clean <- lizards_widespread %>%
                 sex_M_F,
                 hematocrit_percent,
                 osmolality_mmol_kg,
-                #CEWL,
                 cloacal_temp_C
                 ) %>%
   dplyr::mutate(tmt = as.factor("No Tmt"))
@@ -219,7 +241,6 @@ collared_clean <- lizards_collared %>%
                 sex_M_F,
                 hematocrit_percent,
                 osmolality_mmol_kg,
-                #CEWL,
                 cloacal_temp_C,
                 tmt
                 )
@@ -230,7 +251,8 @@ lizards_all <- rbind(widespread_clean, collared_clean) %>%
                                               date == "2021-04-25 PDT" ~ 1,
                                               date == "2021-05-07 PDT" ~ 2,
                                               date == "2021-05-08 PDT" ~ 2,
-                                              date == "2021-07-14 PDT" ~ 3)))
+                                              date == "2021-07-14 PDT" ~ 3))) %>%
+  left_join(CEWL, by = c('individual_ID', 'date'))
 
 lizards_all$tmt <- factor(lizards_all$tmt,
                           levels = c("hydration", "control", "No Tmt"),
@@ -244,6 +266,143 @@ lizards_all$time_pt <- factor(lizards_all$time_pt,
 summary(lizards_all)
 ```
 
+
+
+## Calculate Body Condition
+
+
+This is also known as scaled mass index, or log-log residuals.
+
+I calculate as described by: Peig, J., & Green, A. J. (2009). New perspectives for estimating body condition from mass/length data: The scaled mass index as an alternative method. Oikos, 118(12), 1883–1891. https://doi.org/10.1111/j.1600-0706.2009.17643.x
+
+
+Step 1: Simple Linear Regression
+
+```{r SMI SLR}
+mass_SVL_SLR <- lm(data = lizards_all, mass_g ~ SVL_mm)
+summary(mass_SVL_SLR)
+```
+
+
+Step 2: Identify Outliers
+
+```{r SMI equation outliers 1}
+plot(mass_SVL_SLR)
+```
+
+Hm, residuals are fanned-out, and many have high values, but they are evening distrubuted on either side of zero.
+
+
+So, check for high leverage points:
+
+```{r high leverage}
+# compute values for observations 
+high_leverage <- data.frame(H = hatvalues(mass_SVL_SLR)
+                            ) %>% mutate(row = rownames(.))
+
+# compute cutoff value 
+h_bar <- (3*sum(high_leverage$H))/nrow(high_leverage)
+
+# add to original dataframe 
+# see which observations have extremely high leverage (if any)
+high_leverage_dat <- lizards_all %>%
+  dplyr::mutate(residuals = residuals(mass_SVL_SLR)) %>%
+  dplyr::mutate(row = rownames(.)) %>%
+  left_join(., high_leverage, by = "row") %>%
+  dplyr::filter(H > h_bar) 
+high_leverage_dat
+```
+
+The points for individuals W-002, W-004, and M-20 seem to be high-leverage, so we will try removing them.
+
+Check for influential points based on Cook's distance:
+
+```{r}
+# get Cook's distance 
+cooks <- data.frame(c = cooks.distance(mass_SVL_SLR) # specify model name 
+                    ) %>% mutate(row = rownames(.))
+
+# add to original dataframe 
+influential <- lizards_all %>%
+  dplyr::mutate(residuals = residuals(mass_SVL_SLR)) %>%
+  dplyr::mutate(row = rownames(.)) %>% 
+  left_join(., cooks, by = "row")
+
+# see moderately influential points 
+cook_mod_inf <- influential %>% 
+  dplyr::filter(c>0.5) 
+cook_mod_inf
+```
+
+There are none, so there's nothing to potentially remove.
+
+
+```{r SMI equation outliers 2}
+boxplot(residuals(mass_SVL_SLR))
+hist(residuals(mass_SVL_SLR))
+max(residuals(mass_SVL_SLR))
+influential %>% dplyr::filter(residuals > 13)
+```
+
+From the boxplot, there is one individual with a much higher residual than the rest of the distribution. The histogram looks fine, and pretty normally distributed.
+
+
+Test whether removing the three high-leverage pts and the one high residual pt improve things:
+
+```{r remove outliers}
+cleaned_SMI_dat <- lizards_all %>%
+  dplyr::filter(individual_ID %nin% c("W-002", "W-004", "M-20", "F-03"))
+```
+
+
+re-check residuals:
+
+```{r check 2}
+mass_SVL_SLR2 <- lm(data = cleaned_SMI_dat, mass_g ~ SVL_mm)
+summary(mass_SVL_SLR2)
+plot(mass_SVL_SLR2)
+mean(residuals(mass_SVL_SLR2))
+median(residuals(mass_SVL_SLR2))
+```
+
+I don't think removing those points improved things much, so we'll just stick with the full dataset.
+
+
+Step 3: log-log Regression
+
+```{r SMI log log regression}
+log_mass_SVL_SLR <- lm(data = lizards_all, 
+                       log(mass_g) ~ log(SVL_mm))
+summary(log_mass_SVL_SLR)
+```
+
+
+Step 4: Extract Values
+
+compute standardized major axis using the log-log regression equation:
+
+```{r SMI equation}
+r <- sqrt(0.733) # Pearson's correlection coefficient (sqrt of R-squared)
+b_OLS <- 2.2313 # regression slope
+b_SMA <- b_OLS/r
+```
+
+mean length in capture data:
+
+```{r mean SVL}
+L0 <- mean(lizards_all$SVL_mm)
+```
+
+
+Step 5: Calculate Scaled Mass Index
+
+```{r join all data}
+lizards_all_SMI <- lizards_all %>%
+  # compute SMI
+  mutate(SMI = mass_g * ((L0/SVL_mm) ^ b_SMA))
+
+summary(lizards_all_SMI)
+```
 
 
 
@@ -312,12 +471,13 @@ summary(lm(data = lizards_all, hematocrit_percent ~ tmt:time_pt))
 
 # mass
 summary(lm(data = lizards_all, mass_g ~ tmt:time_pt))
+summary(lm(data = lizards_all_SMI, SMI ~ tmt:time_pt))
 
 # CEWL
-
+summary(lm(data = lizards_all, CEWL_g_m2h ~ tmt:time_pt))
 ```
 
-There was NO effect of treatment on osmolality, hematocrit, or mass change throughout the season. 
+There was NO effect of treatment on CEWL, osmolality, hematocrit, or mass/SMI change throughout the season. 
 
 So, we can carry on with all 3 treatment groups aggregated.
 
@@ -326,32 +486,63 @@ So, we can carry on with all 3 treatment groups aggregated.
 
 ```{r change over time only}
 # only do for individuals measured at time points 1 and 2
-indiv_over_time <- lizards_all %>%
+indiv_over_time <- lizards_all_SMI %>%
   group_by(individual_ID) %>%
   summarise(n = n()) %>%
   dplyr::filter(n > 1)
-lizards_over_time <- lizards_all %>%
+lizards_over_time <- lizards_all_SMI %>%
   dplyr::filter(individual_ID %in% indiv_over_time$individual_ID)
 
 # now the following stats will be "for lizards measured at >1 time pt..."
 
 # osmolality
-summary(lmerTest::lmer(data = lizards_over_time, 
+osml_time_mod <- (lmerTest::lmer(data = lizards_over_time, 
                        osmolality_mmol_kg ~ time_pt + (1|individual_ID)))
+summary(osml_time_mod)
 
 # hematocrit
-summary(lmerTest::lmer(data = lizards_over_time, 
+hct_time_mod <- (lmerTest::lmer(data = lizards_over_time, 
                        hematocrit_percent ~ time_pt + (1|individual_ID)))
+summary(hct_time_mod)
 
 # mass
-summary(lmerTest::lmer(data = lizards_over_time, 
+mass_time_mod <- (lmerTest::lmer(data = lizards_over_time, 
                        mass_g ~ time_pt + (1|individual_ID)))
+summary(mass_time_mod)
+
+#SMI
+SMI_time_mod <- (lmerTest::lmer(data = lizards_over_time, 
+                       SMI ~ time_pt + (1|individual_ID)))
+summary(SMI_time_mod)
 
 # CEWL
-
+CEWL_time_mod <- (lmerTest::lmer(data = lizards_over_time, 
+                       CEWL_g_m2h ~ time_pt + (1|individual_ID)))
+summary(CEWL_time_mod)
 ```
 
-On average, with individual variation accounted for, osmolality and hematocrit both increased from April to May (but not for July). Mass increased from April to May, then decreased in July. 
+On average, with individual variation accounted for, osmolality and hematocrit both increased from April to May (but not for July). CEWL decreased from April to May, with no change for July. Mass increased from April to May, then decreased in July. 
+
+Export those stats:
+
+```{r export time stats}
+osml_stats <- broom.mixed::tidy(osml_time_mod) %>%
+  mutate(response = "Plasma Osmolality (mmol/kg)")
+hct_stats <- broom.mixed::tidy(hct_time_mod) %>%
+  mutate(response = "Hematocrit (%)")
+SMI_stats <- broom.mixed::tidy(SMI_time_mod) %>%
+  mutate(response = "Body Condition (g)")
+CEWL_stats <- broom.mixed::tidy(CEWL_time_mod) %>%
+  mutate(response = "CEWL (g/m2h)")
+
+# aggregate and export
+time_mod_stats <- osml_stats %>%
+  rbind(hct_stats) %>%
+  rbind(SMI_stats) %>%
+  rbind(CEWL_stats)
+write.csv(time_mod_stats, "./results_statistics/phys_change_over_time.csv")
+```
+
 
 
 
@@ -375,7 +566,7 @@ ggplot(data = lizards_over_time) +
   theme_classic() + 
   xlab("Time (not to scale)") + 
   ylab("Osmolality (mmol/kg)") + 
-  xlim(c("April", "May")) +
+  #xlim(c("April", "May")) +
   #annotate("text", x = 1, y = 64, label = "a", size = 6) +
   #scale_color_brewer(palette = "Set2") +
   theme(text = element_text(color = "black", 
@@ -386,7 +577,16 @@ ggplot(data = lizards_over_time) +
                                  size = 14),
         legend.text.align = 0,
         legend.position = "none"
-)
+) -> osml_over_time
+osml_over_time
+
+# export figure
+#ggsave(filename = "osml_over_time.jpeg",
+ #      plot = osml_over_time,
+  #     path = "./results_figures",
+   #    device = "jpeg",
+    #   dpi = 1200,
+     #  width = 6, height = 4)
 ```
 
 
@@ -408,7 +608,8 @@ ggplot(data = lizards_over_time) +
   theme_classic() + 
   xlab("Time (not to scale)") + 
   ylab("Hematocrit (%)") + 
-  xlim(c("April", "May")) +
+  #xlim(c("April", "May")) +
+  ylim(20, 45) +
   #annotate("text", x = 1, y = 64, label = "a", size = 6) +
   #scale_color_brewer(palette = "Set2") +
   theme(text = element_text(color = "black", 
@@ -419,32 +620,41 @@ ggplot(data = lizards_over_time) +
                                  size = 14),
         legend.text.align = 0,
         legend.position = "none"
-)
+) -> hct_over_time
+hct_over_time
+
+# export figure
+#ggsave(filename = "hct_over_time.jpeg",
+ #      plot = hct_over_time,
+  #     path = "./results_figures",
+   #    device = "jpeg",
+    #   dpi = 1200,
+     #  width = 6, height = 4)
 ```
 
 
-It might make sense to remove what looks like a few outliers from April. If those lizards had very little blood drawn, their hct values would be unreliable.
+Right now, I have the y-scale limited to exclude a few outliers.
 
 
 
-## Mass
+## Scaled Mass
 
 ```{r mass ~ time fig}
 ggplot(data = lizards_over_time) + 
   geom_point(aes(x = time_pt, 
-                   y = mass_g, 
+                   y = SMI, 
                 group = individual_ID,
                 color = individual_ID), 
                size = 2,
                alpha = 1) +
   geom_line(aes(x = time_pt, 
-                   y = mass_g, 
+                   y = SMI, 
                 group = individual_ID,
                 color = individual_ID),
             alpha = 0.8) +
   theme_classic() + 
   xlab("Time (not to scale)") + 
-  ylab("Mass (g)") + 
+  ylab("Body Condition (g)") + 
   #annotate("text", x = 1, y = 64, label = "a", size = 6) +
   #scale_color_brewer(palette = "Set2") +
   theme(text = element_text(color = "black", 
@@ -455,7 +665,16 @@ ggplot(data = lizards_over_time) +
                                  size = 14),
         legend.text.align = 0,
         legend.position = "none"
-)
+) -> SMI_over_time
+SMI_over_time
+
+# export figure
+#ggsave(filename = "SMI_over_time.jpeg",
+ #      plot = SMI_over_time,
+  #     path = "./results_figures",
+   #    device = "jpeg",
+    #   dpi = 1200,
+     #  width = 6, height = 4)
 ```
 
 
