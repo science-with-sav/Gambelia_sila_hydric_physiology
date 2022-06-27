@@ -25,6 +25,8 @@ if (!require("ggplot2")) install.packages("ggplot2")
 library("ggplot2")
 if (!require("ggpubr")) install.packages("ggpubr")
 library("ggpubr") # for multi-ggplot figs
+if (!require("Hmisc")) install.packages("Hmisc")
+library("Hmisc") # correlation matrix
 ```
 
 
@@ -149,19 +151,63 @@ summary(CEWL)
 
 ## Methods Stats
 
+```{r n lizards}
+# in general
+length(unique(lizards_collared$individual_ID))
+length(unique(lizards_widespread$individual_ID))
+41+38
+
+# by date
+lizards_widespread %>%
+  group_by(date) %>%
+  summarise(n = n())
+# by date
+lizards_collared %>%
+  group_by(capture_process_date) %>%
+  summarise(n = n())
+
+# which were recaptured and when
+lizards_widespread %>%
+  group_by(individual_ID) %>%
+  summarise(n = n()) %>%
+  dplyr::filter(n > 1) -> recap_W
+lizards_widespread %>% dplyr::filter(individual_ID %in% recap_W$individual_ID)
+# which were recaptured and when
+lizards_collared %>%
+  group_by(individual_ID) %>%
+  summarise(n = n()) %>%
+  dplyr::filter(n > 1) -> recap_C
+lizards_collared %>% 
+  dplyr::filter(individual_ID %in% recap_C$individual_ID) %>%
+  dplyr::filter(capture_process_date > "2021-05-01")
+
+# check things
+lizards_collared %>% 
+  dplyr::filter(individual_ID %nin% recap_C$individual_ID)
+lizards_widespread %>% dplyr::filter(individual_ID == "W-029")
+lizards_collared %>% dplyr::filter(individual_ID == "M-03a")
+```
+
+Throughout the summer, we measured 41 collared lizards, & 38 widespread lizards.
+
+Of the 38 widespread lizards, 28 were captured in April, 9 in May, and 1 in July. 5 of the widespread lizards captured in APril were recaptured in May. 
+
+Of the 41 collared lizards, 39 were captured (and collared) in April, 22 (of the 39) recaptured in May, and 14 (of the 39) recaptured in July. F08a and M03a were newly captured in May and radio-collared. F08a was a new capture, but M03a was briefly originally assigned W-029. Thankfully, the widespread data no longer includes that data, and it's been shifted to the collared data only. 
+
+
 ```{r capture to msmt}
 # collared
-mean(lizards_collared$capture_to_msmt, na.rm = TRUE)/60
+mean(lizards_collared$capture_to_msmt, na.rm = TRUE)/60 # hours
 median(lizards_collared$capture_to_msmt, na.rm = TRUE)/60
 hist(lizards_collared$capture_to_msmt)
 300/60
 
 # widespread
-mean(lizards_widespread$capture_to_msmt, na.rm = TRUE)
+mean(lizards_widespread$capture_to_msmt, na.rm = TRUE) # minutes
 max(lizards_widespread$capture_to_msmt, na.rm = TRUE)
 ```
 
-Most collared lizards were measured within 5 hours of capture, with the majority being measured within 2 hours of capture, and a few being measured the day after capture.
+Most collared lizards were measured within 3 hours of capture, with the majority being measured within 2 hours of capture, and a few being measured the day after capture.
 
 Widespread lizards were always measured within 5 hours of capture, and usually within 2 hours.
 
@@ -229,7 +275,8 @@ widespread_clean <- lizards_widespread %>%
                 sex_M_F,
                 hematocrit_percent,
                 osmolality_mmol_kg,
-                cloacal_temp_C
+                cloacal_temp_C,
+                capture_to_msmt
                 ) %>%
   dplyr::mutate(tmt = as.factor("No Tmt"))
 
@@ -242,6 +289,7 @@ collared_clean <- lizards_collared %>%
                 hematocrit_percent,
                 osmolality_mmol_kg,
                 cloacal_temp_C,
+                capture_to_msmt,
                 tmt
                 )
 
@@ -269,6 +317,9 @@ summary(lizards_all)
 
 
 ## Calculate Body Condition
+
+**I need to do this with April data only!**
+
 
 
 This is also known as scaled mass index, or log-log residuals.
@@ -457,6 +508,47 @@ So, it did result in a significant change in mass, but only 1.1g, on average.
 
 
 
+# Look for Potential Correlations
+
+first, load function to format correlation stats:
+
+```{r func to format}
+flattenCorrMatrix <- function(cormat, pmat) {
+  ut <- upper.tri(cormat)
+  data.frame(
+    row = rownames(cormat)[row(cormat)[ut]],
+    column = rownames(cormat)[col(cormat)[ut]],
+    cor  =(cormat)[ut],
+    p = pmat[ut]
+    )
+}
+```
+
+```{r corr}
+num_only <- lizards_all_SMI %>%
+  dplyr::select(SVL_mm, mass_g, SMI,
+                hematocrit_percent, osmolality_mmol_kg, 
+                CEWL_g_m2h, cloacal_temp_C, msmt_temp_C, msmt_RH_percent,
+                capture_to_msmt)
+corr <- rcorr(as.matrix(num_only))
+flattenCorrMatrix(corr$r, corr$P)
+```
+
+significant correlations to look into:
+- CEWL / hct
+- osml / hct
+- SMI / osml
+- SMI / hct
+- cloacal temp / capture to msmst time
+
+surprising/sig NON correlations:
+- CEWL / cloacal temp
+- CEWL / msmt RH
+- CEWL / msmt temp
+- CEWL / osml
+
+
+
 
 # Tmt x Time Stats
 
@@ -521,7 +613,37 @@ CEWL_time_mod <- (lmerTest::lmer(data = lizards_over_time,
 summary(CEWL_time_mod)
 ```
 
+
+# Time + Sex Stats
+
+```{r diffs by sex + time}
+# osmolality
+osml_sex_mod <- (lmerTest::lmer(data = lizards_over_time, 
+                       osmolality_mmol_kg ~ time_pt + sex_M_F + (1|individual_ID)))
+summary(osml_sex_mod)
+
+# hematocrit
+hct_sex_mod <- (lmerTest::lmer(data = lizards_over_time, 
+                       hematocrit_percent ~ time_pt + sex_M_F + (1|individual_ID)))
+summary(hct_sex_mod)
+
+# mass
+mass_sex_mod <- (lmerTest::lmer(data = lizards_over_time, 
+                       mass_g ~ time_pt + sex_M_F + (1|individual_ID)))
+summary(mass_sex_mod)
+
+#SMI
+SMI_sex_mod <- (lmerTest::lmer(data = lizards_over_time, 
+                       SMI ~ time_pt + sex_M_F + (1|individual_ID)))
+summary(SMI_sex_mod)
+
+# CEWL
+CEWL_sex_mod <- (lmerTest::lmer(data = lizards_over_time, 
+                       CEWL_g_m2h ~ time_pt + sex_M_F + (1|individual_ID)))
+summary(CEWL_sex_mod)
+```
 On average, with individual variation accounted for, osmolality and hematocrit both increased from April to May (but not for July). CEWL decreased from April to May, with no change for July. Mass increased from April to May, then decreased in July. 
+...... AND, there are differences between the sexes! :O
 
 Export those stats:
 
@@ -684,12 +806,129 @@ SMI_over_time
 
 ## Time
 
+Already did model above, so just plot:
+
+```{r CEWL ~ time fig}
+ggplot(data = lizards_over_time) + 
+  geom_point(aes(x = time_pt, 
+                   y = CEWL_g_m2h, 
+                group = individual_ID,
+                color = individual_ID), 
+               size = 2,
+               alpha = 1) +
+  geom_line(aes(x = time_pt, 
+                   y = CEWL_g_m2h, 
+                group = individual_ID,
+                color = individual_ID),
+            alpha = 0.8) +
+  theme_classic() + 
+  xlab("Time (not to scale)") + 
+  ylab("CEWL (g)") + 
+  #annotate("text", x = 1, y = 64, label = "a", size = 6) +
+  #scale_color_brewer(palette = "Set2") +
+  theme(text = element_text(color = "black", 
+                            family = "sans", 
+                            size = 18),
+        axis.text = element_text(color = "black", 
+                                 family = "sans", 
+                                 size = 14),
+        legend.text.align = 0,
+        legend.position = "none"
+) -> CEWL_over_time
+CEWL_over_time
+
+# export figure
+#ggsave(filename = "CEWL_over_time.jpeg",
+ #      plot = CEWL_over_time,
+  #     path = "./results_figures",
+   #    device = "jpeg",
+    #   dpi = 1200,
+     #  width = 6, height = 4)
+```
+
+
 ## Body Temp
+
+```{r CEWL ~ body temp fig}
+ggplot(data = lizards_over_time) + 
+  geom_point(aes(x = cloacal_temp_C, 
+                   y = CEWL_g_m2h, 
+                group = individual_ID,
+                color = individual_ID), 
+               size = 2,
+               alpha = 1) +
+  #geom_line(aes(x = cloacal_temp_C, 
+   #                y = CEWL_g_m2h, 
+    #            group = individual_ID,
+     #           color = individual_ID),
+      #      alpha = 0.8) +
+  theme_classic() + 
+  xlab("cloacal_temp_C") + 
+  ylab("CEWL (g)") + 
+  #annotate("text", x = 1, y = 64, label = "a", size = 6) +
+  #scale_color_brewer(palette = "Set2") +
+  theme(text = element_text(color = "black", 
+                            family = "sans", 
+                            size = 18),
+        axis.text = element_text(color = "black", 
+                                 family = "sans", 
+                                 size = 14),
+        legend.text.align = 0,
+        legend.position = "none"
+) -> CEWL_body_temp
+CEWL_body_temp
+
+# export figure
+#ggsave(filename = "SMI_over_time.jpeg",
+ #      plot = SMI_over_time,
+  #     path = "./results_figures",
+   #    device = "jpeg",
+    #   dpi = 1200,
+     #  width = 6, height = 4)
+```
+
+
 
 ## Body Condition
 
 
+```{r CEWL ~ SMI fig}
+ggplot(data = lizards_over_time) + 
+  geom_point(aes(x = SMI, 
+                   y = CEWL_g_m2h, 
+                group = individual_ID,
+                color = individual_ID), 
+               size = 2,
+               alpha = 1) +
+  #geom_line(aes(x = SMI, 
+   #                y = CEWL_g_m2h, 
+    #            group = individual_ID,
+     #           color = individual_ID),
+      #      alpha = 0.8) +
+  theme_classic() + 
+  xlab("Body Condition (g)") + 
+  ylab("CEWL (g)") + 
+  #annotate("text", x = 1, y = 64, label = "a", size = 6) +
+  #scale_color_brewer(palette = "Set2") +
+  theme(text = element_text(color = "black", 
+                            family = "sans", 
+                            size = 18),
+        axis.text = element_text(color = "black", 
+                                 family = "sans", 
+                                 size = 14),
+        legend.text.align = 0,
+        legend.position = "none"
+) -> CEWL_SMI
+CEWL_SMI
 
+# export figure
+#ggsave(filename = "SMI_over_time.jpeg",
+ #      plot = SMI_over_time,
+  #     path = "./results_figures",
+   #    device = "jpeg",
+    #   dpi = 1200,
+     #  width = 6, height = 4)
+```
 
 
 
