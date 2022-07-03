@@ -35,6 +35,42 @@ library("Hmisc") # correlation matrix
 This data was collected during fieldwork with Blunt-nosed Leopard Lizards (*Gambelia sila*) in the Elkhorn Plain of the Carrizo Plain National Monument in California, USA during the 2021 active season (April-August). See published paper (doi) for complete methods and discussion of these analyses. 
 
 
+
+## Variable Explanation
+
+
+
+
+
+## CEWL
+
+```{r load CEWL data}
+CEWL_unformatted <- read.csv("data/CEWL_dat_all_clean.csv")
+
+# fix some upper/lowercase issues
+CEWL_unformatted[95, "individual_ID"] <- "F-08a"
+CEWL_unformatted[117, "individual_ID"] <- "M-03a"
+
+# M-03a was originally W-029, so we need to reassign the correct ID to CEWL msmts
+CEWL_unformatted[77, "individual_ID"] <- "M-03a"
+
+CEWL <- CEWL_unformatted %>%
+  dplyr::mutate(date = as.Date(date, format = "%Y-%m-%d"),
+                individual_ID = as.factor(individual_ID)) %>%
+  dplyr::select(-X)
+```
+
+
+## Osmolality
+
+```{r load osml data}
+osmolality <- read.csv("data/osml_means_clean.csv") %>%
+  dplyr::mutate(blood_draw_date = as.Date(blood_draw_date, format = "%m/%d/%y"),
+                individual_ID = as.factor(individual_ID))
+```
+
+
+
 ## Collared Lizards
 
 The first dataset loaded in is for lizards we radio-collared and tracked throughout the summer.
@@ -46,9 +82,6 @@ lizards_collared <- read.csv("data/collared_measurements.csv") %>%
   dplyr::mutate(capture_process_date_time = as.POSIXct(paste(capture_process_date, capture_time, sep = " "), format = "%m/%d/%y %H:%M"),
                 capture_process_date = as.Date(capture_process_date, 
                                                   format = "%m/%d/%y"),
-                # time with arbitrary date, need to figure out how to remove
-                #capture_time = as.POSIXct(capture_time, format = "%H:%M"),
-                #processing_time = as.POSIXct(processing_time, format = "%H:%M"),
                 SVL_mm = as.numeric(SVL_mm),
                 pre_tmt_mass_g = as.numeric(pre_tmt_mass_g),
                 pre_mass_w_collar_Y_N = as.factor(pre_mass_w_collar_Y_N),
@@ -58,8 +91,6 @@ lizards_collared <- read.csv("data/collared_measurements.csv") %>%
                 tmt_start_time = as.POSIXct(tmt_start_time, format = "%H:%M"),
                 tmt_end_time = as.POSIXct(tmt_end_time, format = "%H:%M"),
                 hematocrit_percent = as.numeric(hematocrit_percent),
-                osmolality_mmol_kg = as.numeric(osmolality_mmol_kg),
-                hemolyzed_Y_N = as.factor(hemolyzed_Y_N),
                 cloacal_temp_C = as.numeric(cloacal_temp_C)
                 ) %>%
   
@@ -68,10 +99,12 @@ lizards_collared <- read.csv("data/collared_measurements.csv") %>%
             by = 'individual_ID') %>%
   
   # add osmolality values from blood samples
-  #left_join(read.csv(osml)) %>%
-  
-  # add CEWL values from AquaFlux measurements
-  #left_join(read.csv(CEWL)) %>%
+  left_join(osmolality, by = c('individual_ID', 
+                   'capture_process_date' = 'blood_draw_date')) %>%
+
+  # add CEWL values
+  left_join(CEWL, by = c('individual_ID', 
+                   'capture_process_date' = 'date')) %>%
   
                 # format data classes
   dplyr::mutate(individual_ID = as.factor(individual_ID),
@@ -109,16 +142,15 @@ lizards_widespread <- read.csv("data/widespread_measurements.csv") %>%
                 mass_g = as.numeric(mass_g),
                 sex_M_F = as.factor(sex_M_F),
                 hematocrit_percent = as.numeric(hematocrit_percent),
-                osmolality_mmol_kg = as.numeric(osmolality_mmol_kg),
-                hemolyzed_Y_N = as.factor(hemolyzed.),
                 cloacal_temp_C = as.numeric(cloacal_temp_C)
                 ) %>%
 
   # add osmolality values from blood samples
-  #left_join(read.csv(osml)) %>%
-  
-  # add CEWL values from AquaFlux measurements
-  #left_join(read.csv(CEWL)) %>%
+  left_join(osmolality, by = c('individual_ID', 
+                   'date' = 'blood_draw_date')) %>%
+
+  # add CEWL values
+  left_join(CEWL, by = c('individual_ID', 'date')) %>%
 
                 #statistics
   dplyr::mutate(capture_to_msmt = as.numeric(processing_time - capture_time)
@@ -128,24 +160,6 @@ summary(lizards_widespread)
 ```
 
 
-## CEWL Data
-
-```{r load CEWL dat}
-CEWL <- read.csv("./data/CEWL_dat_all_clean.csv") %>%
-  dplyr::mutate(date = as.Date(date, format = "%Y-%m-%d"),
-                ID_len = nchar(individual_ID),
-                individual_ID = as.factor(paste(substr(individual_ID, 1, 1), "-", substr(individual_ID, 2, ID_len), sep = "")),
-                CEWL_g_m2h = as.numeric(CEWL_g_m2h),
-                msmt_temp_C = as.numeric(msmt_temp_C),
-                msmt_RH_percent = as.numeric(msmt_RH_percent)
-                ) %>%
-  dplyr::select(-X, -ID_len)
-summary(CEWL)
-```
-
-
-
-## Variable Explanation
 
 
 
@@ -228,12 +242,13 @@ lizards_collared %>%
   group_by(tmt, sex_M_F) %>%
   summarise(SVL_mean = mean(SVL_mm, na.rm = T),
             hct_mean = mean(hematocrit_percent, na.rm = T),
-            osml_mean = mean(osmolality_mmol_kg, na.rm = T),
-            mass_change_mean = mean(tmt_mass_change_g, na.rm = T)
+            osml_mean = mean(osmolality_mmol_kg_mean, na.rm = T),
+            mass_change_mean = mean(tmt_mass_change_g, na.rm = T),
+            CEWL_change_mean = mean(CEWL_g_m2h, na.rm = T)
             )
 ```
 
-Potentially......
+Only with mass it seems.
 
 Are the widespread-caught lizards any different?
 
@@ -242,7 +257,8 @@ lizards_widespread %>%
   group_by(sex_M_F) %>%
   summarise(SVL_mean = mean(SVL_mm, na.rm = T),
             hct_mean = mean(hematocrit_percent, na.rm = T),
-            osml_mean = mean(osmolality_mmol_kg, na.rm = T)
+            osml_mean = mean(osmolality_mmol_kg_mean, na.rm = T),
+            CEWL_mean = mean(CEWL_g_m2h, na.rm = T)
             )
 ```
 
@@ -274,8 +290,9 @@ widespread_clean <- lizards_widespread %>%
                 mass_g,
                 sex_M_F,
                 hematocrit_percent,
-                osmolality_mmol_kg,
+                osmolality_mmol_kg_mean,
                 cloacal_temp_C,
+                CEWL_g_m2h,
                 capture_to_msmt
                 ) %>%
   dplyr::mutate(tmt = as.factor("No Tmt"))
@@ -287,8 +304,9 @@ collared_clean <- lizards_collared %>%
                 mass_g = actual_pre_tmt_mass_g,
                 sex_M_F,
                 hematocrit_percent,
-                osmolality_mmol_kg,
+                osmolality_mmol_kg_mean,
                 cloacal_temp_C,
+                CEWL_g_m2h,
                 capture_to_msmt,
                 tmt
                 )
@@ -299,8 +317,7 @@ lizards_all <- rbind(widespread_clean, collared_clean) %>%
                                               date == "2021-04-25 PDT" ~ 1,
                                               date == "2021-05-07 PDT" ~ 2,
                                               date == "2021-05-08 PDT" ~ 2,
-                                              date == "2021-07-14 PDT" ~ 3))) %>%
-  left_join(CEWL, by = c('individual_ID', 'date'))
+                                              date == "2021-07-14 PDT" ~ 3)))
 
 lizards_all$tmt <- factor(lizards_all$tmt,
                           levels = c("hydration", "control", "No Tmt"),
@@ -318,19 +335,25 @@ summary(lizards_all)
 
 ## Calculate Body Condition
 
-**I need to do this with April data only!**
-
-
-
 This is also known as scaled mass index, or log-log residuals.
 
 I calculate as described by: Peig, J., & Green, A. J. (2009). New perspectives for estimating body condition from mass/length data: The scaled mass index as an alternative method. Oikos, 118(12), 1883–1891. https://doi.org/10.1111/j.1600-0706.2009.17643.x
 
 
+Step 0:
+
+get subset of data with only April data:
+
+```{r April only}
+April_lizard_dat <- lizards_all %>%
+  dplyr::filter(time_pt == "April")
+```
+
+
 Step 1: Simple Linear Regression
 
 ```{r SMI SLR}
-mass_SVL_SLR <- lm(data = lizards_all, mass_g ~ SVL_mm)
+mass_SVL_SLR <- lm(data = April_lizard_dat, mass_g ~ SVL_mm)
 summary(mass_SVL_SLR)
 ```
 
@@ -341,7 +364,7 @@ Step 2: Identify Outliers
 plot(mass_SVL_SLR)
 ```
 
-Hm, residuals are fanned-out, and many have high values, but they are evening distrubuted on either side of zero.
+Hm, residuals are fanned-out, and many have high values, but they are evenly distrubuted on either side of zero.
 
 
 So, check for high leverage points:
@@ -356,7 +379,7 @@ h_bar <- (3*sum(high_leverage$H))/nrow(high_leverage)
 
 # add to original dataframe 
 # see which observations have extremely high leverage (if any)
-high_leverage_dat <- lizards_all %>%
+high_leverage_dat <- April_lizard_dat %>%
   dplyr::mutate(residuals = residuals(mass_SVL_SLR)) %>%
   dplyr::mutate(row = rownames(.)) %>%
   left_join(., high_leverage, by = "row") %>%
@@ -364,7 +387,7 @@ high_leverage_dat <- lizards_all %>%
 high_leverage_dat
 ```
 
-The points for individuals W-002, W-004, and M-20 seem to be high-leverage, so we will try removing them.
+The point for individual M-20 seems to be high-leverage, so we will try removing
 
 Check for influential points based on Cook's distance:
 
@@ -374,7 +397,7 @@ cooks <- data.frame(c = cooks.distance(mass_SVL_SLR) # specify model name
                     ) %>% mutate(row = rownames(.))
 
 # add to original dataframe 
-influential <- lizards_all %>%
+influential <- April_lizard_dat %>%
   dplyr::mutate(residuals = residuals(mass_SVL_SLR)) %>%
   dplyr::mutate(row = rownames(.)) %>% 
   left_join(., cooks, by = "row")
@@ -392,17 +415,20 @@ There are none, so there's nothing to potentially remove.
 boxplot(residuals(mass_SVL_SLR))
 hist(residuals(mass_SVL_SLR))
 max(residuals(mass_SVL_SLR))
-influential %>% dplyr::filter(residuals > 13)
+influential %>% dplyr::filter(residuals < -10)
+influential %>% dplyr::filter(residuals > 8)
 ```
 
-From the boxplot, there is one individual with a much higher residual than the rest of the distribution. The histogram looks fine, and pretty normally distributed.
+From the boxplot, there are FOUR individuals with much larger residuals than the rest of the distribution. The histogram looks fine, and pretty normally distributed.
 
 
-Test whether removing the three high-leverage pts and the one high residual pt improve things:
+Test whether removing the high-leverage pt and the high residuals improve things:
 
 ```{r remove outliers}
-cleaned_SMI_dat <- lizards_all %>%
-  dplyr::filter(individual_ID %nin% c("W-002", "W-004", "M-20", "F-03"))
+cleaned_SMI_dat <- April_lizard_dat %>%
+  dplyr::filter(individual_ID %nin% c("W-012", "W-015", 
+                                      "M-07", "M-15", "M-20", 
+                                      "F-03"))
 ```
 
 
@@ -416,13 +442,13 @@ mean(residuals(mass_SVL_SLR2))
 median(residuals(mass_SVL_SLR2))
 ```
 
-I don't think removing those points improved things much, so we'll just stick with the full dataset.
+I don't think removing those points improved things much with residuals, but R-sq is a little better, so I will keep the subsetted dataset.
 
 
 Step 3: log-log Regression
 
 ```{r SMI log log regression}
-log_mass_SVL_SLR <- lm(data = lizards_all, 
+log_mass_SVL_SLR <- lm(data = cleaned_SMI_dat, 
                        log(mass_g) ~ log(SVL_mm))
 summary(log_mass_SVL_SLR)
 ```
@@ -433,15 +459,15 @@ Step 4: Extract Values
 compute standardized major axis using the log-log regression equation:
 
 ```{r SMI equation}
-r <- sqrt(0.733) # Pearson's correlection coefficient (sqrt of R-squared)
-b_OLS <- 2.2313 # regression slope
+r <- sqrt(0.8526) # Pearson's correlection coefficient (sqrt of R-squared)
+b_OLS <- 2.0891 # regression slope
 b_SMA <- b_OLS/r
 ```
 
 mean length in capture data:
 
 ```{r mean SVL}
-L0 <- mean(lizards_all$SVL_mm)
+L0 <- mean(April_lizard_dat$SVL_mm)
 ```
 
 
