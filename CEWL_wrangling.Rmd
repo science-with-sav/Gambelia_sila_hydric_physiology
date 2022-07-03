@@ -56,15 +56,19 @@ read_CEWL_file <- function(filename) {
                   individual_ID = as.factor(case_when(
                     ID_len == 7 ~ as.character(paste(substr(ID_rep_no, 1, 1),
                                              substr(ID_rep_no, 3, 5),
-                                             sep = "")),
+                                             sep = "-")),
                     ID_len == 6 & substr(ID_rep_no, 1, 1) == "W" 
-                        ~ as.character(substr(ID_rep_no, 1, 4)),
+                        ~ as.character(paste(substr(ID_rep_no, 1, 1),
+                                             substr(ID_rep_no, 2, 4),
+                                             sep = "-")),
                     ID_len == 6 & substr(ID_rep_no, 1, 1) %in% c("M", "F") 
                         ~ as.character(paste(substr(ID_rep_no, 1, 1),
                                              substr(ID_rep_no, 3, 4),
-                                             sep = "")),
-                    ID_len == 5 ~ as.character(substr(ID_rep_no, 1, 3))
-                    )),
+                                             sep = "-")),
+                    ID_len == 5 ~ as.character(paste(substr(ID_rep_no, 1, 1),
+                                             substr(ID_rep_no, 2, 3),
+                                             sep = "-")))
+                    ),
                   
                   # works
                   replicate_no = as.factor(case_when(
@@ -94,6 +98,7 @@ all_CEWL_data <- lapply(filenames, read_CEWL_file) %>%
          )
 
 summary(all_CEWL_data)
+unique(all_CEWL_data$individual_ID)
 ```
 
 
