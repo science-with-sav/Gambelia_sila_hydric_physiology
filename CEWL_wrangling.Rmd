@@ -1,8 +1,12 @@
 ---
 title: "BNLL CEWL Data Wrangling"
 author: "Savannah Weaver"
-output: pdf_document
-toc: TRUE
+output: 
+  rmdformats::html_clean:
+    highlight: tango
+    thumbnails: FALSE
+    toc: TRUE
+    toc_depth: 3
 ---
 
 
@@ -12,6 +16,8 @@ toc: TRUE
 `%nin%` = Negate(`%in%`)
 if (!require("tidyverse")) install.packages("tidyverse")
 library("tidyverse") # workflow and plots
+if (!require("rmdformats")) install.packages("rmdformats")
+library("rmdformats") # clean html R markdown format
 ```
 
 
@@ -48,7 +54,20 @@ read_CEWL_file <- function(filename) {
                   CEWL_g_m2h = 'TEWL..g..m2h..', 
                   msmt_temp_C = 'AmbT..C.', 
                   msmt_RH_percent = 'AmbRH....'
-                  ) %>%
+                  ) 
+  
+  # return the dataframe for that single csv file
+  dat
+}
+```
+
+3. Apply the function I made to all of the filenames I compiled, then put all of those dataframes into one dataframe. This will print warnings saying that header and col.names are different lengths, because the data has extra notes cols that we read-in, but get rid of. Additionally, filter out failed measurements and properly format data classes.
+
+```{r}
+# apply function to get data from all csvs
+all_CEWL_data <- lapply(filenames, read_CEWL_file) %>%
+  # paste all data files together into one df by row
+  reduce(rbind) %>%
     # extract individual_ID and replicate number
     dplyr::mutate(ID_rep_no = as.character(ID_rep_no),
                   ID_len = as.factor(nchar(ID_rep_no)),
@@ -69,26 +88,11 @@ read_CEWL_file <- function(filename) {
                                              substr(ID_rep_no, 2, 3),
                                              sep = "-")))
                     ),
-                  
-                  # works
                   replicate_no = as.factor(case_when(
                     ID_len == 7 ~ as.character(substr(ID_rep_no, 7, 7)),
                     ID_len == 6 ~ as.character(substr(ID_rep_no, 6, 6)),
                     ID_len == 5 ~ as.character(substr(ID_rep_no, 5, 5))
-                    )))
-  
-  # return the dataframe for that single csv file
-  dat
-}
-```
-
-3. Apply the function I made to all of the filenames I compiled, then put all of those dataframes into one dataframe. This will print warnings saying that header and col.names are different lengths, because the data has extra notes cols that we read-in, but get rid of. Additionally, filter out failed measurements and properly format data classes.
-
-```{r}
-# apply function to get data from all csvs
-all_CEWL_data <- lapply(filenames, read_CEWL_file) %>%
-  # paste all data files together into one df by row
-  reduce(rbind) %>%
+                    ))) %>%
   # filter out failed measurements
   dplyr::filter(status == "Normal") %>%
   # correctly format data classes
@@ -119,7 +123,7 @@ all_CEWL_data %>%
 The number of measurements taken is good! Almost always 3 or 5, with two lizards who only got 4 measurements, which is fine. But, M01 on April 23 and M03a on July 14 have abnormal time ranges of 43140 seconds (almost 12h), so we need to check that data.
 
 ```{r}
-all_CEWL_data %>% dplyr::filter(individual_ID %in% c("M01", "M03A"))
+all_CEWL_data %>% dplyr::filter(individual_ID %in% c("M-01", "M-03A"))
 ```
 
 Aha, it seems the problem is that the time isn't perfectly formatted, so 1 pm is coded as 1 am --> the measurements in question went across hours of 12 noon to 1 pm, so when reformatted, it seems like 1 am to 12 pm. It's fine as-is, and nothing is amiss with the data.
@@ -276,158 +280,99 @@ hist(CVs$range)
 ```
 
 
-This definitely improved things, but unfortunately, CVs are still skewed to the right. I think the replicate groups with only 3 replicates are harder to find outliers in, so let's compute pairwise CVs and see if we can still minimze the larger range/CV values.
+This definitely improved things, but unfortunately, CVs are still skewed to the right. I think the replicate groups with only 3 replicates are harder to find outliers in.
 
+Check the info for lizards with super high value ranges:
 
+```{r}
+new_CVs %>%
+  dplyr::filter(range > 10)
+```
 
-## Find "Outliers"
+Look at the original CEWL measurements for those lizards: 
 
-Determine which replicates lead to an increased CV...
-
-```{r find super different values}
-# which individuals have how many reps
-n_reps <- outliers_omitted %>%
-  group_by(individual_ID, date) %>%
-  summarise(n = (n()))
-
-# prep dfs for computing CVs
-oo_small_345 <- outliers_omitted %>%
-  dplyr::select(individual_ID, date, CEWL_g_m2h, replicate_no)
-
-oo_small_45 <- oo_small_345 %>%
-  left_join(n_reps, by = c('individual_ID', 'date')) %>%
-  dplyr::filter(n %in% c(4, 5))
-
-oo_small_5 <- oo_small_45 %>%
-  dplyr::filter(n == 5)
-
-# test excluding different replicates
-CV_excl1 <- oo_small_345 %>%
-    dplyr::filter(replicate_no != 1) %>%
-    group_by(individual_ID, date) %>%
-    summarise(mean = mean(CEWL_g_m2h),
-              SD = sd(CEWL_g_m2h),
-              CV = (SD/mean) *100) %>%
-    mutate(rep_excluded = "1") 
-CV_excl2 <- oo_small_345 %>% 
-    dplyr::filter(replicate_no != 2) %>%
-    group_by(individual_ID, date) %>%
-    summarise(mean = mean(CEWL_g_m2h),
-              SD = sd(CEWL_g_m2h),
-              CV = (SD/mean) *100) %>%
-    mutate(rep_excluded = "2") 
-CV_excl3 <- oo_small_345 %>% 
-    dplyr::filter(replicate_no != 3) %>%
-    group_by(individual_ID, date) %>%
-    summarise(mean = mean(CEWL_g_m2h),
-              SD = sd(CEWL_g_m2h),
-              CV = (SD/mean) *100) %>%
-    mutate(rep_excluded = "3") 
-CV_excl4 <- oo_small_45 %>% 
-    dplyr::filter(replicate_no != 4) %>%
-    group_by(individual_ID, date) %>%
-    summarise(mean = mean(CEWL_g_m2h),
-              SD = sd(CEWL_g_m2h),
-              CV = (SD/mean) *100) %>%
-    mutate(rep_excluded = "4") 
-CV_excl5 <- oo_small_5 %>%
-    dplyr::filter(replicate_no != 5) %>%
-    group_by(individual_ID, date) %>%
-    summarise(mean = mean(CEWL_g_m2h),
-              SD = sd(CEWL_g_m2h),
-              CV = (SD/mean) *100) %>%
-    mutate(rep_excluded = "5") 
-  
-
-# figure out what replicate inflates CV (and range)
-compare <- oo_small_345 %>%
-    # first compute CV again with ALL replicates
-    group_by(individual_ID, date) %>%
-    summarise(mean = mean(CEWL_g_m2h),
-              SD = sd(CEWL_g_m2h),
-              CV = (SD/mean) *100) %>%
-    mutate(rep_excluded = "none") %>%
-    # attach other CVs with sub-setted rep numbers
-    rbind(CV_excl1) %>%
-    rbind(CV_excl2) %>%
-    rbind(CV_excl3) %>%
-    rbind(CV_excl4) %>%
-    rbind(CV_excl5) %>%
-    # compare which group of reps gives the lowest CV for each individual
-    group_by(individual_ID, date) %>%
-    dplyr::mutate(none_CV = case_when(rep_excluded == "none" ~ CV,
-                                      rep_excluded != "none" ~ NA_real_),
-                  min_CV = min(CV),
-                  none_vs_min = none_CV - min_CV,
-                  rep_excluded = as.factor(rep_excluded))
-summary(compare)
-hist(compare$none_vs_min, breaks = 100)
+```{r}
+outliers_omitted %>%
+  dplyr::filter(individual_ID == "F-02" & date == "2021-04-23")
+outliers_omitted %>%
+  dplyr::filter(individual_ID == "F-05" & date == "2021-04-24")
+outliers_omitted %>%
+  dplyr::filter(individual_ID == "F-06" & date == "2021-04-24")
+outliers_omitted %>%
+  dplyr::filter(individual_ID == "F-11" & date == "2021-05-08") # fine
+outliers_omitted %>%
+  dplyr::filter(individual_ID == "F-14" & date == "2021-04-24")
+outliers_omitted %>%
+  dplyr::filter(individual_ID == "F-17" & date == "2021-05-08") # fine
+outliers_omitted %>%
+  dplyr::filter(individual_ID == "M-10" & date == "2021-04-24")
+outliers_omitted %>%
+  dplyr::filter(individual_ID == "W-013" & date == "2021-04-24")
+outliers_omitted %>%
+  dplyr::filter(individual_ID == "W-016" & date == "2021-04-24") # fine
+outliers_omitted %>%
+  dplyr::filter(individual_ID == "W-017" & date == "2021-04-24")
+outliers_omitted %>%
+  dplyr::filter(individual_ID == "W-024" & date == "2021-04-24") # fine
+outliers_omitted %>%
+  dplyr::filter(individual_ID == "W-026" & date == "2021-04-25")
+outliers_omitted %>%
+  dplyr::filter(individual_ID == "W-031" & date == "2021-05-07") # def need to remove negative value, yikes
+outliers_omitted %>%
+  dplyr::filter(individual_ID == "W-037" & date == "2021-05-08")
 ```
 
 
-## Remove Outliers
 
-```{r remove remaining outliers}
-# take the "none" removed rep avg when none_vs_min <5
-no_cleaning_needed <- compare %>%
-  dplyr::filter(none_vs_min <= 5) %>%
-  dplyr::select(individual_ID, date, rep_excluded)
+## Remove Extreme Values
 
-# get rest
-needs_cleaning_IDs <- compare %>%
-  dplyr::filter(none_vs_min > 5) %>%
-  dplyr::mutate(keep = "KEEP") %>%
-  dplyr::select(individual_ID, date, keep)
+```{r}
+evs_omitted <- outliers_omitted %>%
+  dplyr::filter(!(individual_ID == "F-02" & CEWL_g_m2h == 26.69)) %>%
+  dplyr::filter(!(individual_ID == "F-05" & CEWL_g_m2h == 65.31)) %>%
+  dplyr::filter(!(individual_ID == "F-06" & CEWL_g_m2h == 28.92)) %>%
+  dplyr::filter(!(individual_ID == "F-14" & CEWL_g_m2h == 26.25)) %>%
+  dplyr::filter(!(individual_ID == "M-10" & CEWL_g_m2h == 30.79)) %>%
+  dplyr::filter(!(individual_ID == "W-013" & CEWL_g_m2h == 23.36)) %>%
+  dplyr::filter(!(individual_ID == "W-017" & CEWL_g_m2h == 24.31)) %>%
+  dplyr::filter(!(individual_ID == "W-026" & CEWL_g_m2h == 42.56)) %>%
+  dplyr::filter(!(individual_ID == "W-031" & CEWL_g_m2h == -1.32)) %>%
+  dplyr::filter(!(individual_ID == "W-037" & CEWL_g_m2h == 7.48))
+nrow(outliers_omitted) == nrow(evs_omitted) + 10
+```
 
-# check number of data obs
-test_n <- outliers_omitted %>% 
+## Re-Assess Variation
+
+```{r re-check variation 2}
+new_new_CVs <- evs_omitted %>%
   group_by(individual_ID, date) %>%
-  summarise(n = n())
-nrow(test_n) == (nrow(no_cleaning_needed) + nrow(needs_cleaning_IDs))
-
-# designate what to remove / not
-how_cleaning <- compare %>%
-  left_join(needs_cleaning_IDs) %>%
-  dplyr::filter(keep == "KEEP") %>%
-  dplyr::filter(CV == min_CV) %>%
-  dplyr::select(individual_ID, date, rep_excluded) %>%
-  rbind(no_cleaning_needed)
-
-# check
-nrow(test_n) == (nrow(how_cleaning))
-
-# remove!! :D
-cleaned_using_CVs <- outliers_omitted %>%
-  left_join(how_cleaning, by = c("individual_ID", "date")) %>%
-  dplyr::filter(replicate_no != as.character(rep_excluded))
-
-# check that we improved things
-check <- cleaned_using_CVs %>%
-  group_by(individual_ID, date) %>%
-  summarise(CEWL_g_m2h_mean = mean(CEWL_g_m2h),
-            rep_SD = sd(CEWL_g_m2h),
-            rep_CV = (rep_SD/CEWL_g_m2h_mean) *100,
-            rep_min = min(CEWL_g_m2h),
-            rep_max = max(CEWL_g_m2h),
-            rep_range = rep_max - rep_min
-            )
-hist(check$rep_CV)
+  summarise(mean = mean(CEWL_g_m2h),
+            SD = sd(CEWL_g_m2h),
+            CV = (SD/mean) *100,
+            min = min(CEWL_g_m2h),
+            max = max(CEWL_g_m2h),
+            range = max - min)
+summary(new_new_CVs)
 hist(new_CVs$CV)
-hist(check$rep_range) 
-hist(new_CVs$range)
+hist(new_new_CVs$CV)
+hist(new_CVs$range) 
+hist(new_new_CVs$range) 
 ```
 
-Yes, we decreased the CVs and ranges even more, so I think worth the data scrubbing.
-
+Another big improvement. :)
 
 ## Average Replicates (outliers removed)
 
 ```{r get replicate means}
-CEWL_final <- cleaned_using_CVs %>%
+CEWL_final <- evs_omitted %>%
   group_by(date, individual_ID) %>%
   summarise(CEWL_g_m2h = mean(CEWL_g_m2h),
             msmt_temp_C = mean(msmt_temp_C),
-            msmt_RH_percent = mean(msmt_RH_percent))
+            msmt_RH_percent = mean(msmt_RH_percent)) %>%
+  # calculate VPD based on Campbell & Norman 1998
+  mutate(e_s_kPa = 0.611 * exp((17.502*msmt_temp_C)/(msmt_temp_C + 240.97)),
+         msmt_VPD_kPa = e_s_kPa*(1 - (msmt_RH_percent/100))
+         )
 head(CEWL_final)
 ```
 
@@ -450,14 +395,14 @@ All is as expected. :)
 Check how many observations were used to calculate mean CEWL for each individual on each date:
 
 ```{r re-check n obs}
-cleaned_using_CVs %>%
+evs_omitted %>%
   group_by(individual_ID, date) %>%
   summarise(n = n()) %>% 
   arrange(n)
 ```
 
 
-Between 2-5. So, We were able to delete a point if it was off from the other two in a group of 3.
+Between 2-5.
 
 
 
@@ -466,7 +411,7 @@ Between 2-5. So, We were able to delete a point if it was off from the other two
 Save the cleaned data for models and figures.
 
 ```{r save clean data}
-write.csv(CEWL_final, "./data/CEWL_dat_all_clean.csv")
+write_rds(CEWL_final, "./data/CEWL_dat_all_clean.RDS")
 ```
 
 
@@ -475,6 +420,6 @@ write.csv(CEWL_final, "./data/CEWL_dat_all_clean.csv")
 
 ## Reporting
 
-We omitted a total of 105 measurements from our CEWL dataset (465 - 351): 1 replicate was removed for most individuals. We used the boxplot.stats function in R to extract outliers from each set of technical replicates, and 24 points were removed this way. The remaining 81 removed replicates were taken out because they increased the CV for their replicate group by >5% compared to the CV without that point. After data cleaning, every individual still had 2-5 technical replicates for each of their measurement dates. The distribution of coefficient of variation values was much better after both data cleaning steps than before.
+We omitted a total of 105 measurements from our CEWL dataset (465 - 351): 1 replicate was removed for most individuals. We used the boxplot.stats function in R to extract outliers from each set of technical replicates, and 24 points were removed this way (outliers_found dataframe). We removed an additional 10 extreme replicate values from rep groups with extremely high CEWL value ranges where the rest of the reps were very similar; this was always for rep sets of 3, so the outlier just couldn't be detected statistically. After data cleaning, every individual still had 2-5 technical replicates for each of their measurement dates. The distribution of coefficient of variation values was much better after both data cleaning steps than before.
 
 
