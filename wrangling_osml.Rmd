@@ -1,0 +1,305 @@
+---
+title: "BNLL Plasma Osmolality Data Wrangling"
+author: "Savannah Weaver"
+output: 
+  rmdformats::html_clean:
+    highlight: tango
+    thumbnails: FALSE
+    toc: TRUE
+    toc_depth: 3
+---
+
+
+# Packages
+
+```{r setup, include = TRUE}
+`%nin%` = Negate(`%in%`)
+if (!require("tidyverse")) install.packages("tidyverse")
+library("tidyverse") # workflow and plots
+if (!require("rmdformats")) install.packages("rmdformats")
+library("rmdformats") # clean html R markdown format
+```
+
+
+# Background and Goals
+
+Blood was drawn from the postorbital sinus of Blunt-nosed Leopard Lizards (*Gambelia sila*) between April - July 2021. After centrifuging and separating, plasma was run on a VAPRO vapor pressure osmometer in 1-3 replicates, when plasma volume allowed. In this R script, I check the distribution of replicates, omit outliers, and average remaining replicates. The final values will be more precise and accurate estimates of the true plasma osmolality for each lizard, and those values will be used in the analyses R script file. Please refer to **doi:** for the published scientific paper  and full details.
+
+
+# Load Data
+
+```{r load data}
+osml_reps <- read.csv("./data/osmolality.csv",
+                na.strings = c("","NA"),
+                header = TRUE
+                ) %>%
+    dplyr::mutate(blood_draw_date = as.Date(blood_draw_date,
+                                             format = "%m/%d/%y"),
+                  individual_ID = as.factor(individual_ID),
+                  replicate_no = as.factor(replicate_no),
+                  osmolality_mmol_kg = as.numeric(osmolality_mmol_kg),
+                  hemolyzed_Y_N = as.factor(hemolyzed_Y_N),
+                  )
+summary(osml_reps)
+unique(osml_reps$blood_draw_date)
+```
+
+
+# Replicates
+
+Now, I will try to identify outliers within the replicates for a given individual on a given date. There must be at least 3 replicates to do this, so the first thing I need to do is figure out which individuals/dates have enough replicates, then subset my data to be only those individuals.
+
+
+## Individuals w 3+ Replicates
+
+```{r separate data w enough reps to assess}
+# identify individuals with 3-4 reps
+enuf_reps <- osml_reps %>%
+  group_by(individual_ID, blood_draw_date) %>%
+  mutate(count = n()) %>%
+  dplyr::filter(count > 2) %>%
+  arrange(count)
+enuf_reps
+
+# identify individuals with 1-2 reps
+not_reps <- osml_reps %>%
+  group_by(individual_ID, blood_draw_date) %>%
+  mutate(count = n()) %>%
+  dplyr::filter(count < 3) %>%
+  arrange(count)
+not_reps
+
+# check total obs still add to original 307
+nrow(enuf_reps) + nrow(not_reps)
+nrow(enuf_reps) + nrow(not_reps) == nrow(osml_reps)
+```
+
+Most of the blood samples had enough plasma for 3 reps :)
+
+
+## Assess Variation
+
+We want the Coefficient of Variation (CV) among our technical replicates to be small. We need to calculate it to identify whether there may be outliers.
+
+```{r calculate CVs}
+CVs <- enuf_reps %>%
+  group_by(individual_ID, blood_draw_date) %>%
+  summarise(mean = mean(osmolality_mmol_kg),
+            SD = sd(osmolality_mmol_kg),
+            CV = (SD/mean) *100,
+            min = min(osmolality_mmol_kg),
+            max = max(osmolality_mmol_kg),
+            range = max - min
+            )
+summary(CVs)
+hist(CVs$CV)
+hist(CVs$range) 
+```
+
+Ideally, CV would be <10-15%. If it's larger, and one of the replicates is very different than the others, we can assume that the replicates that are closer together are more reliable. CV values look really good, which is surprising because the range of values for some groups of replicates is 20-60 mmol/kg, which is very very high. So, I don't think we will necessarily find statistical outliers.
+
+
+
+## Find Outliers
+
+```{r create find outlier function}
+# write function to find outliers for each individual on each date
+find_outliers <- function(df) {
+  
+  # initiate dataframe to compile info and list to compile plots
+  outliers <- data.frame()
+  #boxplots <- list()
+
+  # initiate a for loop to go through every who in df
+  for(indiv_ch in unique(df$individual_ID)) {
+    
+    # select data for only the individual of interest
+    df_sub <- df %>%
+      dplyr::filter(individual_ID == as.character(indiv_ch))
+    
+    # make a boxplot
+    df_sub %>%
+      ggplot(.) +
+      geom_boxplot(aes(x = as.factor(blood_draw_date),
+                       y = osmolality_mmol_kg,
+                       fill = as.factor(blood_draw_date))) +
+      ggtitle(paste("Individual", indiv_ch)) +
+      theme_classic() -> plot
+    
+    # print/save
+    print(plot)
+    #boxplots[[indiv_ch]] <- plot
+    
+    # extract outliers
+    outs <- df_sub %>%
+      group_by(individual_ID, blood_draw_date) %>%
+      summarise(outs = boxplot.stats(osmolality_mmol_kg)$out)
+    
+    # add to running dataframe of outliers
+    outliers <- outliers %>%
+      rbind(outs)
+  }
+  #return(boxplots)
+  return(outliers)
+}
+```
+
+
+Now apply the function to the data:
+
+```{r find outlier using boxplots, fig.show="hold", out.width="50%"}
+par(mfrow = c(71, 2))
+outliers_found <- find_outliers(enuf_reps)
+outliers_found
+par(mfrow = c(1, 1))
+```
+
+As expected, based on boxplots, there are no outliers, but we still want to find and omit the points severely increasing the replicate ranges.
+
+
+Determine which replicates lead to an increased CV... The osmometer is supposed to have measurement precision within a range of ±3 mmol/kg, so if a single point is >10 mmol/kg different from both other measurements, then we should consider omitting it as an extreme value.
+
+```{r find super different values}
+# only do this if the range > 10, otherwise it messes up
+high_ranges <- enuf_reps %>%
+  group_by(individual_ID, blood_draw_date) %>%
+  dplyr::mutate(mean = mean(osmolality_mmol_kg),
+                 min = min(osmolality_mmol_kg),
+                 max = max(osmolality_mmol_kg),
+                 osml_range = max - min) %>%
+   dplyr::filter(osml_range > 10) %>%
+   dplyr::select(individual_ID, blood_draw_date, osmolality_mmol_kg, replicate_no, osml_range)
+
+CV_12 <- high_ranges %>% # get CV for only reps 1&2
+    dplyr::filter(replicate_no != 3) %>%
+    group_by(individual_ID, blood_draw_date) %>%
+    summarise(osml_range = max(osmolality_mmol_kg) - min(osmolality_mmol_kg)
+              ) %>%
+    mutate(rep_excluded = "3")
+  
+CV_23 <- high_ranges %>% # get CV for only reps 2&3
+    dplyr::filter(replicate_no != 1) %>%
+    group_by(individual_ID, blood_draw_date) %>%
+    summarise(osml_range = max(osmolality_mmol_kg) - min(osmolality_mmol_kg)
+              ) %>%
+    mutate(rep_excluded = "1")
+  
+CV_31 <- high_ranges %>% # get CV for only reps 3&1
+    dplyr::filter(replicate_no != 2) %>%
+    group_by(individual_ID, blood_draw_date) %>%
+    summarise(osml_range = max(osmolality_mmol_kg) - min(osmolality_mmol_kg)
+              ) %>%
+    mutate(rep_excluded = "2")
+
+# figure out what replicate inflates CV (and range)
+compare <- high_ranges %>%
+    mutate(rep_excluded = "none") %>%
+    rbind(CV_12) %>%
+    rbind(CV_23) %>%
+    rbind(CV_31) %>%
+    group_by(individual_ID, blood_draw_date) %>%
+    dplyr::mutate(min_range = min(osml_range)) %>%
+    dplyr::filter(min_range == osml_range) %>%
+  # reset factor after getting rid of "none's"
+    mutate(rep_excluded = factor(rep_excluded)) %>%
+    arrange(individual_ID, blood_draw_date)
+compare
+summary(compare)
+```
+
+Make sure we only found one rep to remove per indiv per date:
+
+```{r}
+compare %>%
+  group_by(individual_ID, blood_draw_date) %>%
+  summarise(n = n()) %>%
+  dplyr::filter(n>1)
+```
+
+
+Okay, we just won't remove any of the replicates for that individual.
+
+```{r}
+done_compare <- compare %>%
+  dplyr::filter(!(individual_ID == "M-03a" & blood_draw_date == "2021-05-07")) %>%
+  dplyr::select(individual_ID, blood_draw_date, rep_excluded)
+```
+
+
+
+## Remove Outliers
+
+```{r remove outlier}
+# need to save these or they get filtered out by default
+save <- enuf_reps %>%
+  left_join(done_compare, by = c("individual_ID", "blood_draw_date")) %>%
+  dplyr::filter(is.na(rep_excluded) == TRUE)
+
+# remove "outlying" replicates
+cleaned <- enuf_reps %>%
+  left_join(done_compare, by = c("individual_ID", "blood_draw_date")) %>%
+  dplyr::filter(replicate_no != rep_excluded)
+
+# check number of data obs
+nrow(enuf_reps) == (nrow(done_compare) + nrow(cleaned) + nrow(save))
+```
+
+## Re-Assess Variation
+
+```{r}
+full_cleaned_enuf <- save %>%
+  rbind(cleaned) 
+check <- full_cleaned_enuf %>%
+  group_by(individual_ID, blood_draw_date) %>%
+  summarise(osmolality_mmol_kg_mean = mean(osmolality_mmol_kg),
+            rep_SD = sd(osmolality_mmol_kg),
+            rep_CV = (rep_SD/osmolality_mmol_kg_mean) *100,
+            rep_min = min(osmolality_mmol_kg),
+            rep_max = max(osmolality_mmol_kg),
+            rep_range = rep_max - rep_min
+            )
+hist(check$rep_CV)
+hist(CVs$CV) # old
+hist(check$rep_range) 
+hist(CVs$range) # old
+```
+
+
+The ranges and CVs are much improved.
+
+
+## Average Remaining Replicates
+
+Now that the outliers are removed from the technical replicates when there were enough replicates to identify them, I will average the remaining replicates and check that it meaningfully improved things.
+
+```{r calculate means}
+osml_means <- not_reps %>%
+  rbind(full_cleaned_enuf) %>%
+  group_by(individual_ID, blood_draw_date) %>%
+  summarise(osmolality_mmol_kg_mean = mean(osmolality_mmol_kg))
+```
+
+
+
+# Final Synthesis
+
+## Export
+
+```{r export cleaned}
+write_rds(osml_means, "./data/osml_means_clean.RDS")
+```
+
+
+## Reporting
+
+```{r}
+nrow(enuf_reps) - nrow(full_cleaned_enuf)
+```
+
+We omitted 48 extreme values from samples with 3 replicates. By extreme, I mean the value of that rep was very different from others, and the other reps were very close in value.
+
+
+
+
+
+
