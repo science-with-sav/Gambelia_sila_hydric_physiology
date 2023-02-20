@@ -1,21 +1,21 @@
 ultrasound_date,individual_ID,gravid_Y_N,number_eggs,largest_egg_diameter_cm,largest_egg_circumference_cm,,stage
-4/24/21,F-04,N,,,,,large round
-4/24/21,F-13,N,,,,,large round
-4/24/21,F-02,N,,,,,large round
+4/24/21,F-04,N,,,,,
+4/24/21,F-13,N,,,,,
+4/24/21,F-02,N,,,,,
 4/24/21,F-03,Y,4,0.99,2.88,,large round
-4/24/21,F-01,N,,,,,large round
-4/24/21,F-12,N,,,,,large round
-4/24/21,F-11,N,,,,,large round
+4/24/21,F-01,N,,,,,
+4/24/21,F-12,N,,,,,
+4/24/21,F-11,N,,,,,
 4/24/21,F-07,Y,4,0.57,1.71,,large round
 4/24/21,F-15,Y,4,0.87,2.45,,large round
 4/24/21,F-05,Y,4,0.76,2.19,,large round
-4/24/21,F-08,N,,,,,large round
+4/24/21,F-08,N,,,,,
 4/24/21,F-06,Y,4,0.74,2.07,,large round
-4/24/21,F-09,N,,,,,large round
-4/24/21,F-14,N,,,,,large round
-4/24/21,F-10,N,,,,,large round
+4/24/21,F-09,N,,,,,
+4/24/21,F-14,N,,,,,
+4/24/21,F-10,N,,,,,
 4/24/21,F-16,Y,4,0.9,2.66,,large round
-4/24/21,F-17,N,,,,,large round
+4/24/21,F-17,N,,,,,
 5/8/21,F-05,Y,4,1.8,4.74,,soft
 5/8/21,F-16,Y,3,1.51,4.03,,soft
 5/8/21,F-13,Y,4,1.48,4.07,,firm oblong

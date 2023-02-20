@@ -1,0 +1,571 @@
+---
+title: "BNLL Physiology - General Data Wrangling"
+author: "Savannah Weaver"
+output: 
+  rmdformats::html_clean:
+    highlight: tango
+    thumbnails: FALSE
+    toc: TRUE
+    toc_depth: 3
+---
+
+
+# Packages
+
+```{r setup, include = TRUE}
+`%nin%` = Negate(`%in%`)
+if (!require("tidyverse")) install.packages("tidyverse")
+library("tidyverse") # workflow and plots
+if (!require("rmdformats")) install.packages("rmdformats")
+library("rmdformats") # clean html R markdown format
+library(stringr)
+```
+
+
+# Background and Goals
+
+Blood was drawn from the postorbital sinus of Blunt-nosed Leopard Lizards (*Gambelia sila*) between April - July 2021. After centrifuging and separating, plasma was run on a VAPRO vapor pressure osmometer in 1-3 replicates, when plasma volume allowed. In this R script, I check the distribution of replicates, omit outliers, and average remaining replicates. The final values will be more precise and accurate estimates of the true plasma osmolality for each lizard, and those values will be used in the analyses R script file. Please refer to **doi:** for the published scientific paper  and full details.
+
+
+# Load Data
+
+
+
+## CEWL
+
+```{r load CEWL data}
+CEWL <- read_rds("./data/CEWL_dat_all_clean.RDS") %>%
+  # fix some upper/lowercase issues
+  mutate(individual_ID = str_to_title(tolower(individual_ID)),
+         # M-03a was originally W-029, so we need to reassign
+         individual_ID = replace(individual_ID, individual_ID == "W-029", "M-03a"),
+         individual_ID = factor(individual_ID))
+
+summary(CEWL)
+unique(CEWL$individual_ID)
+```
+
+
+## Osmolality
+
+```{r load osml data}
+osmolality <- read_rds("./data/osml_means_clean.RDS")
+summary(osmolality)
+```
+
+
+## Ultrasounding on Eggs
+
+```{r get ultrasound data}
+eggs <- read.csv("./data/females_ultrasounding.csv") %>%
+  mutate(ultrasound_date = as.Date(ultrasound_date, format = "%m/%d/%y"),
+         individual_ID = factor(individual_ID),
+         gravid_Y_N = factor(gravid_Y_N,
+                             levels = c("Y", "N"),
+                             labels = c("Gravid", "Not Gravid")),
+         stage = str_trim(stage)) %>%
+  left_join(read.csv("./data/female_egg_dvmt_key.csv"), 
+            by = c('stage' = 'name')) %>%
+  mutate(stage = factor(stage,
+                        levels = c("small round", "large round", "soft",
+                                   "soft oblong", "firm oblong", "hard oblong")),
+         dev_point = stage.y) %>%
+  dplyr::select(-X, -stage.y) %>%
+  mutate(month = factor(substr(as.character(ultrasound_date), 7, 7),
+                          labels = c("April", "May")))
+
+summary(eggs)
+```
+
+
+## Radio-Collared Lizards
+
+
+```{r get data collared lizards}
+lizards_collared <- read.csv("./data/collared_measurements.csv") %>%
+  mutate(capture_process_date_time = as.POSIXct(paste(capture_process_date, 
+                                                      capture_time, 
+                                                      sep = " "), 
+                                                format = "%m/%d/%y %H:%M"),
+                capture_process_date = as.Date(capture_process_date, 
+                                                  format = "%m/%d/%y"),
+                SVL_mm = as.numeric(SVL_mm),
+                pre_tmt_mass_g = as.numeric(pre_tmt_mass_g),
+                pre_mass_w_collar_Y_N = as.factor(pre_mass_w_collar_Y_N),
+                post_tmt_mass_g = as.numeric(post_tmt_mass_g),
+                post_mass_w_collar_Y_N = as.factor(post_mass_w_collar_Y_N),
+                treatment_date_time = as.POSIXct(paste(treatment_date, 
+                                                       processing_time, 
+                                                       sep = " "), 
+                                                 format = "%m/%d/%y %H:%M"),
+                tmt_start_time = as.POSIXct(tmt_start_time, format = "%H:%M"),
+                tmt_end_time = as.POSIXct(tmt_end_time, format = "%H:%M"),
+                hematocrit_percent = as.numeric(hematocrit_percent),
+                cloacal_temp_C = as.numeric(cloacal_temp_C)
+                ) %>%
+  # add tmt group info
+  left_join(read.csv("./data/collared_identification.csv"),
+            by = 'individual_ID') %>%
+                # format data classes
+  dplyr::mutate(individual_ID = as.factor(individual_ID),
+                sex_M_F = as.factor(sex),
+                tmt = as.factor(tmt),
+                radio_collar_mass_g = as.numeric(radio_collar_mass_g),
+                #statistics
+                capture_to_msmt = as.numeric(treatment_date_time - capture_process_date_time),
+                tmt_time_elapsed = as.numeric(tmt_end_time - tmt_start_time),
+                actual_pre_tmt_mass_g = pre_tmt_mass_g - radio_collar_mass_g*(pre_mass_w_collar_Y_N == "Y"),
+                actual_post_tmt_mass_g = post_tmt_mass_g - radio_collar_mass_g*(post_mass_w_collar_Y_N == "Y"),
+                tmt_mass_change_g = actual_post_tmt_mass_g - actual_pre_tmt_mass_g,
+                radio_collar_percent_mass_g = radio_collar_mass_g/actual_pre_tmt_mass_g
+                ) %>%
+  dplyr::select(capture_date_time = capture_process_date_time,
+                capture_date = capture_process_date,
+                treatment_date_time,
+                radio_collar_serial, 
+                PIT_tag_ID, 
+                individual_ID,
+                sex_M_F, 
+                mass_g = actual_pre_tmt_mass_g,
+                SVL_mm,
+                tmt,
+                tmt_time_elapsed,
+                tmt_mass_change_g,
+                radio_collar_mass_g,
+                radio_collar_percent_mass_g,
+                capture_to_msmt, 
+                hematocrit_percent,
+                cloacal_temp_C
+                )
+
+summary(lizards_collared)
+```
+
+
+## Widespread Lizards
+
+
+```{r get data widespread lizards}
+lizards_widespread <- read.csv("./data/widespread_measurements.csv") %>%
+                # format data classes
+  dplyr::mutate(capture_date_time = as.POSIXct(paste(date, 
+                                                      capture_time, 
+                                                      sep = " "), 
+                                                format = "%m/%d/%y %H:%M"),
+                capture_date = as.Date(date, format = "%m/%d/%y"),
+                capture_time = as.POSIXct(capture_time, format = "%H:%M"),
+                processing_time = as.POSIXct(processing_time, format = "%H:%M"),
+                individual_ID = as.factor(individual_ID),
+                SVL_mm = as.numeric(SVL_mm),
+                mass_g = as.numeric(mass_g),
+                sex_M_F = as.factor(sex_M_F),
+                hematocrit_percent = as.numeric(hematocrit_percent),
+                cloacal_temp_C = as.numeric(cloacal_temp_C),
+                # statistics
+                capture_to_msmt = as.numeric(processing_time - capture_time),
+                # add things to match with treatment lizards
+                tmt = as.factor("No Tmt"),
+                radio_collar_serial = NA,
+                tmt_mass_change_g = 0
+                ) %>%
+  dplyr::select(capture_date_time,
+                capture_date,
+                PIT_tag_ID, 
+                individual_ID,
+                sex_M_F, 
+                mass_g,
+                SVL_mm,
+                capture_to_msmt, 
+                hematocrit_percent,
+                cloacal_temp_C,
+                radio_collar_serial,
+                tmt, tmt_mass_change_g
+                )
+
+summary(lizards_widespread)
+```
+
+
+
+
+
+# Methods Stats
+
+How many lizards were captured/measured when?
+
+```{r n lizards}
+# lizards that were radio-collared
+length(unique(lizards_collared$individual_ID))
+# other lizards
+length(unique(lizards_widespread$individual_ID))
+# total lizards
+length(unique(lizards_collared$individual_ID)) + length(unique(lizards_widespread$individual_ID))
+
+# by date
+lizards_widespread %>%
+  group_by(capture_date) %>%
+  summarise(n = n())
+# by date
+lizards_collared %>%
+  group_by(capture_date) %>%
+  summarise(n = n())
+
+# which widespread were recaptured and when
+lizards_widespread %>%
+  group_by(individual_ID) %>%
+  summarise(n = n()) %>%
+  dplyr::filter(n > 1) -> recap_W
+lizards_widespread %>% dplyr::filter(individual_ID %in% recap_W$individual_ID)
+# which collared were recaptured and when
+lizards_collared %>%
+  group_by(individual_ID) %>%
+  summarise(n = n()) %>%
+  dplyr::filter(n > 1) -> recap_C
+lizards_collared %>% 
+  dplyr::filter(individual_ID %in% recap_C$individual_ID) %>%
+  dplyr::filter(capture_date > "2021-05-01")
+
+# check things
+lizards_collared %>% 
+  dplyr::filter(individual_ID %nin% recap_C$individual_ID)
+lizards_widespread %>% dplyr::filter(individual_ID == "W-029")
+lizards_collared %>% dplyr::filter(individual_ID == "M-03a")
+```
+
+Throughout the summer, we measured 41 collared lizards, & 38 widespread lizards.
+
+Of the 38 widespread lizards, 28 were captured in April, 9 in May, and 1 in July. 5 of the widespread lizards captured in April were recaptured in May. 
+
+Of the 41 collared lizards, 39 were captured (and collared) in April, 22 (of the original 39) were recaptured in May, and 14 (of the original 39) were recaptured in July. F08a and M03a were newly captured in May and radio-collared. F08a was a new capture, but M03a was briefly originally assigned W-029. **check this** *Thankfully, the widespread data no longer includes that data, and it's been shifted to the collared data only.*
+
+How long were lizards held between capture and measurement?
+
+```{r capture to msmt}
+# collared
+mean(lizards_collared$capture_to_msmt, na.rm = TRUE)/60 # hours
+median(lizards_collared$capture_to_msmt, na.rm = TRUE)/60
+hist(lizards_collared$capture_to_msmt)
+300/60
+
+# widespread
+mean(lizards_widespread$capture_to_msmt, na.rm = TRUE) # minutes
+max(lizards_widespread$capture_to_msmt, na.rm = TRUE)
+```
+
+Most collared lizards were measured within 3 hours of capture, with the majority being measured within 2 hours of capture, and a few being measured the day after capture.
+
+Widespread lizards were always measured within 5 hours of capture, and usually within 2 hours.
+
+
+How long were treatment lizards in treatment?
+
+```{r tmt time}
+mean(lizards_collared$tmt_time_elapsed, na.rm = T)
+hist(lizards_collared$tmt_time_elapsed, na.rm = T)
+```
+
+Lizards were put in bins with shallow water for 1 hour, on average, to promote drinking behavior.
+
+
+
+# Merge dfs
+
+```{r}
+merged_data <- lizards_collared %>%
+  # remove collared info we only needed for methods summary
+  dplyr::select(-treatment_date_time, -tmt_time_elapsed, 
+                -radio_collar_mass_g, -radio_collar_percent_mass_g
+                ) %>%
+  # add widespread lizards
+  rbind(lizards_widespread) %>%
+  # join CEWL data
+  left_join(CEWL, by = c('individual_ID', 
+                         'capture_date' = 'date')) %>%
+  # join osmolality data
+  left_join(osmolality, by = c('individual_ID', 
+                               'capture_date' = 'blood_draw_date')) %>%
+  # relabel and add factors for informative grouping
+  mutate(sex_M_F = factor(sex_M_F, labels = c("Female", "Male")),
+         tmt = factor(tmt, levels = c("hydration", "control", "No Tmt"),
+                           labels = c("Water Tmt", "Sham Tmt", "No Tmt")),
+         month = factor(substr(as.character(capture_date), 7, 7),
+                          labels = c("April", "May", "July")),
+         week = factor(month, 
+                       labels = c("1", "3", "12")),
+         week_num = as.numeric(as.character(week))) %>%
+  # join female gravidity notes
+  left_join(eggs, by = c('individual_ID', 'month'))
+
+summary(merged_data)
+```
+
+
+
+
+
+# Calculate Body Condition
+
+This is also known as scaled mass index, or log-log residuals.
+
+I calculate as described by: Peig, J., & Green, A. J. (2009). New perspectives for estimating body condition from mass/length data: The scaled mass index as an alternative method. Oikos, 118(12), 1883–1891. https://doi.org/10.1111/j.1600-0706.2009.17643.x
+
+
+Step 0:
+
+get subset of data with only April data:
+
+```{r April only}
+April_lizard_dat <- merged_data %>%
+  dplyr::filter(month == "April")
+```
+
+
+Step 1: Simple Linear Regression
+
+```{r SMI SLR}
+mass_SVL_SLR <- lm(data = April_lizard_dat, mass_g ~ SVL_mm)
+summary(mass_SVL_SLR)
+```
+
+
+Step 2: Identify Outliers
+
+```{r SMI equation outliers 1}
+plot(mass_SVL_SLR)
+```
+
+Hm, residuals are fanned-out, and many have high values, but they are pretty evenly distributed on either side of zero.
+
+
+So, check for high leverage points:
+
+```{r high leverage}
+# compute values for observations 
+high_leverage <- data.frame(H = hatvalues(mass_SVL_SLR)) %>% 
+  mutate(row = rownames(.))
+
+# compute cutoff value 
+h_bar <- (3*sum(high_leverage$H))/nrow(high_leverage)
+
+# add to original dataframe 
+# see which observations have extremely high leverage (if any)
+high_leverage_dat <- April_lizard_dat %>%
+  dplyr::mutate(residuals = residuals(mass_SVL_SLR)) %>%
+  dplyr::mutate(row = rownames(.)) %>%
+  left_join(., high_leverage, by = "row") %>%
+  dplyr::filter(H > h_bar) 
+high_leverage_dat
+```
+
+The point for individual M-20 seems to be high-leverage, so we will try removing
+
+Check for influential points based on Cook's distance:
+
+```{r}
+# get Cook's distance 
+cooks <- data.frame(c = cooks.distance(mass_SVL_SLR) # specify model name 
+                    ) %>% mutate(row = rownames(.))
+
+# add to original dataframe 
+influential <- April_lizard_dat %>%
+  dplyr::mutate(residuals = residuals(mass_SVL_SLR)) %>%
+  dplyr::mutate(row = rownames(.)) %>% 
+  left_join(., cooks, by = "row")
+
+# see moderately influential points 
+cook_mod_inf <- influential %>% 
+  dplyr::filter(c>0.5) 
+cook_mod_inf
+```
+
+There are none, so there's nothing to potentially remove.
+
+
+```{r SMI equation outliers 2}
+boxplot(residuals(mass_SVL_SLR))
+hist(residuals(mass_SVL_SLR))
+max(residuals(mass_SVL_SLR))
+influential %>% dplyr::filter(residuals < -10)
+influential %>% dplyr::filter(residuals > 8)
+```
+
+From the boxplot, there are four individuals with much larger residuals than the rest of the distribution. The histogram looks fine, and pretty normally distributed.
+
+
+Test whether removing the high-leverage pt and the high residuals improve things:
+
+```{r remove outliers}
+cleaned_SMI_dat <- April_lizard_dat %>%
+  dplyr::filter(individual_ID %nin% c("W-012", # super low residual
+                                      "M-07", "F-03", "M-15", "W-015", # high resids
+                                      "M-20" # influential pt
+                                      ))
+```
+
+
+re-check residuals:
+
+```{r check 2}
+mass_SVL_SLR2 <- lm(data = cleaned_SMI_dat, mass_g ~ SVL_mm)
+summary(mass_SVL_SLR2)
+plot(mass_SVL_SLR2)
+mean(residuals(mass_SVL_SLR2))
+median(residuals(mass_SVL_SLR2))
+```
+
+I don't think removing those points improved things much with residuals, but R-sq is better, so I will keep the subsetted data.
+
+
+Step 3: log-log Regression
+
+```{r SMI log log regression}
+log_mass_SVL_SLR <- lm(data = cleaned_SMI_dat, 
+                       log(mass_g) ~ log(SVL_mm))
+summary(log_mass_SVL_SLR)
+```
+
+
+Step 4: Extract Values
+
+compute standardized major axis using the log-log regression equation:
+
+```{r SMI equation}
+r <- sqrt(0.8526) # Pearson's correlection coefficient (sqrt of R-squared)
+b_OLS <- 2.0891 # regression slope
+b_SMA <- b_OLS/r
+```
+
+mean length in capture data:
+
+```{r mean SVL}
+L0 <- mean(cleaned_SMI_dat$SVL_mm)
+```
+
+
+Step 5: Calculate Scaled Mass Index
+
+```{r join all data}
+lizards_all_SMI <- merged_data %>%
+  # compute SMI
+  mutate(SMI = mass_g * ((L0/SVL_mm) ^ b_SMA))
+
+summary(lizards_all_SMI)
+```
+
+
+# Export Finished Dataframe
+
+```{r}
+write_rds(lizards_all_SMI, "./data/G_sila_clean_full_dat.RDS")
+```
+
+
+
+
+
+
+
+
+
+# Species Comparison
+
+
+## Sceloporus Data
+
+
+```{r load Sceloporus data}
+Sceloporus_study1 <- read_rds("./data/Sceloporus_2021_CURE.RDS") %>%
+  dplyr::filter(region == "Dorsum") %>%
+  dplyr::select(date, individual_ID, 
+                CEWL_g_m2h = TEWL_g_m2h,
+                msmt_temp_C = ambient_temp_C,
+                msmt_RH_percent = ambient_RH_percent)
+Sceloporus_study2 <- read_rds("./data/Sceloporus_2021_exp.RDS") %>%
+  dplyr::select(date = capture_date, individual_ID, 
+                #sex_M_F, mass_G, SVL_mm, # I think I should keep to show species diffs
+                CEWL_g_m2h = CEWL_g_m2h_mean,
+                msmt_temp_C, msmt_RH_percent)
+#Sceloporus_study3 <- 
+Sceloporus <- rbind(Sceloporus_study1, Sceloporus_study2) %>%
+  # add column for species
+  mutate(species = "Sceloporus occidentalis",
+         # calculate VPD based on Campbell & Norman 1998
+         e_s_kPa = 0.611 * exp((17.502*msmt_temp_C)/(msmt_temp_C + 240.97)),
+         msmt_VPD_kPa = e_s_kPa*(1 - (msmt_RH_percent/100))
+         )
+summary(Sceloporus)
+```
+
+
+
+
+## Podarcis Data
+
+```{r load Podarcis data}
+Podarcis <- read_csv("./data/Podarcis_2022.csv") %>%
+  dplyr::filter(Body == "Dorsum") %>%
+  dplyr::select(date = Date, individual_ID = ID, 
+                #sex_M_F = Sex, mass_g = Mass, SVL_mm = SVL,
+                CEWL_g_m2h = CEWL_g_m2h_mean,
+                msmt_temp_C, msmt_RH_percent) %>%
+  mutate(date = as.Date(date, format = "%m/%d/%y"),
+         individual_ID = factor(individual_ID),
+         #sex_M_F = factor(sex_M_F),
+         species = "Podarcis erhardii",
+         # calculate VPD based on Campbell & Norman 1998
+         e_s_kPa = 0.611 * exp((17.502*msmt_temp_C)/(msmt_temp_C + 240.97)),
+         msmt_VPD_kPa = e_s_kPa*(1 - (msmt_RH_percent/100)))
+summary(Podarcis)
+```
+
+
+## Prep Gambelia Data
+
+```{r prep Gambelia data}
+Gambelia <- lizards_all_SMI %>%
+  # get the first measurement we took of each lizard
+  group_by(individual_ID) %>%
+  mutate(first_date = min(capture_date)) %>%
+  dplyr::filter(first_date == capture_date) %>%
+  # select the common variables
+  dplyr::select(date = capture_date, individual_ID, 
+                #sex_M_F, mass_g, SVL_mm,
+                CEWL_g_m2h,
+                msmt_temp_C, msmt_RH_percent, e_s_kPa, msmt_VPD_kPa) %>%
+  mutate(species = "Gambelia sila") %>%
+  dplyr::filter(complete.cases(CEWL_g_m2h))
+summary(Gambelia)
+```
+
+
+## Merge Species' Data
+
+```{r merge}
+sp_compare <- Gambelia %>%
+  rbind(Sceloporus) %>%
+  rbind(Podarcis) %>%
+  mutate(species = factor(species,
+                          levels = c("Gambelia sila",
+                                     "Podarcis erhardii",
+                                     "Sceloporus occidentalis")))
+
+summary(sp_compare)
+```
+
+
+
+# Export Species Comparison 
+
+
+```{r}
+write_rds(sp_compare, "./data/species_comparison_df.RDS")
+```
+
+
+
+
+
+
+
+
+
