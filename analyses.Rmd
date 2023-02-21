@@ -1,8 +1,12 @@
 ---
 title: "BNLL hydrophysiology analyses"
 author: "Savannah Weaver"
-output: pdf_document
-toc: TRUE
+output: 
+  rmdformats::html_clean:
+    highlight: tango
+    thumbnails: FALSE
+    toc: TRUE
+    toc_depth: 3
 ---
 
 
@@ -27,12 +31,33 @@ if (!require("ggpubr")) install.packages("ggpubr")
 library("ggpubr") # for multi-ggplot figs
 if (!require("Hmisc")) install.packages("Hmisc")
 library("Hmisc") # correlation matrix
+if (!require("emmeans")) install.packages("emmeans")
+library("emmeans") # marginal means & confints
 ```
+
+
+
+**Reflection**
+Okay, so I have a few different datasets basically. I have a subset of lizards who WERE measured more than once. I think anytime I look at trends over time, to be the most robust, I need to limit the dataset to only those lizards, who were measured more than once. I'm worried that it may be BEST, better than just keeping all the lizards with >1 measurement, to only look at trends over time with only the lizards measured at one time point. I should probably ask Rory. :)
+
+Overall, this very much feels like a mess. There are some very slight trends with different things, but IDK how much truth there is to any of them. 
+
+I think I have most of the water-balance-related things here... And I think for everything over time, Ineed to go back and make it only for the repeat measure lizards. *Then, what do I use the widespread lizard data for, except for the species comparison?*
+
+I still have to do the female reproductive effort stuff.
+
+Then, I will use the radiocollared lizards for phy vs behavior analyses.
+
 
 
 # Load in Data
 
 This data was collected during fieldwork with Blunt-nosed Leopard Lizards (*Gambelia sila*) in the Elkhorn Plain of the Carrizo Plain National Monument in California, USA during the 2021 active season (April-August). See published paper (doi) for complete methods and discussion of these analyses. 
+
+
+```{r}
+dat <- read_rds("./data/G_sila_clean_full_dat.RDS")
+```
 
 
 
@@ -42,494 +67,479 @@ This data was collected during fieldwork with Blunt-nosed Leopard Lizards (*Gamb
 
 
 
-## CEWL
 
-```{r load CEWL data}
-CEWL_unformatted <- read.csv("data/CEWL_dat_all_clean.csv")
 
-# fix some upper/lowercase issues
-CEWL_unformatted[95, "individual_ID"] <- "F-08a"
-CEWL_unformatted[117, "individual_ID"] <- "M-03a"
 
-# M-03a was originally W-029, so we need to reassign the correct ID to CEWL msmts
-CEWL_unformatted[77, "individual_ID"] <- "M-03a"
 
-CEWL <- CEWL_unformatted %>%
-  dplyr::mutate(date = as.Date(date, format = "%Y-%m-%d"),
-                individual_ID = as.factor(individual_ID)) %>%
-  dplyr::select(-X)
-```
+# Does SVL change over time?
 
-
-## Osmolality
-
-```{r load osml data}
-osmolality <- read.csv("data/osml_means_clean.csv") %>%
-  dplyr::mutate(blood_draw_date = as.Date(blood_draw_date, format = "%m/%d/%y"),
-                individual_ID = as.factor(individual_ID))
-```
-
-
-
-## Collared Lizards
-
-The first dataset loaded in is for lizards we radio-collared and tracked throughout the summer.
-
-```{r get data collared lizards}
-lizards_collared <- read.csv("data/collared_measurements.csv") %>%
-                
-                # format data classes
-  dplyr::mutate(capture_process_date_time = as.POSIXct(paste(capture_process_date, capture_time, sep = " "), format = "%m/%d/%y %H:%M"),
-                capture_process_date = as.Date(capture_process_date, 
-                                                  format = "%m/%d/%y"),
-                SVL_mm = as.numeric(SVL_mm),
-                pre_tmt_mass_g = as.numeric(pre_tmt_mass_g),
-                pre_mass_w_collar_Y_N = as.factor(pre_mass_w_collar_Y_N),
-                post_tmt_mass_g = as.numeric(post_tmt_mass_g),
-                post_mass_w_collar_Y_N = as.factor(post_mass_w_collar_Y_N),
-                treatment_date_time = as.POSIXct(paste(treatment_date, processing_time, sep = " "), format = "%m/%d/%y %H:%M"),
-                tmt_start_time = as.POSIXct(tmt_start_time, format = "%H:%M"),
-                tmt_end_time = as.POSIXct(tmt_end_time, format = "%H:%M"),
-                hematocrit_percent = as.numeric(hematocrit_percent),
-                cloacal_temp_C = as.numeric(cloacal_temp_C)
-                ) %>%
-  
-  # add tmt group info
-  left_join(read.csv("data/collared_identification.csv"),
-            by = 'individual_ID') %>%
-  
-  # add osmolality values from blood samples
-  left_join(osmolality, by = c('individual_ID', 
-                   'capture_process_date' = 'blood_draw_date')) %>%
-
-  # add CEWL values
-  left_join(CEWL, by = c('individual_ID', 
-                   'capture_process_date' = 'date')) %>%
-  
-                # format data classes
-  dplyr::mutate(individual_ID = as.factor(individual_ID),
-                sex_M_F = as.factor(sex),
-                tmt = as.factor(tmt),
-                radio_collar_mass_g = as.numeric(radio_collar_mass_g),
-                
-                #statistics
-                capture_to_msmt = as.numeric(treatment_date_time - capture_process_date_time),
-                tmt_time_elapsed = as.numeric(tmt_end_time - tmt_start_time),
-                #test = capture_process_date == treatment_date,
-                actual_pre_tmt_mass_g = pre_tmt_mass_g - radio_collar_mass_g*(pre_mass_w_collar_Y_N == "Y"),
-                actual_post_tmt_mass_g = post_tmt_mass_g - radio_collar_mass_g*(post_mass_w_collar_Y_N == "Y"),
-                tmt_mass_change_g = actual_post_tmt_mass_g - actual_pre_tmt_mass_g
-                )
-
-summary(lizards_collared)
-```
-
-
-## Widespread Lizards
-
-The second dataset loaded in is for lizards we caught opportunistically and who we did not radio-collar or track throughout the summer.
-
-```{r get data widespread lizards}
-lizards_widespread <- read.csv("data/widespread_measurements.csv") %>%
-  
-                # format data classes
-  dplyr::mutate(date = as.Date(date, format = "%m/%d/%y"),
-                # time with arbitrary date, need to figure out how to remove
-                capture_time = as.POSIXct(capture_time, format = "%H:%M"),
-                processing_time = as.POSIXct(processing_time, format = "%H:%M"),
-                individual_ID = as.factor(individual_ID),
-                SVL_mm = as.numeric(SVL_mm),
-                mass_g = as.numeric(mass_g),
-                sex_M_F = as.factor(sex_M_F),
-                hematocrit_percent = as.numeric(hematocrit_percent),
-                cloacal_temp_C = as.numeric(cloacal_temp_C)
-                ) %>%
-
-  # add osmolality values from blood samples
-  left_join(osmolality, by = c('individual_ID', 
-                   'date' = 'blood_draw_date')) %>%
-
-  # add CEWL values
-  left_join(CEWL, by = c('individual_ID', 'date')) %>%
-
-                #statistics
-  dplyr::mutate(capture_to_msmt = as.numeric(processing_time - capture_time)
-                )
-
-summary(lizards_widespread)
-```
-
-
-
-
-
-## Methods Stats
-
-```{r n lizards}
-# in general
-length(unique(lizards_collared$individual_ID))
-length(unique(lizards_widespread$individual_ID))
-41+38
-
-# by date
-lizards_widespread %>%
-  group_by(date) %>%
-  summarise(n = n())
-# by date
-lizards_collared %>%
-  group_by(capture_process_date) %>%
-  summarise(n = n())
-
-# which were recaptured and when
-lizards_widespread %>%
-  group_by(individual_ID) %>%
-  summarise(n = n()) %>%
-  dplyr::filter(n > 1) -> recap_W
-lizards_widespread %>% dplyr::filter(individual_ID %in% recap_W$individual_ID)
-# which were recaptured and when
-lizards_collared %>%
-  group_by(individual_ID) %>%
-  summarise(n = n()) %>%
-  dplyr::filter(n > 1) -> recap_C
-lizards_collared %>% 
-  dplyr::filter(individual_ID %in% recap_C$individual_ID) %>%
-  dplyr::filter(capture_process_date > "2021-05-01")
-
-# check things
-lizards_collared %>% 
-  dplyr::filter(individual_ID %nin% recap_C$individual_ID)
-lizards_widespread %>% dplyr::filter(individual_ID == "W-029")
-lizards_collared %>% dplyr::filter(individual_ID == "M-03a")
-```
-
-Throughout the summer, we measured 41 collared lizards, & 38 widespread lizards.
-
-Of the 38 widespread lizards, 28 were captured in April, 9 in May, and 1 in July. 5 of the widespread lizards captured in APril were recaptured in May. 
-
-Of the 41 collared lizards, 39 were captured (and collared) in April, 22 (of the 39) recaptured in May, and 14 (of the 39) recaptured in July. F08a and M03a were newly captured in May and radio-collared. F08a was a new capture, but M03a was briefly originally assigned W-029. Thankfully, the widespread data no longer includes that data, and it's been shifted to the collared data only. 
-
-
-```{r capture to msmt}
-# collared
-mean(lizards_collared$capture_to_msmt, na.rm = TRUE)/60 # hours
-median(lizards_collared$capture_to_msmt, na.rm = TRUE)/60
-hist(lizards_collared$capture_to_msmt)
-300/60
-
-# widespread
-mean(lizards_widespread$capture_to_msmt, na.rm = TRUE) # minutes
-max(lizards_widespread$capture_to_msmt, na.rm = TRUE)
-```
-
-Most collared lizards were measured within 3 hours of capture, with the majority being measured within 2 hours of capture, and a few being measured the day after capture.
-
-Widespread lizards were always measured within 5 hours of capture, and usually within 2 hours.
-
-```{r tmt time}
-mean(lizards_collared$tmt_time_elapsed, na.rm = T)
-hist(lizards_collared$tmt_time_elapsed, na.rm = T)
-```
-
-Lizards were put in bins with shallow water for 1 hour, on average, to promote drinking behavior.
-
-
-## Treatment Effects
-
-Are there *ANY* differences between lizards who we gave water vs no water??
-
-```{r tmt diffs}
-lizards_collared %>%
-  group_by(tmt, sex_M_F) %>%
-  summarise(SVL_mean = mean(SVL_mm, na.rm = T),
-            hct_mean = mean(hematocrit_percent, na.rm = T),
-            osml_mean = mean(osmolality_mmol_kg_mean, na.rm = T),
-            mass_change_mean = mean(tmt_mass_change_g, na.rm = T),
-            CEWL_change_mean = mean(CEWL_g_m2h, na.rm = T)
-            )
-```
-
-Only with mass it seems.
-
-Are the widespread-caught lizards any different?
-
-```{r wd diffs}
-lizards_widespread %>%
-  group_by(sex_M_F) %>%
-  summarise(SVL_mean = mean(SVL_mm, na.rm = T),
-            hct_mean = mean(hematocrit_percent, na.rm = T),
-            osml_mean = mean(osmolality_mmol_kg_mean, na.rm = T),
-            CEWL_mean = mean(CEWL_g_m2h, na.rm = T)
-            )
-```
-
-Widespread lizards were simply the smaller ones that couldn't be radio-collared, so that's slightly different. Osmolality for those females seems higher than radio-collared control, but hct values seem on-par. 
-
-We did recapture several widespread lizards, so I think it makes sense to put them on the same figures? Because that way, we can compare them to our control group. Maybe rename widespread -> "no intervention", control -> "sham tmt", and hydration -> "water tmt". :)
-
-
-
-
-## Purge & Merge !
-
-columns I want to have in BOTH:
-- date
-- ID
-- SVL
-- mass
-- sex
-- hct
-- osml
-- CEWL
-- cloacal temp
-
-```{r p n m}
-widespread_clean <- lizards_widespread %>%
-  dplyr::select(date,
-                individual_ID,
-                SVL_mm,
-                mass_g,
-                sex_M_F,
-                hematocrit_percent,
-                osmolality_mmol_kg_mean,
-                cloacal_temp_C,
-                capture_to_msmt
-                ) %>%
-  dplyr::mutate(tmt = as.factor("No Tmt"))
-
-collared_clean <- lizards_collared %>%
-  dplyr::select(date = capture_process_date,
-                individual_ID,
-                SVL_mm,
-                mass_g = actual_pre_tmt_mass_g,
-                sex_M_F,
-                hematocrit_percent,
-                osmolality_mmol_kg_mean,
-                cloacal_temp_C,
-                capture_to_msmt,
-                tmt
-                )
-
-lizards_all <- rbind(widespread_clean, collared_clean) %>%
-  dplyr::mutate(time_pt = as.factor(case_when(date == "2021-04-23 PDT" ~ 1, 
-                                              date == "2021-04-24 PDT" ~ 1, 
-                                              date == "2021-04-25 PDT" ~ 1,
-                                              date == "2021-05-07 PDT" ~ 2,
-                                              date == "2021-05-08 PDT" ~ 2,
-                                              date == "2021-07-14 PDT" ~ 3))) %>%
-  # easier to rejoin here
-  left_join(CEWL, by = c('individual_ID', 'date'))
-
-lizards_all$tmt <- factor(lizards_all$tmt,
-                          levels = c("hydration", "control", "No Tmt"),
-                          labels = c("Water Tmt", "Sham Tmt", "No Tmt")
-                          )
-
-lizards_all$time_pt <- factor(lizards_all$time_pt,
-                              labels = c("April", "May", "July")
-                              )
-
-summary(lizards_all)
-```
-
-
-
-## Calculate Body Condition
-
-This is also known as scaled mass index, or log-log residuals.
-
-I calculate as described by: Peig, J., & Green, A. J. (2009). New perspectives for estimating body condition from mass/length data: The scaled mass index as an alternative method. Oikos, 118(12), 1883–1891. https://doi.org/10.1111/j.1600-0706.2009.17643.x
-
-
-Step 0:
-
-get subset of data with only April data:
-
-```{r April only}
-April_lizard_dat <- lizards_all %>%
-  dplyr::filter(time_pt == "April")
-```
-
-
-Step 1: Simple Linear Regression
-
-```{r SMI SLR}
-mass_SVL_SLR <- lm(data = April_lizard_dat, mass_g ~ SVL_mm)
-summary(mass_SVL_SLR)
-```
-
-
-Step 2: Identify Outliers
-
-```{r SMI equation outliers 1}
-plot(mass_SVL_SLR)
-```
-
-Hm, residuals are fanned-out, and many have high values, but they are evenly distrubuted on either side of zero.
-
-
-So, check for high leverage points:
-
-```{r high leverage}
-# compute values for observations 
-high_leverage <- data.frame(H = hatvalues(mass_SVL_SLR)
-                            ) %>% mutate(row = rownames(.))
-
-# compute cutoff value 
-h_bar <- (3*sum(high_leverage$H))/nrow(high_leverage)
-
-# add to original dataframe 
-# see which observations have extremely high leverage (if any)
-high_leverage_dat <- April_lizard_dat %>%
-  dplyr::mutate(residuals = residuals(mass_SVL_SLR)) %>%
-  dplyr::mutate(row = rownames(.)) %>%
-  left_join(., high_leverage, by = "row") %>%
-  dplyr::filter(H > h_bar) 
-high_leverage_dat
-```
-
-The point for individual M-20 seems to be high-leverage, so we will try removing
-
-Check for influential points based on Cook's distance:
+I want to know whether SVL changed over time for the individuals who had more than one measurement taken. If it does, then body condition is certainly more informative than mass.
 
 ```{r}
-# get Cook's distance 
-cooks <- data.frame(c = cooks.distance(mass_SVL_SLR) # specify model name 
-                    ) %>% mutate(row = rownames(.))
-
-# add to original dataframe 
-influential <- April_lizard_dat %>%
-  dplyr::mutate(residuals = residuals(mass_SVL_SLR)) %>%
-  dplyr::mutate(row = rownames(.)) %>% 
-  left_join(., cooks, by = "row")
-
-# see moderately influential points 
-cook_mod_inf <- influential %>% 
-  dplyr::filter(c>0.5) 
-cook_mod_inf
-```
-
-There are none, so there's nothing to potentially remove.
-
-
-```{r SMI equation outliers 2}
-boxplot(residuals(mass_SVL_SLR))
-hist(residuals(mass_SVL_SLR))
-max(residuals(mass_SVL_SLR))
-influential %>% dplyr::filter(residuals < -10)
-influential %>% dplyr::filter(residuals > 8)
-```
-
-From the boxplot, there are FOUR individuals with much larger residuals than the rest of the distribution. The histogram looks fine, and pretty normally distributed.
-
-
-Test whether removing the high-leverage pt and the high residuals improve things:
-
-```{r remove outliers}
-cleaned_SMI_dat <- April_lizard_dat %>%
-  dplyr::filter(individual_ID %nin% c("W-012", "W-015", 
-                                      "M-07", "M-15", "M-20", 
-                                      "F-03"))
+# subset
+dat_repeats <- dat %>%
+  group_by(individual_ID) %>%
+  mutate(n = n()) %>%
+  dplyr::filter(n>1)
+# model
+summary(lme4::lmer(data = dat_repeats, 
+                   SVL_mm ~ week_num + (1|individual_ID)))
 ```
 
 
-re-check residuals:
-
-```{r check 2}
-mass_SVL_SLR2 <- lm(data = cleaned_SMI_dat, mass_g ~ SVL_mm)
-summary(mass_SVL_SLR2)
-plot(mass_SVL_SLR2)
-mean(residuals(mass_SVL_SLR2))
-median(residuals(mass_SVL_SLR2))
-```
-
-I don't think removing those points improved things much with residuals, but R-sq is a little better, so I will keep the subsetted dataset.
+There is no meaningful change in SVL for the individuals we were able to measure, so I could use either mass or body condition to estimate body size.
 
 
-Step 3: log-log Regression
 
-```{r SMI log log regression}
-log_mass_SVL_SLR <- lm(data = cleaned_SMI_dat, 
-                       log(mass_g) ~ log(SVL_mm))
-summary(log_mass_SVL_SLR)
-```
+# Check CEWL Covariates
 
+How much is CEWL impacted by the body temperature, ambient temperature, and ambient VPD at the time of CEWL measurement?
 
-Step 4: Extract Values
-
-compute standardized major axis using the log-log regression equation:
-
-```{r SMI equation}
-r <- sqrt(0.8526) # Pearson's correlection coefficient (sqrt of R-squared)
-b_OLS <- 2.0891 # regression slope
-b_SMA <- b_OLS/r
-```
-
-mean length in capture data:
-
-```{r mean SVL}
-L0 <- mean(April_lizard_dat$SVL_mm)
-```
+It's possible that I may find a relationship between ambient temp and CEWL but not body temp and CEWL because the body temp measurements we took were unfortunately only to the nearest degree...
 
 
-Step 5: Calculate Scaled Mass Index
+## Plot
 
-```{r join all data}
-lizards_all_SMI <- lizards_all %>%
-  # compute SMI
-  mutate(SMI = mass_g * ((L0/SVL_mm) ^ b_SMA))
+First, make a simple plot of each to look for relationships visually.
 
-summary(lizards_all_SMI)
+```{r}
+ggplot(dat) +
+  aes(x = cloacal_temp_C,
+      y = CEWL_g_m2h,
+      color = week
+      #color = tmt
+        ) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme_bw()
+ggplot(dat) +
+  aes(x = msmt_temp_C,
+      y = CEWL_g_m2h,
+      color = week
+      #color = tmt
+        ) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme_bw()
+ggplot(dat) +
+  aes(x = msmt_VPD_kPa,
+      y = CEWL_g_m2h,
+      color = week
+      #color = tmt
+        ) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme_bw()
 ```
 
 
+Across dates, CEWL had no relationship with body temp, ambient temp, or ambient VPD at the time of capture. However, when separated by date, there were relationships. There were no relationships when separated by treatment group. 
+
+
+## Models
+
+Now, check linear models of the effect of each of body temp, ambient temp, and ambient VPD with the interaction of date on CEWL.
+
+```{r}
+summary(lm(data = dat,
+           CEWL_g_m2h ~ cloacal_temp_C*week))
+summary(lm(data = dat,
+           CEWL_g_m2h ~ msmt_temp_C*week))
+summary(lm(data = dat,
+           CEWL_g_m2h ~ msmt_VPD_kPa*week))
+```
+
+CEWL had a positive relationship with each of body temp, ambient temp, and ambient VPD, *but* only for the measurements taken in May (week 3).
+
+
+## Variance
+
+Let's also check the distribution/range of these covariates, because based on the figures, week 3 had a pretty small range of temperatures and VPDs.
+
+```{r}
+dat %>%
+  group_by(week) %>%
+  summarise(min(cloacal_temp_C, na.rm = T), max(cloacal_temp_C, na.rm = T),
+            min(msmt_temp_C, na.rm = T), max(msmt_temp_C, na.rm = T),
+            min(msmt_VPD_kPa, na.rm = T), max(msmt_VPD_kPa, na.rm = T))
+```
+
+Well... these ranges are not small enough to be meaningless. So, we will have to keep in mind that temperature and VPD should be retained in CEWL models as a covariate.
 
 
 
-# Experimental Hydration Effects
 
-```{r tmt mass change plot}
-ggplot(data = lizards_collared) + 
-  geom_boxplot(aes(x = tmt, 
-                   y = tmt_mass_change_g, 
-                   color = tmt
-                   )) +
-  geom_jitter(aes(x = tmt, 
-                   y = tmt_mass_change_g, 
-                   color = tmt
-                   ), 
-               size = 0.6,
-               alpha = 0.6) +
-  geom_point(aes(x = tmt, 
-                   y = mean(tmt_mass_change_g, na.rm = T), 
-                   color = tmt,
-                   ), 
-               size = 6,
-               alpha = 1) +
-  geom_hline(yintercept = 0) +
+# Water Balance Metrics
+
+What is the interrelation among water balance metrics CEWL, osmolality, and mass/SMI?
+
+## Models
+
+Check a simple linear model between each set of paired measurements:
+
+```{r}
+summary(lm(data = dat,
+           CEWL_g_m2h ~ osmolality_mmol_kg_mean))
+summary(lm(data = dat,
+           CEWL_g_m2h ~ mass_g))
+summary(lm(data = dat,
+           osmolality_mmol_kg_mean ~ mass_g))
+```
+
+There is a small negative correlation between CEWL and osmolality. Neither CEWL or osmolality have a relationship with body mass.
+
+
+## Plot CEWL ~ Osmolality
+
+Look at a figure of CEWL ~ osmolality:
+
+```{r CEWL osml fig}
+ggplot(dat) + 
+  aes(x = osmolality_mmol_kg_mean,
+      y = CEWL_g_m2h,
+      #color = tmt
+      color = week
+      ) +
+  geom_point(size = 1, 
+             alpha = 0.4) + 
+  stat_smooth(formula = y ~ x, 
+              method = "lm", 
+              se = F, 
+              size = 1.6, 
+              alpha = 1) + 
   theme_classic() + 
-  xlab("Treatment Group") + 
-  ylab("Mass Change (g)") + 
-  #annotate("text", x = 1, y = 64, label = "a", size = 6) +
-  scale_color_brewer(palette = "Set2") +
+  xlab("Plasma Osmolality (mmol/kg)") + 
+  ylab(bquote('CEWL (g/'*m^2*'h)')) + 
+  #ylab("") +
+  #xlim(300, 450) +
+  #annotate(geom = "text", x = 430, y = 24, label = bquote(''*R^2*'=0.033'), 
+   #        size = 7) +
+  #ylim(0, 25) +
   theme(text = element_text(color = "black", 
                             family = "sans", 
-                            size = 18),
+                            size = 20),
         axis.text = element_text(color = "black", 
                                  family = "sans", 
-                                 size = 14),
+                                 size = 18),
+        legend.text = element_text(color = "black", 
+                                 family = "sans", 
+                                 size = 18),
         legend.text.align = 0,
-        legend.position = "none"
-)
+        legend.position = "right"
+        ) -> CEWL_osml_fig
+CEWL_osml_fig
+
+# export figure
+#ggsave(filename = "CEWL_osml_fig.jpeg",
+ #      plot = CEWL_osml_fig,
+  #     path = "./results_figures",
+   #    device = "jpeg",
+    #   dpi = 1200,
+     #  width = 6, height = 4)
 ```
 
 
+## Week Interaction
+
+Redo CEWL ~ osmolality model with an interaction of date:
+
+```{r}
+summary(lm(data = dat, CEWL_g_m2h ~ osmolality_mmol_kg_mean*week))
+```
+
+
+Once again, the relationship is only significant for week 3...
+
+
+## Lag Effect?
+
+What if I tested week 3 CEWL ~ week 1 osml, or visa versa? This is to look for a lag effect on their relationship, although the time period is likely too long.
+
+First, organize the data:
+
+```{r}
+w3_CEWL <- dat %>%
+  dplyr::filter(week == 3) %>%
+  dplyr::select(individual_ID, CEWL_g_m2h)
+w1_osml <- dat %>%
+  dplyr::filter(week == 1) %>%
+  dplyr::select(individual_ID, osmolality_mmol_kg_mean)
+w3_vs_w1 <- w1_osml %>%
+  left_join(w3_CEWL, by = 'individual_ID') %>%
+  dplyr::filter(complete.cases(osmolality_mmol_kg_mean, CEWL_g_m2h))
+w1_CEWL <- dat %>%
+  dplyr::filter(week == 1) %>%
+  dplyr::select(individual_ID, CEWL_g_m2h)
+w3_osml <- dat %>%
+  dplyr::filter(week == 3) %>%
+  dplyr::select(individual_ID, osmolality_mmol_kg_mean) 
+w1_vs_w3 <- w3_osml %>%
+  left_join(w1_CEWL, by = 'individual_ID') %>%
+  dplyr::filter(complete.cases(osmolality_mmol_kg_mean, CEWL_g_m2h))
+```
+
+
+Next, run models:
+
+```{r}
+summary(lm(data = w3_vs_w1, CEWL_g_m2h ~ osmolality_mmol_kg_mean))
+summary(lm(data = w1_vs_w3, CEWL_g_m2h ~ osmolality_mmol_kg_mean))
+```
+
+It seems very unlikely there is a lag effect, at least at this time scale.
+
+
+
+# Supplemental Hydration Treatment Effects
+
+
+## Calculate Deltas
+
+First, calculate the change in CEWL, osmolality, and mass for each treatment individual that was recaptured between April and May.
+
+```{r}
+starting_values <- dat %>%
+  #dplyr::filter(tmt != "No Tmt") %>%
+  dplyr::filter(month == "April") %>%
+  dplyr::select(individual_ID,
+                CEWL_April = CEWL_g_m2h,
+                osml_April = osmolality_mmol_kg_mean,
+                mass_April = mass_g)
+dat_tmt_change <- dat %>%
+  left_join(starting_values, by = 'individual_ID') %>%
+  dplyr::filter(complete.cases(mass_April, CEWL_April)) %>%
+  mutate(mass_change_from_April = mass_g - mass_April,
+         CEWL_change_from_April = CEWL_g_m2h - CEWL_April,
+         osml_change_from_April = osmolality_mmol_kg_mean - osml_April)
+dat_tmt_change_May_only <- dat_tmt_change %>%
+  dplyr::filter(month == "May")
+```
+
+
+
+## Plot Change by Tmt
+
+```{r}
+ggplot(dat_tmt_change) +
+  aes(x = month,
+      y = mass_change_from_April,
+      group = individual_ID,
+      #color = sex_M_F
+      color = tmt
+      ) +
+  geom_point() +
+  geom_line() +
+  theme_bw()
+ggplot(dat_tmt_change) +
+  aes(x = month,
+      y = CEWL_change_from_April,
+      group = individual_ID,
+      #color = sex_M_F
+      color = tmt
+      ) +
+  geom_point() +
+  geom_line() +
+  theme_bw()
+ggplot(dat_tmt_change) +
+  aes(x = month,
+      y = osml_change_from_April,
+      group = individual_ID,
+      #color = sex_M_F
+      color = tmt
+      ) +
+  geom_point() +
+  geom_line() +
+  theme_bw()
+```
+
+
+It does *not* look like treatment led to any differences in the amount or direction of change in lizard mass, CEWL, or osmolality. Changes were also not consistent by sex.
+
+
+
+
+## Stat Tests of Change
+
+These lm's are doing the same thing as a two-sample t-test, checking whether the means are statistically different. 
+
+```{r}
+summary(lm(data = dat_tmt_change_May_only, mass_change_from_April ~ tmt))
+summary(lm(data = dat_tmt_change_May_only, CEWL_change_from_April ~ tmt))
+summary(lm(data = dat_tmt_change_May_only, osml_change_from_April ~ tmt))
+```
+
+Change was not significantly different between treatments for any of the variables. 
+
+
+Was change overall (across tmts) different from zero?
+
+```{r}
+t.test(dat_tmt_change_May_only$mass_change_from_April)
+t.test(dat_tmt_change_May_only$CEWL_change_from_April)
+t.test(dat_tmt_change_May_only$osml_change_from_April)
+```
+
+On average, lizards who were measured in both April and May increased mass, but did not experience a change in osmolality or CEWL. 
+
+What about mass change *during* treatment, when we either gave lizards water to drink or a sham treatment. 
 
 ```{r tmt mass change stats}
-summary(lm(data = lizards_collared, tmt_mass_change_g ~ tmt))
+summary(lm(data = dat, tmt_mass_change_g ~ tmt))
+```
+
+So, it did result in a significant change in mass within the same-day water supplementation tmt (vs sham), but only ~1.4g difference, on average.
+
+
+
+
+# Population Change Over Time
+
+
+## Marginal Means
+
+I want to know whether the average values for all the lizards we measured changes over time. To test this, I can run a linear model, then use emmeans to get the marginal means and confidence intervals for each time point. 
+
+Do this only for lizards with repeat measurements.
+
+info for using emmeans with interactions:
+https://cran.r-project.org/web/packages/emmeans/vignettes/interactions.html
+
+```{r}
+# CEWL
+time_diffs_CEWL <- lm(data = dat_repeats, CEWL_g_m2h ~ month*sex_M_F)
+emmeans_CEWL <- data.frame(emmeans(time_diffs_CEWL, 
+                                   pairwise ~ month | sex_M_F)$emmean) %>%
+  mutate(measurement = "CEWL (g/m2h)")
+# osmolality
+time_diffs_osml <- lm(data = dat_repeats, osmolality_mmol_kg_mean ~ month*sex_M_F)
+emmeans_osml <- data.frame(emmeans(time_diffs_osml, 
+                                   pairwise ~ month | sex_M_F)$emmean) %>%
+  mutate(measurement = "Plasma Osmolality (mmol/kg)")
+# CEWL
+time_diffs_mass <- lm(data = dat_repeats, mass_g ~ month*sex_M_F)
+emmeans_mass <- data.frame(emmeans(time_diffs_mass, 
+                                   pairwise ~ month | sex_M_F)$emmean) %>%
+  mutate(measurement = "Mass (g)")
+
+emmeans_all <- emmeans_CEWL %>%
+  rbind(emmeans_osml) %>%
+  rbind(emmeans_mass)
 ```
 
 
-So, it did result in a significant change in mass within the same-day water supplementation tmt (vs sham), but only 1.1g, on average.
+## Plot
+
+```{r}
+# CEWL
+ggplot() +
+  geom_jitter(data = dat_repeats,
+             aes(x = month,
+                 y = CEWL_g_m2h,
+                 color = sex_M_F,
+                 shape = tmt),
+             alpha = 0.5,
+              position = position_jitter(height = 0, width = 0.2)) +
+  #geom_line(data = dat,
+   #          aes(x = month,
+    ##             y = CEWL_g_m2h,
+      #           color = tmt,
+       #          group = individual_ID),
+        #     alpha = 0.7) +
+  geom_point(data = emmeans_CEWL,
+             aes(x = month,
+                 y = emmean,
+                 color = sex_M_F)) +
+  geom_errorbar(data = emmeans_CEWL,
+                aes(x = month,
+                    y = emmean, 
+                    ymin = lower.CL,
+                    ymax = upper.CL,
+                 color = sex_M_F),
+                width = .3) +
+  theme_bw() +
+  guides(guide_legend(nrow = 3)) + # why is this not working?! UGHHHHH
+  facet_wrap(~sex_M_F) +
+  theme(legend.position = "bottom")  -> CEWL_emmean_plot
+CEWL_emmean_plot
+# osml
+ggplot() +
+  geom_jitter(data = dat_repeats,
+             aes(x = month,
+                 y = osmolality_mmol_kg_mean,
+                 color = sex_M_F,
+                 shape = tmt),
+             alpha = 0.5,
+              position = position_jitter(height = 0, width = 0.2)) +
+  geom_point(data = emmeans_osml,
+             aes(x = month,
+                 y = emmean,
+                 color = sex_M_F)) +
+  geom_errorbar(data = emmeans_osml,
+                aes(x = month,
+                    y = emmean, 
+                    ymin = lower.CL,
+                    ymax = upper.CL,
+                 color = sex_M_F),
+                width = .3) +
+  guides(guide_legend(nrow = 3)) +
+  theme(legend.position = "bottom") +
+  facet_wrap(~sex_M_F) +
+  theme_bw() -> osml_emmean_plot
+osml_emmean_plot
+# mass
+ggplot() +
+  geom_jitter(data = dat_repeats,
+             aes(x = month,
+                 y = mass_g,
+                 color = sex_M_F,
+                 shape = tmt),
+             alpha = 0.5,
+              position = position_jitter(height = 0, width = 0.2)) +
+  geom_point(data = emmeans_mass,
+             aes(x = month,
+                 y = emmean,
+                 color = sex_M_F)) +
+  geom_errorbar(data = emmeans_mass,
+                aes(x = month,
+                    y = emmean, 
+                    ymin = lower.CL,
+                    ymax = upper.CL,
+                 color = sex_M_F),
+                width = .3) +
+  guides(guide_legend(nrow = 3)) +
+  theme(legend.position = "bottom") +
+  facet_wrap(~sex_M_F) +
+  theme_bw() -> mass_emmean_plot
+mass_emmean_plot
+```
+
+
+This is **only** for lizards that were recaptured and measured more than once, so I think these changes may reflect true seasonality in their water balance.
+
+Put in one plot together:
+
+```{r}
+ggarrange(CEWL_emmean_plot, 
+          osml_emmean_plot, 
+          mass_emmean_plot,
+          ncol = 1, nrow = 3,
+          labels = c("A", "B", "C"),
+          common.legend = TRUE,
+          legend = "bottom"
+          ) -> szn_change_multi_fig
+#szn_change_multi_fig
+
+ggsave(filename = "szn_change_multi_fig.pdf",
+       plot = szn_change_multi_fig,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 80, height = 210)
+```
+
+
+
 
 
 
@@ -579,29 +589,6 @@ surprising/sig NON correlations:
 
 
 
-
-# Tmt x Time Stats
-
-
-```{r change by tmt * time}
-# osmolality
-summary(lm(data = lizards_all, osmolality_mmol_kg_mean ~ tmt:time_pt))
-TukeyHSD(aov(lm(data = lizards_all, osmolality_mmol_kg_mean ~ tmt + time_pt)))
-
-# hematocrit
-summary(lm(data = lizards_all, hematocrit_percent ~ tmt:time_pt))
-
-# mass
-summary(lm(data = lizards_all, mass_g ~ tmt:time_pt))
-summary(lm(data = lizards_all_SMI, SMI ~ tmt:time_pt))
-
-# CEWL
-summary(lm(data = lizards_all, CEWL_g_m2h ~ tmt:time_pt))
-```
-
-There was NO effect of treatment on CEWL, osmolality, hematocrit, or mass/SMI change throughout the season. 
-
-So, we can carry on with all 3 treatment groups aggregated.
 
 
 # Time Stats
@@ -1286,51 +1273,7 @@ summary(CEWL_SMI_mod)
 
 
 
-## CEWL ~ Osmolality
 
-```{r CEWL osml fig}
-ggplot(lizards_all) + 
-  aes(x = osmolality_mmol_kg_mean,
-      y = CEWL_g_m2h
-      ) +
-  geom_point(size = 1, 
-             alpha = 0.4) + 
-  stat_smooth(formula = y ~ x, 
-              method = "lm", 
-              se = F, 
-              color = "slateblue4",
-              size = 1.6, 
-              alpha = 1) + 
-  theme_classic() + 
-  xlab("Plasma Osmolality (mmol/kg)") + 
-  ylab(bquote('CEWL (g/'*m^2*'h)')) + 
-  #ylab("") +
-  xlim(300, 450) +
-  annotate(geom = "text", x = 430, y = 24, label = bquote(''*R^2*'=0.033'), 
-           size = 7) +
-  ylim(0, 25) +
-  theme(text = element_text(color = "black", 
-                            family = "sans", 
-                            size = 20),
-        axis.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 18),
-        legend.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 18),
-        legend.text.align = 0,
-        legend.position = "none"
-        ) -> CEWL_osml_fig
-CEWL_osml_fig
-
-# export figure
-ggsave(filename = "CEWL_osml_fig.jpeg",
-       plot = CEWL_osml_fig,
-       path = "./results_figures",
-       device = "jpeg",
-       dpi = 1200,
-       width = 6, height = 4)
-```
 
 
 model:
