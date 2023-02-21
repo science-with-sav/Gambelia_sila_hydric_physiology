@@ -61,12 +61,72 @@ dat <- read_rds("./data/G_sila_clean_full_dat.RDS")
 
 
 
+
 ## Variable Explanation
 
 
 
 
 
+
+## Repeat Subset
+
+I want to make some sub-dataframes for when I want to do stats for only a subset of individuals.
+
+First, get a dataframe of only individuals that had more than one measurement taken, and note how many individuals had x measurements:
+
+```{r}
+# how many lizards were measured 1, 2, or 3 times?
+note_repeats <- dat %>%
+  group_by(individual_ID) %>%
+  summarise(n = n()) %>%
+  group_by(n) %>%
+  summarise(n_lizards = n())
+note_repeats 
+
+# this is how many individual lizards we measured :)
+sum(note_repeats$n_lizards) 
+
+# get subsetted data
+dat_repeats <- dat %>%
+  group_by(individual_ID) %>%
+  mutate(n = n()) %>%
+  dplyr::filter(n>1)
+
+# check these match 'note_repeats'
+dat_repeats %>%
+  group_by(individual_ID) %>%
+  summarise(n = n()) %>%
+  group_by(n) %>%
+  summarise(n_lizards = n())
+```
+
+
+
+## Female Subset
+
+To look at reproductive effort ~ water balance, I will make another subset for only the females we collected gravidity/egg data on:
+
+```{r}
+dat_repro_females <- dat %>%
+  dplyr::filter(complete.cases(gravid_Y_N)) %>%
+  group_by(individual_ID) %>%
+  mutate(n = n(),
+         n = factor(n)) 
+summary(dat_repro_females)
+```
+
+
+It's good to note that I measured reproductive effort at **two time points** for 9 females, and only at one time point for 10 females.
+
+Check whether the single-measurement females are all from the first weekend or not:
+
+```{r}
+table(dat_repro_females$week, dat_repro_females$n)
+```
+
+
+For the females who were only measured once, 8 of them are from the first weekend and 2 of them are from the third weekend.
 
 
 
@@ -76,11 +136,6 @@ dat <- read_rds("./data/G_sila_clean_full_dat.RDS")
 I want to know whether SVL changed over time for the individuals who had more than one measurement taken. If it does, then body condition is certainly more informative than mass.
 
 ```{r}
-# subset
-dat_repeats <- dat %>%
-  group_by(individual_ID) %>%
-  mutate(n = n()) %>%
-  dplyr::filter(n>1)
 # model
 summary(lme4::lmer(data = dat_repeats, 
                    SVL_mm ~ week_num + (1|individual_ID)))
@@ -93,7 +148,7 @@ There is no meaningful change in SVL for the individuals we were able to measure
 
 # Check CEWL Covariates
 
-How much is CEWL impacted by the body temperature, ambient temperature, and ambient VPD at the time of CEWL measurement?
+How much is CEWL impacted by the body temperature, ambient temperature, and ambient VPD at the time of CEWL measurement? I will investigate this using *all* measurements.
 
 It's possible that I may find a relationship between ambient temp and CEWL but not body temp and CEWL because the body temp measurements we took were unfortunately only to the nearest degree...
 
@@ -133,7 +188,7 @@ ggplot(dat) +
 ```
 
 
-Across dates, CEWL had no relationship with body temp, ambient temp, or ambient VPD at the time of capture. However, when separated by date, there were relationships. There were no relationships when separated by treatment group. 
+Across dates, CEWL had no relationship with body temp, ambient temp, or ambient VPD at the time of capture. However, when separated by date, there were relationships. CEWL had a positive relationship with body temp, ambient temp, and ambient VPD, but only for week 3 measurements. There were no relationships when separated by treatment group. 
 
 
 ## Models
@@ -149,7 +204,7 @@ summary(lm(data = dat,
            CEWL_g_m2h ~ msmt_VPD_kPa*week))
 ```
 
-CEWL had a positive relationship with each of body temp, ambient temp, and ambient VPD, *but* only for the measurements taken in May (week 3).
+CEWL had a positive relationship with each of body temp, ambient temp, and ambient VPD, *but only for the measurements taken in May* (week 3).
 
 
 ## Variance
@@ -159,39 +214,52 @@ Let's also check the distribution/range of these covariates, because based on th
 ```{r}
 dat %>%
   group_by(week) %>%
-  summarise(min(cloacal_temp_C, na.rm = T), max(cloacal_temp_C, na.rm = T),
-            min(msmt_temp_C, na.rm = T), max(msmt_temp_C, na.rm = T),
-            min(msmt_VPD_kPa, na.rm = T), max(msmt_VPD_kPa, na.rm = T))
+  summarise(ctemp_range = max(cloacal_temp_C, na.rm = T) - 
+              min(cloacal_temp_C, na.rm = T),
+            mtemp_range = max(msmt_temp_C, na.rm = T) - 
+              min(msmt_temp_C, na.rm = T),
+            mVPD_range = max(msmt_VPD_kPa, na.rm = T) - 
+              min(msmt_VPD_kPa, na.rm = T))
 ```
 
-Well... these ranges are not small enough to be meaningless. So, we will have to keep in mind that temperature and VPD should be retained in CEWL models as a covariate.
+Well... the ranges for week 3 are not small enough to be meaningless. So, we will have to keep in mind that temperature and VPD should be retained in CEWL models as a covariate.
 
 
 
 
 # Water Balance Metrics
 
-What is the interrelation among water balance metrics CEWL, osmolality, and mass/SMI?
+What is the interrelation among water balance metrics CEWL, osmolality, hematocrit, and mass/SMI. I'll use all measurements for this. *I'm not sure if we will include hematocrit in the final results, though.*
 
 ## Models
 
 Check a simple linear model between each set of paired measurements:
 
 ```{r}
+# CEWL ~
 summary(lm(data = dat,
            CEWL_g_m2h ~ osmolality_mmol_kg_mean))
 summary(lm(data = dat,
+           CEWL_g_m2h ~ hematocrit_percent))
+summary(lm(data = dat,
            CEWL_g_m2h ~ mass_g))
 summary(lm(data = dat,
+           CEWL_g_m2h ~ SMI))
+
+# osmolality ~
+summary(lm(data = dat,
+           osmolality_mmol_kg_mean ~ hematocrit_percent))
+summary(lm(data = dat,
            osmolality_mmol_kg_mean ~ mass_g))
+summary(lm(data = dat,
+           osmolality_mmol_kg_mean ~ SMI))
 ```
 
-There is a small negative correlation between CEWL and osmolality. Neither CEWL or osmolality have a relationship with body mass.
+There is a small negative correlation between CEWL and osmolality. Neither CEWL or osmolality have a relationship with body mass, but they do with SMI. Both CEWL and osmolality correlate with hematocrit.
 
 
 ## Plot CEWL ~ Osmolality
 
-Look at a figure of CEWL ~ osmolality:
 
 ```{r CEWL osml fig}
 ggplot(dat) + 
@@ -239,6 +307,88 @@ CEWL_osml_fig
 ```
 
 
+## Plot CEWL ~ Hematocrit
+
+
+```{r CEWL hct fig}
+ggplot(dat) + 
+  aes(x = hematocrit_percent,
+      y = CEWL_g_m2h,
+      #color = tmt
+      color = week
+      ) +
+  geom_point(size = 1, 
+             alpha = 0.4) + 
+  stat_smooth(formula = y ~ x, 
+              method = "lm", 
+              se = F, 
+              size = 1.6, 
+              alpha = 1) + 
+  theme_classic() + 
+  xlab("Hematocrit (%)") + 
+  ylab(bquote('CEWL (g/'*m^2*'h)')) + 
+  #ylab("") +
+  #xlim(300, 450) +
+  #annotate(geom = "text", x = 430, y = 24, label = bquote(''*R^2*'=0.033'), 
+   #        size = 7) +
+  #ylim(0, 25) +
+  theme(text = element_text(color = "black", 
+                            family = "sans", 
+                            size = 20),
+        axis.text = element_text(color = "black", 
+                                 family = "sans", 
+                                 size = 18),
+        legend.text = element_text(color = "black", 
+                                 family = "sans", 
+                                 size = 18),
+        legend.text.align = 0,
+        legend.position = "right"
+        ) -> CEWL_hct_fig
+CEWL_hct_fig
+```
+
+
+## Plot Osmol ~ Hematocrit
+
+
+```{r CEWL hct fig}
+ggplot(dat) + 
+  aes(x = hematocrit_percent,
+      y = osmolality_mmol_kg_mean,
+      #color = tmt
+      color = week
+      ) +
+  geom_point(size = 1, 
+             alpha = 0.4) + 
+  stat_smooth(formula = y ~ x, 
+              method = "lm", 
+              se = F, 
+              size = 1.6, 
+              alpha = 1) + 
+  theme_classic() + 
+  xlab("Hematocrit (%)") + 
+  ylab("Plasma Osmolality") + 
+  #ylab("") +
+  #xlim(300, 450) +
+  #annotate(geom = "text", x = 430, y = 24, label = bquote(''*R^2*'=0.033'), 
+   #        size = 7) +
+  #ylim(0, 25) +
+  theme(text = element_text(color = "black", 
+                            family = "sans", 
+                            size = 20),
+        axis.text = element_text(color = "black", 
+                                 family = "sans", 
+                                 size = 18),
+        legend.text = element_text(color = "black", 
+                                 family = "sans", 
+                                 size = 18),
+        legend.text.align = 0,
+        legend.position = "right"
+        ) -> osml_hct_fig
+osml_hct_fig
+```
+
+
 ## Week Interaction
 
 Redo CEWL ~ osmolality model with an interaction of date:
@@ -248,7 +398,21 @@ summary(lm(data = dat, CEWL_g_m2h ~ osmolality_mmol_kg_mean*week))
 ```
 
 
-Once again, the relationship is only significant for week 3...
+Once again, the relationship is only significant for week 3...\
+
+
+
+Also look at for hematocrit:
+
+```{r}
+summary(lm(data = dat,
+           CEWL_g_m2h ~ hematocrit_percent*week))
+summary(lm(data = dat,
+           osmolality_mmol_kg_mean ~ hematocrit_percent*week))
+```
+
+The relationships between CEWL and osmolality with hematocrit are not different across weeks.
+
 
 
 ## Lag Effect?
@@ -279,14 +443,14 @@ w1_vs_w3 <- w3_osml %>%
 ```
 
 
-Next, run models:
+Run models:
 
 ```{r}
 summary(lm(data = w3_vs_w1, CEWL_g_m2h ~ osmolality_mmol_kg_mean))
 summary(lm(data = w1_vs_w3, CEWL_g_m2h ~ osmolality_mmol_kg_mean))
 ```
 
-It seems very unlikely there is a lag effect, at least at this time scale.
+It seems very unlikely there is a lag effect, at least at this time scale. t and F stats were both nonsig for each comparisons.
 
 
 
@@ -298,16 +462,23 @@ It seems very unlikely there is a lag effect, at least at this time scale.
 First, calculate the change in CEWL, osmolality, and mass for each treatment individual that was recaptured between April and May.
 
 ```{r}
-starting_values <- dat %>%
-  #dplyr::filter(tmt != "No Tmt") %>%
+starting_values <- dat_repeats %>%
+  # look only at lizards in hydration or sham tmt
+  dplyr::filter(tmt != "No Tmt") %>%
+  # get the values for April measurements only 
   dplyr::filter(month == "April") %>%
   dplyr::select(individual_ID,
                 CEWL_April = CEWL_g_m2h,
                 osml_April = osmolality_mmol_kg_mean,
                 mass_April = mass_g)
-dat_tmt_change <- dat %>%
+dat_tmt_change <- dat_repeats %>%
+  # look only at lizards in hydration or sham tmt
+  dplyr::filter(tmt != "No Tmt") %>%
+  # add starting values
   left_join(starting_values, by = 'individual_ID') %>%
+  # make sure we have complete data
   dplyr::filter(complete.cases(mass_April, CEWL_April)) %>%
+  # calculate difference for each msmt versus in April
   mutate(mass_change_from_April = mass_g - mass_April,
          CEWL_change_from_April = CEWL_g_m2h - CEWL_April,
          osml_change_from_April = osmolality_mmol_kg_mean - osml_April)
@@ -395,7 +566,7 @@ So, it did result in a significant change in mass within the same-day water supp
 # Population Change Over Time
 
 
-## Marginal Means
+## Time*Sex Marginal Means
 
 I want to know whether the average values for all the lizards we measured changes over time. To test this, I can run a linear model, then use emmeans to get the marginal means and confidence intervals for each time point. 
 
@@ -410,6 +581,7 @@ time_diffs_CEWL <- lm(data = dat_repeats, CEWL_g_m2h ~ month*sex_M_F)
 emmeans_CEWL <- data.frame(emmeans(time_diffs_CEWL, 
                                    pairwise ~ month | sex_M_F)$emmean) %>%
   mutate(measurement = "CEWL (g/m2h)")
+
 # osmolality
 time_diffs_osml <- lm(data = dat_repeats, osmolality_mmol_kg_mean ~ month*sex_M_F)
 emmeans_osml <- data.frame(emmeans(time_diffs_osml, 
@@ -421,9 +593,23 @@ emmeans_mass <- data.frame(emmeans(time_diffs_mass,
                                    pairwise ~ month | sex_M_F)$emmean) %>%
   mutate(measurement = "Mass (g)")
 
+# put together
 emmeans_all <- emmeans_CEWL %>%
   rbind(emmeans_osml) %>%
   rbind(emmeans_mass)
+
+# all stats together
+emmean_stats <- data.frame(emmeans(time_diffs_CEWL, 
+                                   pairwise ~ month | sex_M_F)$contrasts) %>%
+  rbind(data.frame(emmeans(time_diffs_osml, 
+                                   pairwise ~ month | sex_M_F)$contrasts)) %>%
+  rbind(data.frame(emmeans(time_diffs_mass, 
+                                   pairwise ~ month | sex_M_F)$contrasts)) %>%
+  mutate(measurement = c(rep("CEWL (g/m2h)", 6),
+                         rep("Plasma Osmolality (mmol/kg)", 6),
+                         rep("Mass (g)", 6))) %>%
+  arrange(p.value)
+emmean_stats
 ```
 
 
@@ -544,94 +730,17 @@ ggsave(filename = "szn_change_multi_fig.pdf",
 
 
 
-# Look for Potential Correlations
-
-first, load function to format correlation stats:
-
-```{r func to format}
-flattenCorrMatrix <- function(cormat, pmat) {
-  ut <- upper.tri(cormat)
-  data.frame(
-    row = rownames(cormat)[row(cormat)[ut]],
-    column = rownames(cormat)[col(cormat)[ut]],
-    cor  =(cormat)[ut],
-    p = pmat[ut]
-    )
-}
-```
-
-```{r corr}
-num_only <- lizards_all_SMI %>%
-  dplyr::select(SVL_mm, mass_g, SMI,
-                hematocrit_percent, osmolality_mmol_kg_mean, 
-                CEWL_g_m2h, cloacal_temp_C, msmt_temp_C, msmt_RH_percent,
-                capture_to_msmt)
-corr <- rcorr(as.matrix(num_only))
-flattenCorrMatrix(corr$r, corr$P)
-```
-
-significant correlations to look into:
-- CEWL / hct
-- osml / hct
-- SMI / osml
-- SMI / hct
-- cloacal temp /msmt temp/ msmt RH/ capture to msmst time
-- CEWL / osml
-
-somewhat meaningful:
-- SMI / CEWL
-
-surprising/sig NON correlations:
-- CEWL / cloacal temp
-- CEWL / msmt RH
-- CEWL / msmt temp
 
 
 
 
 
 
-# Time Stats
-
-```{r change over time only}
-# only do for individuals measured at time points 1 and 2
-indiv_over_time <- lizards_all_SMI %>%
-  group_by(individual_ID) %>%
-  summarise(n = n()) %>%
-  dplyr::filter(n > 1)
-lizards_over_time <- lizards_all_SMI %>%
-  dplyr::filter(individual_ID %in% indiv_over_time$individual_ID)
-
-# now the following stats will be "for lizards measured at >1 time pt..."
-
-# osmolality
-osml_time_mod <- (lmerTest::lmer(data = lizards_over_time, 
-                       osmolality_mmol_kg_mean ~ time_pt + (1|individual_ID)))
-summary(osml_time_mod)
-
-# hematocrit
-hct_time_mod <- (lmerTest::lmer(data = lizards_over_time, 
-                       hematocrit_percent ~ time_pt + (1|individual_ID)))
-summary(hct_time_mod)
-
-# mass
-mass_time_mod <- (lmerTest::lmer(data = lizards_over_time, 
-                       mass_g ~ time_pt + (1|individual_ID)))
-summary(mass_time_mod)
-
-#SMI
-SMI_time_mod <- (lmerTest::lmer(data = lizards_over_time, 
-                       SMI ~ time_pt + (1|individual_ID)))
-summary(SMI_time_mod)
-
-# CEWL
-CEWL_time_mod <- (lmerTest::lmer(data = lizards_over_time, 
-                       CEWL_g_m2h ~ time_pt + (1|individual_ID)))
-summary(CEWL_time_mod)
-```
 
 
-# Time + Sex Stats
+
+
+# LMER Time + Sex Stats
 
 ```{r diffs by sex + time}
 # osmolality
@@ -704,431 +813,7 @@ write.csv(time_sex_mod_stats,
 
 
 
-# Figures: Raw Values ~ Time
-
-## Osmolality
-
-```{r osml ~ time fig}
-ggplot(data = lizards_over_time) + 
-  geom_point(aes(x = time_pt, 
-                   y = osmolality_mmol_kg_mean, 
-                group = individual_ID,
-                color = sex_M_F), 
-               size = 2,
-               alpha = 1) +
-  geom_line(aes(x = time_pt, 
-                   y = osmolality_mmol_kg_mean, 
-                group = individual_ID,
-                color = sex_M_F),
-            alpha = 0.8) +
-  theme_classic() + 
-  xlab("Time (not to scale)") + 
-  ylab("Osmolality (mmol/kg)") + 
-  #xlim(c("April", "May")) +
-  #annotate("text", x = 1, y = 64, label = "a", size = 6) +
-  #scale_color_brewer(palette = "Set2") +
-  theme(text = element_text(color = "black", 
-                            family = "sans", 
-                            size = 18),
-        axis.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 14),
-        legend.text.align = 0,
-        legend.position = "none"
-) -> osml_over_time
-osml_over_time
-
-# export figure
-#ggsave(filename = "osml_over_time.jpeg",
- #      plot = osml_over_time,
-  #     path = "./results_figures",
-   #    device = "jpeg",
-    #   dpi = 1200,
-     #  width = 6, height = 4)
-```
-
-
-## Hct
-
-```{r hct ~ time fig}
-ggplot(data = lizards_over_time) + 
-  geom_point(aes(x = time_pt, 
-                   y = hematocrit_percent, 
-                group = individual_ID,
-                color = sex_M_F), 
-               size = 2,
-               alpha = 1) +
-  geom_line(aes(x = time_pt, 
-                   y = hematocrit_percent, 
-                group = individual_ID,
-                color = sex_M_F),
-            alpha = 0.8) +
-  theme_classic() + 
-  xlab("Time (not to scale)") + 
-  ylab("Hematocrit (%)") + 
-  #xlim(c("April", "May")) +
-  ylim(20, 45) +
-  #annotate("text", x = 1, y = 64, label = "a", size = 6) +
-  #scale_color_brewer(palette = "Set2") +
-  theme(text = element_text(color = "black", 
-                            family = "sans", 
-                            size = 18),
-        axis.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 14),
-        legend.text.align = 0,
-        legend.position = "none"
-) -> hct_over_time
-hct_over_time
-
-# export figure
-#ggsave(filename = "hct_over_time.jpeg",
- #      plot = hct_over_time,
-  #     path = "./results_figures",
-   #    device = "jpeg",
-    #   dpi = 1200,
-     #  width = 6, height = 4)
-```
-
-
-Right now, I have the y-scale limited to exclude a few outliers.
-
-
-
-
-
-
-
-
-
-
-
-
-## Scaled Mass
-
-```{r mass ~ time fig}
-ggplot(data = lizards_over_time) + 
-  geom_point(aes(x = time_pt, 
-                   y = SMI, 
-                group = individual_ID,
-                color = individual_ID), 
-               size = 2,
-               alpha = 1) +
-  geom_line(aes(x = time_pt, 
-                   y = SMI, 
-                group = individual_ID,
-                color = individual_ID),
-            alpha = 0.8) +
-  theme_classic() + 
-  xlab("Time (not to scale)") + 
-  ylab("Body Condition (g)") + 
-  #annotate("text", x = 1, y = 64, label = "a", size = 6) +
-  #scale_color_brewer(palette = "Set2") +
-  theme(text = element_text(color = "black", 
-                            family = "sans", 
-                            size = 18),
-        axis.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 14),
-        legend.text.align = 0,
-        legend.position = "none"
-) -> SMI_over_time
-SMI_over_time
-
-# export figure
-#ggsave(filename = "SMI_over_time.jpeg",
- #      plot = SMI_over_time,
-  #     path = "./results_figures",
-   #    device = "jpeg",
-    #   dpi = 1200,
-     #  width = 6, height = 4)
-```
-
-
-## CEWL
-
-```{r CEWL ~ time fig}
-ggplot(data = lizards_over_time) + 
-  geom_point(aes(x = time_pt, 
-                   y = CEWL_g_m2h, 
-                group = individual_ID,
-                color = individual_ID), 
-               size = 2,
-               alpha = 1) +
-  geom_line(aes(x = time_pt, 
-                   y = CEWL_g_m2h, 
-                group = individual_ID,
-                color = individual_ID),
-            alpha = 0.8) +
-  theme_classic() + 
-  xlab("Time (not to scale)") + 
-  ylab("CEWL (g)") + 
-  #annotate("text", x = 1, y = 64, label = "a", size = 6) +
-  #scale_color_brewer(palette = "Set2") +
-  theme(text = element_text(color = "black", 
-                            family = "sans", 
-                            size = 18),
-        axis.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 14),
-        legend.text.align = 0,
-        legend.position = "none"
-) -> CEWL_over_time
-CEWL_over_time
-
-# export figure
-#ggsave(filename = "CEWL_over_time.jpeg",
- #      plot = CEWL_over_time,
-  #     path = "./results_figures",
-   #    device = "jpeg",
-    #   dpi = 1200,
-     #  width = 6, height = 4)
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Figures: Mean Values ~ Time
-
-First, I need to calculate the mean values.
-
-```{r get means}
-means_by_date_sex <- lizards_over_time %>%
-  group_by(time_pt, sex_M_F) %>%
-  summarise(hct_mean = mean(hematocrit_percent, na.rm = T),
-            osml_mean = mean(osmolality_mmol_kg_mean, na.rm = T),
-            mass_mean = mean(mass_g, na.rm = T),
-            SMI_mean = mean(SMI, na.rm = T),
-            CEWL_mean = mean(CEWL_g_m2h, na.rm = T))
-means_by_date_sex
-```
-
-
-
-## Osmolality
-
-```{r osml mean ~ time fig}
-ggplot(data = means_by_date_sex) + 
-  geom_point(aes(x = time_pt, 
-                   y = osml_mean, 
-                color = sex_M_F), 
-               size = 3,
-               alpha = 1) +
-  geom_line(aes(x = time_pt, 
-                   y = osml_mean, 
-                group = sex_M_F,
-                color = sex_M_F),
-            alpha = 1,
-            size = 1) +
-  theme_classic() + 
-  xlab("Time (not to scale)") + 
-  ylab("Osmolality (mmol/kg)") + 
-  ylim(320,400) +
-  #annotate("text", x = 1, y = 64, label = "a", size = 6) +
-  scale_color_brewer(palette = "Set2", 
-                     labels = c("Female", "Male"),
-                     name = "Sex") +
-  theme(text = element_text(color = "black", 
-                            family = "sans", 
-                            size = 20),
-        axis.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 18),
-        legend.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 18),
-        legend.text.align = 0,
-        legend.position = "bottom"
-) -> osml_mean_over_time
-osml_mean_over_time
-
-# export figure
-ggsave(filename = "osml_mean_over_time.jpeg",
-       plot = osml_mean_over_time,
-       path = "./results_figures",
-       device = "jpeg",
-       dpi = 1200,
-       width = 6, height = 4)
-```
-
-
-## Hct
-
-```{r hct mean ~ time fig}
-ggplot(data = means_by_date_sex) + 
-  geom_point(aes(x = time_pt, 
-                   y = hct_mean, 
-                color = sex_M_F), 
-               size = 2,
-               alpha = 1) +
-  geom_line(aes(x = time_pt, 
-                   y = hct_mean, 
-                group = sex_M_F,
-                color = sex_M_F),
-            alpha = 0.8) +
-  theme_classic() + 
-  xlab("Time (not to scale)") + 
-  ylab("Hematocrit (%)") + 
-  #xlim(c("April", "May")) +
-  ylim(20, 45) +
-  #annotate("text", x = 1, y = 64, label = "a", size = 6) +
-  #scale_color_brewer(palette = "Set2") +
-  theme(text = element_text(color = "black", 
-                            family = "sans", 
-                            size = 18),
-        axis.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 14),
-        legend.text.align = 0,
-        legend.position = "none"
-) -> hct_mean_over_time
-hct_mean_over_time
-
-# export figure
-#ggsave(filename = "hct_over_time.jpeg",
- #      plot = hct_over_time,
-  #     path = "./results_figures",
-   #    device = "jpeg",
-    #   dpi = 1200,
-     #  width = 6, height = 4)
-```
-
-
-Right now, I have the y-scale limited to exclude a few outliers.
-
-
-
-
-
-
-
-
-
-
-
-
-## Scaled Mass
-
-```{r mass mean ~ time fig}
-ggplot(data = means_by_date_sex) + 
-  geom_point(aes(x = time_pt, 
-                   y = SMI_mean, 
-                color = sex_M_F), 
-               size = 2,
-               alpha = 1) +
-  geom_line(aes(x = time_pt, 
-                   y = SMI_mean, 
-                group = sex_M_F,
-                color = sex_M_F),
-            alpha = 0.8) +
-  theme_classic() + 
-  xlab("Time (not to scale)") + 
-  ylab("Body Condition (g)") + 
-  #annotate("text", x = 1, y = 64, label = "a", size = 6) +
-  #scale_color_brewer(palette = "Set2") +
-  theme(text = element_text(color = "black", 
-                            family = "sans", 
-                            size = 18),
-        axis.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 14),
-        legend.text.align = 0,
-        legend.position = "right"
-) -> SMI_mean_over_time
-SMI_mean_over_time
-
-# export figure
-#ggsave(filename = "SMI_over_time.jpeg",
- #      plot = SMI_over_time,
-  #     path = "./results_figures",
-   #    device = "jpeg",
-    #   dpi = 1200,
-     #  width = 6, height = 4)
-```
-
-
-## CEWL
-
-```{r CEWL mean ~ time fig}
-ggplot(data = means_by_date_sex) + 
-  geom_point(aes(x = time_pt, 
-                   y = CEWL_mean, 
-                color = sex_M_F), 
-               size = 3,
-               alpha = 1) +
-  geom_line(aes(x = time_pt, 
-                   y = CEWL_mean, 
-                group = sex_M_F,
-                color = sex_M_F),
-            alpha = 1,
-            size = 1) +
-  theme_classic() + 
-  xlab("Time (not to scale)") + 
-  ylab(bquote('CEWL (g/'*m^2*'h)')) + 
-  ylim(6,14) +
-  #annotate("text", x = 1, y = 64, label = "a", size = 6) +
-  scale_color_brewer(palette = "Set2", 
-                     labels = c("Female", "Male"),
-                     name = "Sex") +
-  theme(text = element_text(color = "black", 
-                            family = "sans", 
-                            size = 20),
-        axis.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 18),
-        legend.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 18),
-        legend.text.align = 0,
-        legend.position = "bottom"
-) -> CEWL_mean_over_time
-CEWL_mean_over_time
-
-# export figure
-ggsave(filename = "CEWL_mean_over_time.jpeg",
-       plot = CEWL_mean_over_time,
-       path = "./results_figures",
-       device = "jpeg",
-       dpi = 1200,
-       width = 6, height = 4)
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Correlations
+# Other Figures
 
 Make a figure and model for each of the following relationships-
 
@@ -1356,10 +1041,100 @@ summary(hct_SMI_mod)
 
 
 
-## Body Temp ~ Capture to Msmt Time ~ Msmt Temp ~ Msmt RH
 
 
-Do I need to model this? It makes sense that they're all collinear. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Reproductive Effort
+
+Is reproductive effort related to water balance?
+
+
+## Likelihood
+
+First, I need to figure out what to do with the individuals measured twice, and whether I need to worry about choosing between the different dates.
+
+```{r}
+dat_repro_females %>%
+  dplyr::filter(n == 1)
+dat_repro_females %>%
+  dplyr::filter(n == 2) %>%
+  arrange(individual_ID)
+table(dat_repro_females$gravid_Y_N, dat_repro_females$week)
+```
+
+
+It will be interesting in the results section to talk about the following:
+
+- several females that we measured more than once were *not* gravid in week 1, then *were* gravid when we re-measured them in week 3. 
+- across recaptured and single-capture females, a higher proportion were gravid in week 3 than in week 1
+
+
+Is it reasonable to look at a dataset of the week-3 repeat females + all the 1-msmt females?
+
+
+
+Start with a multiple-effect logistic model to predict
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
