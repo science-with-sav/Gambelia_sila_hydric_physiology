@@ -1,0 +1,168 @@
+---
+title: "CEWL species comparison"
+author: "Savannah Weaver"
+output: 
+  rmdformats::html_clean:
+    highlight: tango
+    thumbnails: FALSE
+    toc: TRUE
+    toc_depth: 3
+---
+
+
+# Packages
+
+```{r setup, echo=T, results='hide', message=FALSE}
+if (!require("tidyverse")) install.packages("tidyverse") 
+library("tidyverse")# for dplyr workflow of calculations
+if (!require("UsingR")) install.packages("UsingR") 
+library("UsingR")
+if (!require("lme4")) install.packages("lme4") 
+library("lme4")
+if (!require("lmerTest")) install.packages("lmerTest") 
+library("lmerTest")
+if (!require("broom")) install.packages("broom")
+library("broom") # lmer model export
+if (!require("broom.mixed")) install.packages("broom.mixed")
+library("broom.mixed") # lmer model export
+if (!require("ggplot2")) install.packages("ggplot2")
+library("ggplot2")
+if (!require("ggpubr")) install.packages("ggpubr")
+library("ggpubr") # for multi-ggplot figs
+if (!require("Hmisc")) install.packages("Hmisc")
+library("Hmisc") # correlation matrix
+if (!require("emmeans")) install.packages("emmeans")
+library("emmeans") # marginal means & confints
+```
+
+
+
+
+# Background
+
+
+
+look at CEWL-osml distribution for BNLL & WFL
+look at CEWL diffs for BNLL, WFL, and AWL
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Load Data
+
+
+
+
+
+
+
+
+
+
+
+
+## Get S.o. Data
+
+```{r load Sceloporus data}
+Sceloporus1 <- read.csv("./data/Sceloporus_CEWL_1.csv") %>%
+  dplyr::filter(region == "dors") %>%
+  dplyr::select(date, individual_ID, CEWL_g_m2h = TEWL_g_m2h)
+Sceloporus2 <- read.csv("./data/Sceloporus_CEWL_2.csv") %>%
+  dplyr::filter(day == "capture") %>%
+  dplyr::select(date, individual_ID, CEWL_g_m2h)
+Sceloporus <- rbind(Sceloporus1, Sceloporus2) %>%
+  mutate(species = "S. occidentalis",
+         individual_ID = as.character(individual_ID))
+```
+
+
+## Merge S.o. and G.s.
+
+```{r merge}
+sp_compare <- lizards_all %>%
+  dplyr::select(date, individual_ID, CEWL_g_m2h) %>%
+  mutate(species = "G. sila",
+         individual_ID = as.character(individual_ID)) %>%
+  rbind(Sceloporus) 
+
+sp_compare$species <- factor(sp_compare$species,
+                             levels = c("S. occidentalis", "G. sila"))
+
+sp_compare_means <- sp_compare %>%
+  group_by(species) %>%
+  summarise(mean_CEWL = mean(CEWL_g_m2h, na.rm = TRUE),
+            sd_CEWL = sd(CEWL_g_m2h, na.rm = TRUE),
+            min_CEWL = min(CEWL_g_m2h, na.rm = TRUE),
+            max_CEWL = max(CEWL_g_m2h, na.rm = TRUE),
+            range_CEWL = max_CEWL - min_CEWL)
+sp_compare_means
+```
+
+I think I should present in the figure caption as mean ± SD (range).
+
+So, "Mean ± SD (range) are as follows: S. occidentalis: 21.4 ± 6.6 (4.0 - 49.0); G. sila: 10.2 ± 4.0 (0.6 - 21.0)."
+
+
+## Model Compare Avg CEWL
+
+```{r model sp compare CEWL}
+sp_compare_mod <- lm(data = sp_compare, CEWL_g_m2h ~ species)
+summary(sp_compare_mod)
+```
+
+
+## Plot Compare Avg CEWL
+
+this is the grand mean across dates and sexes
+
+```{r compare sp CEWL}
+ggplot() + 
+  geom_boxplot(data = sp_compare,
+               aes(x = species, 
+                   y = CEWL_g_m2h, 
+                color = species), 
+               alpha = 1) +
+  geom_point(data = sp_compare_means,
+               aes(x = species, 
+                   y = mean_CEWL, 
+                color = species), 
+               size = 6,
+               alpha = 1) +
+  theme_classic() + 
+  xlab("") + 
+  ylim(0, 55) +
+  scale_y_continuous(breaks = c(0, 10, 20, 30, 40 , 50)) +
+  ylab(bquote('CEWL (g/'*m^2*'h)')) + 
+  annotate("text", x = 1.5, y = 50, label = "p < 0.0001", size = 6) +
+  scale_color_brewer(palette = "Set2") +
+  theme(text = element_text(color = "black", 
+                            family = "sans", 
+                            size = 18),
+        axis.text = element_text(color = "black", 
+                                 family = "sans", 
+                                 size = 14),
+        legend.text.align = 0,
+        legend.position = "none"
+) -> CEWL_compare_sp
+CEWL_compare_sp
+
+# export figure
+ggsave(filename = "CEWL_BNLL_vs_WFL.jpeg",
+       plot = CEWL_compare_sp,
+       path = "./results_figures",
+       device = "jpeg",
+       dpi = 1200,
+       width = 6, height = 4)
+```
+
