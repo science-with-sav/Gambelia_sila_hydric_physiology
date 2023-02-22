@@ -37,6 +37,8 @@ library("emmeans") # marginal means & confints
 
 
 
+
+# Background 
 **Reflection**
 Okay, so I have a few different datasets basically. I have a subset of lizards who WERE measured more than once. I think anytime I look at trends over time, to be the most robust, I need to limit the dataset to only those lizards, who were measured more than once. I'm worried that it may be BEST, better than just keeping all the lizards with >1 measurement, to only look at trends over time with only the lizards measured at one time point. I should probably ask Rory. :)
 
@@ -127,6 +129,14 @@ table(dat_repro_females$week, dat_repro_females$n)
 
 
 For the females who were only measured once, 8 of them are from the first weekend and 2 of them are from the third weekend.
+
+Also save a subset of the females that were measured twice:
+
+
+```{r}
+dat_repeat_females <- dat_repro_females %>%
+  dplyr::filter(n == 2)
+```
 
 
 
@@ -1063,6 +1073,94 @@ summary(hct_SMI_mod)
 Is reproductive effort related to water balance?
 
 
+## Repeat Individuals
+
+I have 9 females measured at both April and May time points. Let's see if their physiology changes consistently based on becoming gravid. 
+
+
+First, calculate the change in CEWL, osmolality, and mass for each of those females between April to May.
+
+```{r}
+fem_starting_values <- dat_repeat_females %>%
+  # get the values for April measurements only 
+  dplyr::filter(month == "April") %>%
+  dplyr::select(individual_ID,
+                CEWL_April = CEWL_g_m2h,
+                osml_April = osmolality_mmol_kg_mean,
+                mass_April = mass_g)
+fem_change <- dat_repeat_females %>%
+  # add starting values
+  left_join(fem_starting_values, by = 'individual_ID') %>%
+  # make sure we have complete data
+  dplyr::filter(complete.cases(mass_April, CEWL_April)) %>%
+  # calculate difference for each msmt versus in April
+  mutate(mass_change_from_April = mass_g - mass_April,
+         CEWL_change_from_April = CEWL_g_m2h - CEWL_April,
+         osml_change_from_April = osmolality_mmol_kg_mean - osml_April)
+```
+
+
+
+## Plot Indiv Change
+
+```{r}
+ggplot(fem_change) +
+  aes(x = month,
+      y = mass_change_from_April,
+      group = individual_ID,
+      color = gravid_Y_N
+      ) +
+  geom_point() +
+  geom_line() +
+  theme_bw()
+ggplot(fem_change) +
+  aes(x = month,
+      y = CEWL_change_from_April,
+      group = individual_ID,
+      color = gravid_Y_N
+      ) +
+  geom_point() +
+  geom_line() +
+  theme_bw()
+ggplot(fem_change) +
+  aes(x = month,
+      y = osml_change_from_April,
+      group = individual_ID,
+      color = gravid_Y_N
+      ) +
+  geom_point() +
+  geom_line() +
+  theme_bw()
+```
+
+
+On average, mass and osmolality both increase. There's only one lizard who was not gravid at both time points, so we can't compare change based on becoming gravid or not. But, I think it is reasonable to conclude that on average, gravid females gained mass and became less hydrated.
+
+
+# Stats Indiv Change
+
+Run stats tests on the change rates for only the females who were gravid in May, and use only the actual delta values, in their rows for May data.
+
+```{r}
+fem_change_stats <- fem_change %>%
+  dplyr::filter(individual_ID != "F-12") %>%
+  dplyr::filter(month == "May") #%>%
+  #dplyr::filter(osml_change_from_April > -30)
+```
+
+
+ttests:
+
+```{r}
+t.test(fem_change_stats$CEWL_change_from_April)
+t.test(fem_change_stats$osml_change_from_April)
+t.test(fem_change_stats$mass_change_from_April)
+```
+
+Only mass change was significantly different from zero... But, if we got rid of the one super low osmolality value, the change in osmolality would also be significant. 
+
+
+
 ## Likelihood
 
 First, I need to figure out what to do with the individuals measured twice, and whether I need to worry about choosing between the different dates.
@@ -1070,9 +1168,6 @@ First, I need to figure out what to do with the individuals measured twice, and 
 ```{r}
 dat_repro_females %>%
   dplyr::filter(n == 1)
-dat_repro_females %>%
-  dplyr::filter(n == 2) %>%
-  arrange(individual_ID)
 table(dat_repro_females$gravid_Y_N, dat_repro_females$week)
 ```
 
@@ -1081,159 +1176,99 @@ It will be interesting in the results section to talk about the following:
 
 - several females that we measured more than once were *not* gravid in week 1, then *were* gravid when we re-measured them in week 3. 
 - across recaptured and single-capture females, a higher proportion were gravid in week 3 than in week 1
+- the egg development stage varied greatly among individuals, showing variability in timing of breeding, and potentially ability to have several clutches
+- eggs were x-y cm in diameter, depending on development stage
 
 
 Is it reasonable to look at a dataset of the week-3 repeat females + all the 1-msmt females?
 
+Try it.. Basically, I just need to exclude the April measurements for the lizards measured at both dates.
 
-
-Start with a multiple-effect logistic model to predict
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Compare to Sceloporus
-
-
-## Get S.o. Data
-
-```{r load Sceloporus data}
-Sceloporus1 <- read.csv("./data/Sceloporus_CEWL_1.csv") %>%
-  dplyr::filter(region == "dors") %>%
-  dplyr::select(date, individual_ID, CEWL_g_m2h = TEWL_g_m2h)
-Sceloporus2 <- read.csv("./data/Sceloporus_CEWL_2.csv") %>%
-  dplyr::filter(day == "capture") %>%
-  dplyr::select(date, individual_ID, CEWL_g_m2h)
-Sceloporus <- rbind(Sceloporus1, Sceloporus2) %>%
-  mutate(species = "S. occidentalis",
-         individual_ID = as.character(individual_ID))
+```{r}
+logit_stats_df <- dat_repro_females %>%
+  dplyr::filter(!(month == "April" & n == 2))
 ```
 
 
-## Merge S.o. and G.s.
+Start with a multiple-effect logistic model to predict gravidity:
 
-```{r merge}
-sp_compare <- lizards_all %>%
-  dplyr::select(date, individual_ID, CEWL_g_m2h) %>%
-  mutate(species = "G. sila",
-         individual_ID = as.character(individual_ID)) %>%
-  rbind(Sceloporus) 
-
-sp_compare$species <- factor(sp_compare$species,
-                             levels = c("S. occidentalis", "G. sila"))
-
-sp_compare_means <- sp_compare %>%
-  group_by(species) %>%
-  summarise(mean_CEWL = mean(CEWL_g_m2h, na.rm = TRUE),
-            sd_CEWL = sd(CEWL_g_m2h, na.rm = TRUE),
-            min_CEWL = min(CEWL_g_m2h, na.rm = TRUE),
-            max_CEWL = max(CEWL_g_m2h, na.rm = TRUE),
-            range_CEWL = max_CEWL - min_CEWL)
-sp_compare_means
+```{r}
+repro_logit1 <- glm(gravid_Y_N ~ 
+                     mass_g + SMI + osmolality_mmol_kg_mean + CEWL_g_m2h, 
+                   data = logit_stats_df, 
+                   family = binomial)
+summary(repro_logit1)
+drop1(repro_logit1)
 ```
 
-I think I should present in the figure caption as mean ± SD (range).
-
-So, "Mean ± SD (range) are as follows: S. occidentalis: 21.4 ± 6.6 (4.0 - 49.0); G. sila: 10.2 ± 4.0 (0.6 - 21.0)."
-
-
-## Model Compare Avg CEWL
-
-```{r model sp compare CEWL}
-sp_compare_mod <- lm(data = sp_compare, CEWL_g_m2h ~ species)
-summary(sp_compare_mod)
+```{r}
+repro_logit2 <- glm(gravid_Y_N ~ 
+                     mass_g + SMI + osmolality_mmol_kg_mean, 
+                   data = logit_stats_df, 
+                   family = binomial)
+summary(repro_logit2)
+drop1(repro_logit2)
 ```
 
 
-## Plot Compare Avg CEWL
-
-this is the grand mean across dates and sexes
-
-```{r compare sp CEWL}
-ggplot() + 
-  geom_boxplot(data = sp_compare,
-               aes(x = species, 
-                   y = CEWL_g_m2h, 
-                color = species), 
-               alpha = 1) +
-  geom_point(data = sp_compare_means,
-               aes(x = species, 
-                   y = mean_CEWL, 
-                color = species), 
-               size = 6,
-               alpha = 1) +
-  theme_classic() + 
-  xlab("") + 
-  ylim(0, 55) +
-  scale_y_continuous(breaks = c(0, 10, 20, 30, 40 , 50)) +
-  ylab(bquote('CEWL (g/'*m^2*'h)')) + 
-  annotate("text", x = 1.5, y = 50, label = "p < 0.0001", size = 6) +
-  scale_color_brewer(palette = "Set2") +
-  theme(text = element_text(color = "black", 
-                            family = "sans", 
-                            size = 18),
-        axis.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 14),
-        legend.text.align = 0,
-        legend.position = "none"
-) -> CEWL_compare_sp
-CEWL_compare_sp
-
-# export figure
-ggsave(filename = "CEWL_BNLL_vs_WFL.jpeg",
-       plot = CEWL_compare_sp,
-       path = "./results_figures",
-       device = "jpeg",
-       dpi = 1200,
-       width = 6, height = 4)
+```{r}
+repro_logit3 <- glm(gravid_Y_N ~ 
+                     SMI + osmolality_mmol_kg_mean, 
+                   data = logit_stats_df, 
+                   family = binomial)
+summary(repro_logit3)
+drop1(repro_logit3)
 ```
+
+
+Even when we get down to just body condition, we do not have any variables that are significant predictors of whether a female is gravid. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
