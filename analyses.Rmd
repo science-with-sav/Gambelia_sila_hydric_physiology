@@ -953,7 +953,7 @@ ggplot() +
                 width = .4) +
   #annotate(geom = "text", x = 1, y = 20, label = "A", size = 3) +
   #annotate(geom = "text", x = 2, y = 20, label = "A", size = 3) +
-  xlab("Measurement Month") + 
+  xlab("") + 
   ylab(bquote('CEWL (g '*m^-2*' '*h^-1*')')) +
   scale_color_manual(values = my_colors, name = "Sex") +
   scale_fill_manual(values = my_colors, name = "Sex") +
