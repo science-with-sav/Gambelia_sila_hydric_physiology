@@ -27,6 +27,8 @@ if (!require("broom.mixed")) install.packages("broom.mixed")
 library("broom.mixed") # lmer model export
 if (!require("ggplot2")) install.packages("ggplot2")
 library("ggplot2")
+if (!require("RColorBrewer")) install.packages("RColorBrewer")
+library("RColorBrewer")
 if (!require("ggpubr")) install.packages("ggpubr")
 library("ggpubr") # for multi-ggplot figs
 if (!require("Hmisc")) install.packages("Hmisc")
@@ -35,20 +37,43 @@ if (!require("emmeans")) install.packages("emmeans")
 library("emmeans") # marginal means & confints
 ```
 
+make a common figure theme:
+
+```{r}
+savs_ggplot_theme <- theme_bw() + 
+                     theme(text = element_text(color = "black", 
+                                               family = "sans", 
+                                               size = 12),
+                           axis.text = element_text(color = "black", 
+                                                    family = "sans", 
+                                                    size = 8),
+                           legend.text = element_text(color = "black", 
+                                                      family = "sans", 
+                                                      size = 8),
+                           legend.text.align = 0,
+                           legend.position = "bottom",
+                           #plot.margin = margin(t = 6, r = 6, b = 0, l = 1, unit = "pt")
+                           ) #+
+  
+  #theme_classic() + 
+  #guides(shape = guide_legend(nrow = 2, byrow = TRUE))
+  
+  
+  
+# custom colors
+Male <- brewer.pal(11, "RdYlBu")[c(11)]
+Fem <- brewer.pal(11, "RdYlBu")[c(2)]
+my_colors <- c(Fem, Male)
+my_shapes <- c(19,15)
+my_shapes_open <- c(21,22)
+```
+
+
+
 
 
 
 # Background 
-**Reflection**
-Okay, so I have a few different datasets basically. I have a subset of lizards who WERE measured more than once. I think anytime I look at trends over time, to be the most robust, I need to limit the dataset to only those lizards, who were measured more than once. I'm worried that it may be BEST, better than just keeping all the lizards with >1 measurement, to only look at trends over time with only the lizards measured at one time point. I should probably ask Rory. :)
-
-Overall, this very much feels like a mess. There are some very slight trends with different things, but IDK how much truth there is to any of them. 
-
-I think I have most of the water-balance-related things here... And I think for everything over time, Ineed to go back and make it only for the repeat measure lizards. *Then, what do I use the widespread lizard data for, except for the species comparison?*
-
-I still have to do the female reproductive effort stuff.
-
-Then, I will use the radiocollared lizards for phy vs behavior analyses.
 
 
 
@@ -58,7 +83,12 @@ This data was collected during fieldwork with Blunt-nosed Leopard Lizards (*Gamb
 
 
 ```{r}
-dat <- read_rds("./data/G_sila_clean_full_dat.RDS")
+dat <- read_rds("./data/G_sila_clean_full_dat.RDS") %>%
+  mutate(month_sex = factor(paste(month, sex_M_F),
+                            levels = c("April Female", "April Male",
+                                       "May Female", "May Male",
+                                       "July Female", "July Male")))
+summary(dat)
 ```
 
 
@@ -172,7 +202,7 @@ ggplot(dat) +
   aes(x = cloacal_temp_C,
       y = CEWL_g_m2h,
       color = week
-      #color = tmt
+      #color = sex_M_F
         ) +
   geom_point() +
   geom_smooth(method = "lm") +
@@ -181,7 +211,7 @@ ggplot(dat) +
   aes(x = msmt_temp_C,
       y = CEWL_g_m2h,
       color = week
-      #color = tmt
+      #color = sex_M_F
         ) +
   geom_point() +
   geom_smooth(method = "lm") +
@@ -190,7 +220,7 @@ ggplot(dat) +
   aes(x = msmt_VPD_kPa,
       y = CEWL_g_m2h,
       color = week
-      #color = tmt
+      #color = sex_M_F
         ) +
   geom_point() +
   geom_smooth(method = "lm") +
@@ -276,7 +306,7 @@ ggplot(dat) +
   aes(x = osmolality_mmol_kg_mean,
       y = CEWL_g_m2h,
       #color = tmt
-      color = week
+      color = sex_M_F
       ) +
   geom_point(size = 1, 
              alpha = 0.4) + 
@@ -325,7 +355,7 @@ ggplot(dat) +
   aes(x = hematocrit_percent,
       y = CEWL_g_m2h,
       #color = tmt
-      color = week
+      color = sex_M_F
       ) +
   geom_point(size = 1, 
              alpha = 0.4) + 
@@ -366,7 +396,7 @@ ggplot(dat) +
   aes(x = hematocrit_percent,
       y = osmolality_mmol_kg_mean,
       #color = tmt
-      color = week
+      color = sex_M_F
       ) +
   geom_point(size = 1, 
              alpha = 0.4) + 
@@ -500,42 +530,89 @@ dat_tmt_change_May_only <- dat_tmt_change %>%
 
 ## Plot Change by Tmt
 
+### Mass
+
 ```{r}
 ggplot(dat_tmt_change) +
   aes(x = month,
       y = mass_change_from_April,
       group = individual_ID,
-      #color = sex_M_F
       color = tmt
       ) +
-  geom_point() +
-  geom_line() +
-  theme_bw()
-ggplot(dat_tmt_change) +
-  aes(x = month,
-      y = CEWL_change_from_April,
-      group = individual_ID,
-      #color = sex_M_F
-      color = tmt
-      ) +
-  geom_point() +
-  geom_line() +
-  theme_bw()
+  xlab("Measurement Month") + 
+  ylab(expression(Delta ~ 'Lizard Mass (g)')) +
+  geom_line(alpha = 0.5) +
+  geom_point(size = 1.5) +
+  scale_color_manual(values = my_colors, name = "Sex") +
+  savs_ggplot_theme -> tmt_delta_mass
+tmt_delta_mass
+```
+
+
+### Osmolality
+
+```{r}
 ggplot(dat_tmt_change) +
   aes(x = month,
       y = osml_change_from_April,
       group = individual_ID,
-      #color = sex_M_F
       color = tmt
       ) +
-  geom_point() +
-  geom_line() +
-  theme_bw()
+  xlab("Measurement Month") + 
+  ylab(expression(Delta ~ 'Osmolality (mmol '*kg^-1*')')) +
+  geom_line(alpha = 0.5) +
+  geom_point(size = 1.5) +
+  scale_color_manual(values = my_colors, name = "Sex") +
+  savs_ggplot_theme -> tmt_delta_osml
+tmt_delta_osml
+```
+
+
+
+
+### CEWL
+
+```{r}
+ggplot(dat_tmt_change) +
+  aes(x = month,
+      y = CEWL_change_from_April,
+      group = individual_ID,
+      color = tmt
+      ) +
+  xlab("Measurement Month") + 
+  ylab(expression(Delta ~ 'CEWL (g '*m^-2*' '*h^-1*')')) +
+  geom_line(alpha = 0.5) +
+  geom_point(size = 1.5) +
+  scale_color_manual(values = my_colors, name = "Sex") +
+  savs_ggplot_theme -> tmt_delta_CEWL
+tmt_delta_CEWL
 ```
 
 
 It does *not* look like treatment led to any differences in the amount or direction of change in lizard mass, CEWL, or osmolality. Changes were also not consistent by sex.
 
+### Export Multi-Panel Fig
+
+Save plots:
+
+```{r}
+ggarrange(tmt_delta_CEWL,
+          tmt_delta_osml, 
+          tmt_delta_mass,
+          ncol = 1, nrow = 3,
+          labels = c("A", "B", "C"),
+          common.legend = TRUE,
+          legend = "bottom"
+          ) -> tmt_delta_multi_fig
+
+ggsave(filename = "tmt_delta_multi_fig.pdf",
+       plot = tmt_delta_multi_fig,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 80, height = 210)
+```
 
 
 
@@ -573,7 +650,100 @@ So, it did result in a significant change in mass within the same-day water supp
 
 
 
-# Population Change Over Time
+# Change Over Time
+
+
+## Plot Delta ~ Time*Sex
+
+### Mass
+
+```{r}
+ggplot(dat_tmt_change) +
+  aes(x = month,
+      y = mass_change_from_April,
+      group = individual_ID,
+      color = sex_M_F,
+      shape = sex_M_F
+      ) +
+  xlab("Measurement Month") + 
+  ylab(expression(Delta ~ 'Lizard Mass (g)')) +
+  geom_line(alpha = 0.5) +
+  geom_point(size = 1.5) +
+  scale_color_manual(values = my_colors, name = "Sex") +
+  scale_shape_manual(values = my_shapes, name = "Sex") +
+  savs_ggplot_theme -> delta_mass_sex
+delta_mass_sex
+```
+
+
+### Osmolality
+
+```{r}
+ggplot(dat_tmt_change) +
+  aes(x = month,
+      y = osml_change_from_April,
+      group = individual_ID,
+      color = sex_M_F,
+      shape = sex_M_F
+      ) +
+  xlab("Measurement Month") + 
+  ylab(expression(Delta ~ 'Osmolality (mmol '*kg^-1*')')) +
+  geom_line(alpha = 0.5) +
+  geom_point(size = 1.5) +
+  scale_color_manual(values = my_colors, name = "Sex") +
+  scale_shape_manual(values = my_shapes, name = "Sex") +
+  savs_ggplot_theme -> delta_osml_sex
+delta_osml_sex
+```
+
+
+
+
+### CEWL
+
+```{r}
+ggplot(dat_tmt_change) +
+  aes(x = month,
+      y = CEWL_change_from_April,
+      group = individual_ID,
+      color = sex_M_F,
+      shape = sex_M_F
+      ) +
+  xlab("Measurement Month") + 
+  ylab(expression(Delta ~ 'CEWL (g '*m^-2*' '*h^-1*')')) +
+  geom_line(alpha = 0.5) +
+  geom_point(size = 1.5) +
+  scale_color_manual(values = my_colors, name = "Sex") +
+  scale_shape_manual(values = my_shapes, name = "Sex") +
+  savs_ggplot_theme -> delta_CEWL_sex
+delta_CEWL_sex
+```
+
+
+
+### Export Multi-Panel Fig
+
+Save plots:
+
+```{r}
+ggarrange(delta_CEWL_sex,
+          delta_osml_sex, 
+          delta_mass_sex,
+          ncol = 1, nrow = 3,
+          labels = c("A", "B", "C"),
+          common.legend = TRUE,
+          legend = "bottom"
+          ) -> delta_multi_fig_sex
+
+ggsave(filename = "delta_multi_fig_sex.pdf",
+       plot = delta_multi_fig_sex,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 80, height = 210)
+```
+
 
 
 ## Time*Sex Marginal Means
@@ -585,111 +755,122 @@ Do this only for lizards with repeat measurements.
 info for using emmeans with interactions:
 https://cran.r-project.org/web/packages/emmeans/vignettes/interactions.html
 
-```{r}
-# CEWL
-time_diffs_CEWL <- lm(data = dat_repeats, CEWL_g_m2h ~ month*sex_M_F)
-emmeans_CEWL <- data.frame(emmeans(time_diffs_CEWL, 
-                                   pairwise ~ month | sex_M_F)$emmean) %>%
-  mutate(measurement = "CEWL (g/m2h)")
 
-# osmolality
-time_diffs_osml <- lm(data = dat_repeats, osmolality_mmol_kg_mean ~ month*sex_M_F)
-emmeans_osml <- data.frame(emmeans(time_diffs_osml, 
-                                   pairwise ~ month | sex_M_F)$emmean) %>%
-  mutate(measurement = "Plasma Osmolality (mmol/kg)")
-# CEWL
-time_diffs_mass <- lm(data = dat_repeats, mass_g ~ month*sex_M_F)
+
+
+### Mass
+
+```{r}
+time_sex_diffs_mass <- lm(data = dat_repeats, mass_g ~ month*sex_M_F)
+
+# mean values
 emmeans_mass <- data.frame(emmeans(time_diffs_mass, 
                                    pairwise ~ month | sex_M_F)$emmean) %>%
-  mutate(measurement = "Mass (g)")
+  mutate(measurement = "Mass")
 
-# put together
-emmeans_all <- emmeans_CEWL %>%
-  rbind(emmeans_osml) %>%
-  rbind(emmeans_mass)
-
-# all stats together
-emmean_stats <- data.frame(emmeans(time_diffs_CEWL, 
+# stat diffs by month
+time_emmeans_mass <- data.frame(emmeans(time_diffs_mass, 
                                    pairwise ~ month | sex_M_F)$contrasts) %>%
-  rbind(data.frame(emmeans(time_diffs_osml, 
-                                   pairwise ~ month | sex_M_F)$contrasts)) %>%
-  rbind(data.frame(emmeans(time_diffs_mass, 
-                                   pairwise ~ month | sex_M_F)$contrasts)) %>%
-  mutate(measurement = c(rep("CEWL (g/m2h)", 6),
-                         rep("Plasma Osmolality (mmol/kg)", 6),
-                         rep("Mass (g)", 6))) %>%
-  arrange(p.value)
-emmean_stats
+  mutate(measurement = "Mass")
+
+# stat diffs by sex
+sex_emmeans_mass <- data.frame(emmeans(time_diffs_mass, 
+                                   pairwise ~ sex_M_F | month)$contrasts) %>%
+  mutate(measurement = "Mass")
 ```
 
 
-## Plot
+
+
+### Osmolality
 
 ```{r}
-# CEWL
-ggplot() +
-  geom_jitter(data = dat_repeats,
-             aes(x = month,
-                 y = CEWL_g_m2h,
-                 color = sex_M_F,
-                 shape = tmt),
-             alpha = 0.5,
-              position = position_jitter(height = 0, width = 0.2)) +
-  #geom_line(data = dat,
-   #          aes(x = month,
-    ##             y = CEWL_g_m2h,
-      #           color = tmt,
-       #          group = individual_ID),
-        #     alpha = 0.7) +
-  geom_point(data = emmeans_CEWL,
-             aes(x = month,
-                 y = emmean,
-                 color = sex_M_F)) +
-  geom_errorbar(data = emmeans_CEWL,
-                aes(x = month,
-                    y = emmean, 
-                    ymin = lower.CL,
-                    ymax = upper.CL,
-                 color = sex_M_F),
-                width = .3) +
-  theme_bw() +
-  guides(guide_legend(nrow = 3)) + # why is this not working?! UGHHHHH
-  facet_wrap(~sex_M_F) +
-  theme(legend.position = "bottom")  -> CEWL_emmean_plot
-CEWL_emmean_plot
-# osml
-ggplot() +
-  geom_jitter(data = dat_repeats,
-             aes(x = month,
-                 y = osmolality_mmol_kg_mean,
-                 color = sex_M_F,
-                 shape = tmt),
-             alpha = 0.5,
-              position = position_jitter(height = 0, width = 0.2)) +
-  geom_point(data = emmeans_osml,
-             aes(x = month,
-                 y = emmean,
-                 color = sex_M_F)) +
-  geom_errorbar(data = emmeans_osml,
-                aes(x = month,
-                    y = emmean, 
-                    ymin = lower.CL,
-                    ymax = upper.CL,
-                 color = sex_M_F),
-                width = .3) +
-  guides(guide_legend(nrow = 3)) +
-  theme(legend.position = "bottom") +
-  facet_wrap(~sex_M_F) +
-  theme_bw() -> osml_emmean_plot
-osml_emmean_plot
-# mass
+time_sex_diffs_osml <- lm(data = dat_repeats, osmolality_mmol_kg_mean ~ month*sex_M_F)
+
+# mean values
+emmeans_osml <- data.frame(emmeans(time_diffs_osml, 
+                                   pairwise ~ month | sex_M_F)$emmean) %>%
+  mutate(measurement = "Osmolality")
+
+# stat diffs by month
+time_emmeans_osml <- data.frame(emmeans(time_diffs_osml, 
+                                   pairwise ~ month | sex_M_F)$contrasts) %>%
+  mutate(measurement = "Osmolality")
+
+# stat diffs by sex
+sex_emmeans_osml <- data.frame(emmeans(time_diffs_osml, 
+                                   pairwise ~ sex_M_F | month)$contrasts) %>%
+  mutate(measurement = "Osmolality")
+```
+
+
+
+
+### CEWL
+
+```{r}
+time_sex_diffs_CEWL <- lm(data = dat_repeats, CEWL_g_m2h ~ month*sex_M_F)
+emmeans_CEWL <- data.frame(emmeans(time_diffs_CEWL, 
+                                   pairwise ~ month | sex_M_F)$emmean) %>%
+  mutate(measurement = "CEWL")
+time_emmeans_CEWL <- data.frame(emmeans(time_diffs_CEWL, 
+                                   pairwise ~ month | sex_M_F)$contrasts) %>%
+  mutate(measurement = "CEWL")
+sex_emmeans_CEWL <- data.frame(emmeans(time_diffs_CEWL, 
+                                   pairwise ~ sex_M_F | month)$contrasts) %>%
+  mutate(measurement = "CEWL")
+```
+
+
+
+### Merge dfs
+
+```{r}
+emmeans_all <- emmeans_CEWL %>%
+  rbind(emmeans_osml) %>%
+  rbind(emmeans_mass) %>%
+  mutate(month_sex = factor(paste(month, sex_M_F),
+                            levels = c("April Female", "April Male",
+                                       "May Female", "May Male",
+                                       "July Female", "July Male")))
+
+# all pairwise stats together
+emmean_time_stats <- time_emmeans_CEWL %>%
+  rbind(time_emmeans_osml) %>%
+  rbind(time_emmeans_mass)
+emmean_sex_stats <- sex_emmeans_CEWL %>%
+  rbind(sex_emmeans_osml) %>%
+  rbind(sex_emmeans_mass)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Plot MMeans Time*Sex
+
+### Mass
+
+```{r}
 ggplot() +
   geom_jitter(data = dat_repeats,
              aes(x = month,
                  y = mass_g,
                  color = sex_M_F,
                  shape = tmt),
-             alpha = 0.5,
+             alpha = 0.3,
               position = position_jitter(height = 0, width = 0.2)) +
   geom_point(data = emmeans_mass,
              aes(x = month,
@@ -701,16 +882,92 @@ ggplot() +
                     ymin = lower.CL,
                     ymax = upper.CL,
                  color = sex_M_F),
-                width = .3) +
-  guides(guide_legend(nrow = 3)) +
-  theme(legend.position = "bottom") +
-  facet_wrap(~sex_M_F) +
-  theme_bw() -> mass_emmean_plot
+                width = .4) +
+  xlab("Measurement Month") + 
+  ylab("Lizard Mass (g)") +
+  savs_ggplot_theme +
+  facet_wrap(~sex_M_F) -> mass_emmean_plot
 mass_emmean_plot
 ```
 
 
+
+### Osmolality
+
+```{r}
+ggplot() +
+  geom_jitter(data = dat_repeats,
+             aes(x = month,
+                 y = osmolality_mmol_kg_mean,
+                 color = sex_M_F,
+                 shape = tmt),
+             alpha = 0.3,
+              position = position_jitter(height = 0, width = 0.2)) +
+  geom_point(data = emmeans_osml,
+             aes(x = month,
+                 y = emmean,
+                 color = sex_M_F)) +
+  geom_errorbar(data = emmeans_osml,
+                aes(x = month,
+                    y = emmean, 
+                    ymin = lower.CL,
+                    ymax = upper.CL,
+                 color = sex_M_F),
+                width = .4) +
+  xlab("Measurement Month") + 
+  ylab(bquote('Osmolality (mmol '*kg^-1*')')) +
+  savs_ggplot_theme +
+  facet_wrap(~sex_M_F) -> osml_emmean_plot
+osml_emmean_plot
+```
+
+
+
+
+### CEWL
+
+```{r}
+ggplot() +
+  geom_jitter(data = dat_repeats,
+             aes(x = month_sex,
+                 y = CEWL_g_m2h,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 0.3,
+             position = position_jitter(height = 0, width = 0.2)) +
+  geom_point(data = emmeans_all[emmeans_all$measurement == "CEWL",],
+             aes(x = month_sex,
+                 y = emmean,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 1,
+             size = 3) +
+  geom_errorbar(data = emmeans_all[emmeans_all$measurement == "CEWL",],
+                aes(x = month_sex,
+                    y = emmean, 
+                    ymin = lower.CL,
+                    ymax = upper.CL,
+                    color = sex_M_F),
+                width = .4) +
+  #annotate(geom = "text", x = 1, y = 20, label = "A", size = 3) +
+  #annotate(geom = "text", x = 2, y = 20, label = "A", size = 3) +
+  xlab("Measurement Month") + 
+  ylab(bquote('CEWL (g '*m^-2*' '*h^-1*')')) +
+  scale_color_manual(values = my_colors, name = "Sex") +
+  scale_fill_manual(values = my_colors, name = "Sex") +
+  scale_shape_manual(values = my_shapes_open, name = "Sex") +
+  savs_ggplot_theme -> CEWL_emmean_plot
+CEWL_emmean_plot
+```
+
+
 This is **only** for lizards that were recaptured and measured more than once, so I think these changes may reflect true seasonality in their water balance.
+
+
+
+### Export Multi-Panel Fig
 
 Put in one plot together:
 
