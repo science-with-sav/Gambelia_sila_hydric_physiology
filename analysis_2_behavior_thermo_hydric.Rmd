@@ -1,0 +1,26 @@
+---
+title: "Blunt-nosed Leopard Lizard Data Analysis: Behavior and Thermoregulation vs Water Physiology"
+author: "Savannah Weaver"
+output: 
+  rmdformats::html_clean:
+    highlight: tango
+    thumbnails: FALSE
+    toc: TRUE
+    toc_depth: 3
+---
+
+
+
+
+
+
+
+
+Temp response variables to test vs hydric physiology
+-	Mean daily VTmax
+-	Tset (IQR of field-active Tb okay???)
+-	Db = thermoregulatory accuracy
+
+Telemetry response variables to test vs hydric physiology
+-	Microhabitat use = proportion of observations doing x (above, partial shade, full shade, burrow)
+-	Time of onset of estivation (once you no longer ever get aboveground obs)

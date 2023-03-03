@@ -1,5 +1,5 @@
 ---
-title: "BNLL hydrophysiology analyses"
+title: "Blunt-nosed Leopard Lizard Data Analysis: Water Physiology Nuances"
 author: "Savannah Weaver"
 output: 
   rmdformats::html_clean:
@@ -66,6 +66,9 @@ Fem <- brewer.pal(11, "RdYlBu")[c(2)]
 my_colors <- c(Fem, Male)
 my_shapes <- c(19,15)
 my_shapes_open <- c(21,22)
+my_labels <- c("April\nF\n(n=11)", "April\nM\n(n=22)",
+               "May\nF\n(n=10)", "May\nM\n(n=17)",
+               "July\nF\n(n=2)", "July\nM\n(n=12)")
 ```
 
 
@@ -278,7 +281,7 @@ Check a simple linear model between each set of paired measurements:
 ```{r}
 # CEWL ~
 summary(lm(data = dat,
-           CEWL_g_m2h ~ osmolality_mmol_kg_mean))
+           CEWL_g_m2h ~ osmolality_mmol_kg_mean*month*sex_M_F))
 summary(lm(data = dat,
            CEWL_g_m2h ~ hematocrit_percent))
 summary(lm(data = dat,
@@ -288,7 +291,7 @@ summary(lm(data = dat,
 
 # osmolality ~
 summary(lm(data = dat,
-           osmolality_mmol_kg_mean ~ hematocrit_percent))
+           osmolality_mmol_kg_mean ~ hematocrit_percent*month*sex_M_F))
 summary(lm(data = dat,
            osmolality_mmol_kg_mean ~ mass_g))
 summary(lm(data = dat,
@@ -306,7 +309,7 @@ ggplot(dat) +
   aes(x = osmolality_mmol_kg_mean,
       y = CEWL_g_m2h,
       #color = tmt
-      color = sex_M_F
+      #color = sex_M_F
       ) +
   geom_point(size = 1, 
              alpha = 0.4) + 
@@ -355,7 +358,7 @@ ggplot(dat) +
   aes(x = hematocrit_percent,
       y = CEWL_g_m2h,
       #color = tmt
-      color = sex_M_F
+      color = month_sex
       ) +
   geom_point(size = 1, 
              alpha = 0.4) + 
@@ -396,7 +399,7 @@ ggplot(dat) +
   aes(x = hematocrit_percent,
       y = osmolality_mmol_kg_mean,
       #color = tmt
-      color = sex_M_F
+      color = month_sex
       ) +
   geom_point(size = 1, 
              alpha = 0.4) + 
@@ -729,7 +732,8 @@ Save plots:
 ggarrange(delta_CEWL_sex,
           delta_osml_sex, 
           delta_mass_sex,
-          ncol = 1, nrow = 3,
+          ncol = 3, nrow = 1,
+          #ncol = 1, nrow = 3,
           labels = c("A", "B", "C"),
           common.legend = TRUE,
           legend = "bottom"
@@ -741,7 +745,9 @@ ggsave(filename = "delta_multi_fig_sex.pdf",
        device = "pdf",
        dpi = 600,
        units = "mm",
-       width = 80, height = 210)
+       width = 200, height = 80
+       #width = 80, height = 210
+       )
 ```
 
 
@@ -756,6 +762,15 @@ info for using emmeans with interactions:
 https://cran.r-project.org/web/packages/emmeans/vignettes/interactions.html
 
 
+Check n's:
+
+```{r}
+dat_repeats %>%
+  group_by(month, sex_M_F) %>%
+  summarise(n = n())
+```
+
+
 
 
 ### Mass
@@ -764,17 +779,17 @@ https://cran.r-project.org/web/packages/emmeans/vignettes/interactions.html
 time_sex_diffs_mass <- lm(data = dat_repeats, mass_g ~ month*sex_M_F)
 
 # mean values
-emmeans_mass <- data.frame(emmeans(time_diffs_mass, 
+emmeans_mass <- data.frame(emmeans(time_sex_diffs_mass, 
                                    pairwise ~ month | sex_M_F)$emmean) %>%
   mutate(measurement = "Mass")
 
 # stat diffs by month
-time_emmeans_mass <- data.frame(emmeans(time_diffs_mass, 
+time_emmeans_mass <- data.frame(emmeans(time_sex_diffs_mass, 
                                    pairwise ~ month | sex_M_F)$contrasts) %>%
   mutate(measurement = "Mass")
 
 # stat diffs by sex
-sex_emmeans_mass <- data.frame(emmeans(time_diffs_mass, 
+sex_emmeans_mass <- data.frame(emmeans(time_sex_diffs_mass, 
                                    pairwise ~ sex_M_F | month)$contrasts) %>%
   mutate(measurement = "Mass")
 ```
@@ -788,17 +803,17 @@ sex_emmeans_mass <- data.frame(emmeans(time_diffs_mass,
 time_sex_diffs_osml <- lm(data = dat_repeats, osmolality_mmol_kg_mean ~ month*sex_M_F)
 
 # mean values
-emmeans_osml <- data.frame(emmeans(time_diffs_osml, 
+emmeans_osml <- data.frame(emmeans(time_sex_diffs_osml, 
                                    pairwise ~ month | sex_M_F)$emmean) %>%
   mutate(measurement = "Osmolality")
 
 # stat diffs by month
-time_emmeans_osml <- data.frame(emmeans(time_diffs_osml, 
+time_emmeans_osml <- data.frame(emmeans(time_sex_diffs_osml, 
                                    pairwise ~ month | sex_M_F)$contrasts) %>%
   mutate(measurement = "Osmolality")
 
 # stat diffs by sex
-sex_emmeans_osml <- data.frame(emmeans(time_diffs_osml, 
+sex_emmeans_osml <- data.frame(emmeans(time_sex_diffs_osml, 
                                    pairwise ~ sex_M_F | month)$contrasts) %>%
   mutate(measurement = "Osmolality")
 ```
@@ -810,13 +825,19 @@ sex_emmeans_osml <- data.frame(emmeans(time_diffs_osml,
 
 ```{r}
 time_sex_diffs_CEWL <- lm(data = dat_repeats, CEWL_g_m2h ~ month*sex_M_F)
-emmeans_CEWL <- data.frame(emmeans(time_diffs_CEWL, 
+
+# mean values
+emmeans_CEWL <- data.frame(emmeans(time_sex_diffs_CEWL, 
                                    pairwise ~ month | sex_M_F)$emmean) %>%
   mutate(measurement = "CEWL")
-time_emmeans_CEWL <- data.frame(emmeans(time_diffs_CEWL, 
+
+# stat diffs by month
+time_emmeans_CEWL <- data.frame(emmeans(time_sex_diffs_CEWL, 
                                    pairwise ~ month | sex_M_F)$contrasts) %>%
   mutate(measurement = "CEWL")
-sex_emmeans_CEWL <- data.frame(emmeans(time_diffs_CEWL, 
+
+# stat diffs by sex
+sex_emmeans_CEWL <- data.frame(emmeans(time_sex_diffs_CEWL, 
                                    pairwise ~ sex_M_F | month)$contrasts) %>%
   mutate(measurement = "CEWL")
 ```
@@ -866,27 +887,46 @@ emmean_sex_stats <- sex_emmeans_CEWL %>%
 ```{r}
 ggplot() +
   geom_jitter(data = dat_repeats,
-             aes(x = month,
+             aes(x = month_sex,
                  y = mass_g,
+                 shape = sex_M_F,
                  color = sex_M_F,
-                 shape = tmt),
+                 fill = sex_M_F),
              alpha = 0.3,
+             size = 0.9,
               position = position_jitter(height = 0, width = 0.2)) +
-  geom_point(data = emmeans_mass,
-             aes(x = month,
+  geom_point(data = emmeans_all[emmeans_all$measurement == "Mass",],
+             aes(x = month_sex,
                  y = emmean,
-                 color = sex_M_F)) +
-  geom_errorbar(data = emmeans_mass,
-                aes(x = month,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 1,
+             size = 2) +
+  geom_errorbar(data = emmeans_all[emmeans_all$measurement == "Mass",],
+                aes(x = month_sex,
                     y = emmean, 
                     ymin = lower.CL,
                     ymax = upper.CL,
                  color = sex_M_F),
                 width = .4) +
-  xlab("Measurement Month") + 
+  xlab("") + 
   ylab("Lizard Mass (g)") +
-  savs_ggplot_theme +
-  facet_wrap(~sex_M_F) -> mass_emmean_plot
+  # sex differences = NONE
+  # time differences for MALES
+  annotate(geom = "text", x = 2, y = 61, label = "A", size = 3) +
+  annotate(geom = "text", x = 4, y = 61, label = "A", size = 3) +
+  annotate(geom = "text", x = 6, y = 61, label = "A", size = 3) +
+  # time differences for FEMALES
+  annotate(geom = "text", x = 1, y = 61, label = "a", size = 3) +
+  annotate(geom = "text", x = 3, y = 61, label = "a", size = 3) +
+  annotate(geom = "text", x = 5, y = 61, label = "a", size = 3) +
+  scale_color_manual(values = my_colors, name = "Sex") +
+  scale_fill_manual(values = my_colors, name = "Sex") +
+  scale_shape_manual(values = my_shapes_open, name = "Sex") +
+  scale_x_discrete(labels = my_labels) +
+  ylim(17, 61) +
+  savs_ggplot_theme -> mass_emmean_plot
 mass_emmean_plot
 ```
 
@@ -897,27 +937,48 @@ mass_emmean_plot
 ```{r}
 ggplot() +
   geom_jitter(data = dat_repeats,
-             aes(x = month,
+             aes(x = month_sex,
                  y = osmolality_mmol_kg_mean,
+                 shape = sex_M_F,
                  color = sex_M_F,
-                 shape = tmt),
+                 fill = sex_M_F),
              alpha = 0.3,
+             size = 0.9,
               position = position_jitter(height = 0, width = 0.2)) +
-  geom_point(data = emmeans_osml,
-             aes(x = month,
+  geom_point(data = emmeans_all[emmeans_all$measurement == "Osmolality",],
+             aes(x = month_sex,
                  y = emmean,
-                 color = sex_M_F)) +
-  geom_errorbar(data = emmeans_osml,
-                aes(x = month,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 1,
+             size = 2) +
+  geom_errorbar(data = emmeans_all[emmeans_all$measurement == "Osmolality",],
+                aes(x = month_sex,
                     y = emmean, 
                     ymin = lower.CL,
                     ymax = upper.CL,
                  color = sex_M_F),
                 width = .4) +
-  xlab("Measurement Month") + 
+  xlab("") + 
   ylab(bquote('Osmolality (mmol '*kg^-1*')')) +
-  savs_ggplot_theme +
-  facet_wrap(~sex_M_F) -> osml_emmean_plot
+  # sex differences
+  annotate(geom = "text", x = 1.5, y = 416, label = "*", size = 6) +
+  annotate(geom = "text", x = 3.5, y = 416, label = "*", size = 6) +
+  # time differences for MALES
+  annotate(geom = "text", x = 2, y = 430, label = "A", size = 3) +
+  annotate(geom = "text", x = 4, y = 430, label = "A", size = 3) +
+  annotate(geom = "text", x = 6, y = 430, label = "B", size = 3) +
+  # time differences for FEMALES
+  annotate(geom = "text", x = 1, y = 430, label = "a", size = 3) +
+  annotate(geom = "text", x = 3, y = 430, label = "a", size = 3) +
+  annotate(geom = "text", x = 5, y = 430, label = "a", size = 3) +
+  scale_color_manual(values = my_colors, name = "Sex") +
+  scale_fill_manual(values = my_colors, name = "Sex") +
+  scale_shape_manual(values = my_shapes_open, name = "Sex") +
+  scale_x_discrete(labels = my_labels) +
+  scale_y_continuous(limits = c(320, 440), breaks = c(320, 360, 400, 440)) +
+  savs_ggplot_theme -> osml_emmean_plot
 osml_emmean_plot
 ```
 
@@ -935,6 +996,7 @@ ggplot() +
                  color = sex_M_F,
                  fill = sex_M_F),
              alpha = 0.3,
+             size = 0.9,
              position = position_jitter(height = 0, width = 0.2)) +
   geom_point(data = emmeans_all[emmeans_all$measurement == "CEWL",],
              aes(x = month_sex,
@@ -943,7 +1005,7 @@ ggplot() +
                  color = sex_M_F,
                  fill = sex_M_F),
              alpha = 1,
-             size = 3) +
+             size = 2) +
   geom_errorbar(data = emmeans_all[emmeans_all$measurement == "CEWL",],
                 aes(x = month_sex,
                     y = emmean, 
@@ -951,16 +1013,28 @@ ggplot() +
                     ymax = upper.CL,
                     color = sex_M_F),
                 width = .4) +
-  #annotate(geom = "text", x = 1, y = 20, label = "A", size = 3) +
-  #annotate(geom = "text", x = 2, y = 20, label = "A", size = 3) +
+  # sex differences
+  annotate(geom = "text", x = 3.5, y = 16, label = "*", size = 6) +
+  # time differences for MALES
+  annotate(geom = "text", x = 2, y = 19, label = "AB", size = 3) +
+  annotate(geom = "text", x = 4, y = 19, label = "A", size = 3) +
+  annotate(geom = "text", x = 6, y = 19, label = "B", size = 3) +
+  # time differences for FEMALES
+  annotate(geom = "text", x = 1, y = 19, label = "a", size = 3) +
+  annotate(geom = "text", x = 3, y = 19, label = "a", size = 3) +
+  annotate(geom = "text", x = 5, y = 19, label = "a", size = 3) +
   xlab("") + 
   ylab(bquote('CEWL (g '*m^-2*' '*h^-1*')')) +
   scale_color_manual(values = my_colors, name = "Sex") +
   scale_fill_manual(values = my_colors, name = "Sex") +
   scale_shape_manual(values = my_shapes_open, name = "Sex") +
+  scale_x_discrete(labels = my_labels) +
   savs_ggplot_theme -> CEWL_emmean_plot
 CEWL_emmean_plot
 ```
+
+
+--Then, I should work on the written methods again.
 
 
 This is **only** for lizards that were recaptured and measured more than once, so I think these changes may reflect true seasonality in their water balance.
@@ -975,7 +1049,8 @@ Put in one plot together:
 ggarrange(CEWL_emmean_plot, 
           osml_emmean_plot, 
           mass_emmean_plot,
-          ncol = 1, nrow = 3,
+          ncol = 3, nrow = 1,
+#          ncol = 1, nrow = 3,
           labels = c("A", "B", "C"),
           common.legend = TRUE,
           legend = "bottom"
@@ -988,13 +1063,15 @@ ggsave(filename = "szn_change_multi_fig.pdf",
        device = "pdf",
        dpi = 600,
        units = "mm",
-       width = 80, height = 210)
+       width = 200, height = 80
+       #width = 80, height = 210
+       )
 ```
 
 
 
 
-
+## SS Time vs Covariates
 
 
 
