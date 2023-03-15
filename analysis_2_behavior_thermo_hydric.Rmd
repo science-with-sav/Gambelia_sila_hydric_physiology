@@ -150,6 +150,16 @@ Look at data distribution:
 ```{r}
 boxplot(temp_sub$ppTempC)
 hist(temp_sub$ppTempC)
+ggplot(temp_sub) +
+  geom_point(aes(x = Serial,
+                 y = ppTempC,
+                 color = Serial)) +
+  theme_classic()
+ggplot(temp_sub) +
+  geom_boxplot(aes(x = Serial,
+                 y = ppTempC,
+                 color = Serial)) +
+  theme_classic()
 ```
 
 
@@ -159,6 +169,7 @@ Get mean and SD for each lizard's Tb data, then use it to filter out extreme val
 ```{r}
 temp_clean <- temp_sub %>%
   group_by(Serial) %>%
+  #summarise(outs = boxplot.stats(ppTempC)$out) # less outliers found this way
   mutate(mean_Tb = mean(ppTempC),
          sd_Tb = sd(ppTempC)) %>%
   mutate(accept_low = mean_Tb - (2*sd_Tb),
@@ -177,6 +188,24 @@ What proportion of points did we remove?
 ```
 
 4.6%
+
+Plot again:
+
+```{r}
+ggplot(temp_clean) +
+  geom_point(aes(x = Serial,
+                 y = ppTempC,
+                 color = Serial)) +
+  theme_classic()
+ggplot(temp_clean) +
+  geom_boxplot(aes(x = Serial,
+                 y = ppTempC,
+                 color = Serial)) +
+  theme_classic()
+```
+
+Individual IQRs definitely look reasonable.
+
 
 
 
@@ -236,9 +265,11 @@ microhab <- read.csv("./data/telemetry/behavior_observations.csv") %>%
                                           "Burrow",
                                           "No Visual", "Dead/Missing"))) %>%
   dplyr::select(Serial, DateTime, date_only, hour_of_day, microhabitat, 
-                bpmTempC, dwsTempOut, ModTempC)
+                bpmTempC, dwsTempOut, ModTempC) %>%
+  # add date chunk grouping notes
+  dplyr::filter(date_only %nin% cap_dates) %>%
+  left_join(group_dates, by = 'date_only')
 summary(microhab)
-levels(microhab$Serial)
 ```
 
 
@@ -249,11 +280,7 @@ levels(microhab$Serial)
 
 # Thermal Metrics
 
-For each lizard, we want to calculate the following:
-
-- mean daily voluntary maximum (VTmax) = maximum daily body temp, averaged for a given date range
-- field-active preferred temperature (Tset) = range between the 25% and 75% percentile body temperatures for a given date range
-- thermoregulatory accuracy (Db) = the absolute value of the difference between the Tset range and recorded body temperature at a given time; so, how far outside Tset is each Tb value?
+For each lizard, we want to calculate some assessment of how hot they let themselves be, and their thermoregulatory accuracy.
 
 
 
@@ -261,10 +288,25 @@ For each lizard, we want to calculate the following:
 
 ```{r}
 daily_max <- temp_clean %>%
+  # quick look to use
+  #dplyr::filter(date_chunks %in% c("Apr 26 - May 6", "May 10 - 20")) %>%
+  
+  # first do daily maximums
   group_by(date_only, date_chunks, Serial) %>%
-  summarise(daily_max = max(ppTempC)) %>%
+  mutate(Tb_percentile_50 = quantile(ppTempC, 0.5),
+         Tb_percentile_60 = quantile(ppTempC, 0.6),
+         Tb_percentile_70 = quantile(ppTempC, 0.7),
+         Tb_percentile_80 = quantile(ppTempC, 0.8),
+         Tb_percentile_90 = quantile(ppTempC, 0.9)) %>%
+  ungroup() %>%
+  # select only the data between the 80-90th percentiles of Tb for each lizard
+  dplyr::filter(ppTempC > Tb_percentile_80 & ppTempC < Tb_percentile_90) %>%
+  # calculate the mean Tb for that subset for each lizard per day
+  group_by(date_only, date_chunks, Serial) %>%
+  summarise(daily_Tb_percentile_80_90 = mean(ppTempC)) %>%
+  # then do the mean Tb between 80-90%ile for each lizard per time chunk (~11 days)
   group_by(date_chunks, Serial) %>%
-  summarise(chunk_avg_daily_max_temp_C = mean(daily_max))
+  summarise(chunk_avg_Tb_percentile_80_90 = mean(daily_Tb_percentile_80_90))
 summary(daily_max)
 ```
 
@@ -279,17 +321,33 @@ summary(daily_max)
 
 From Kat Ivey's 2020 paper, Tset range is: 32.3±1.2 - 37.5±1.1 deg C.
 
+From Nicole Gaudenti's 2021 paper, Tset range: 33.2-37.9 deg C.
+
+I will use the widest margin created by both:
+32.3 (Ivey) - 37.9 (Gaudenti)
+
+Sunrise during our study: 6:05-6:40 am --> middle ~~6:20?
+Sunset during our study: 20:24-21:07 (8:24-9:07 pm) --> middle ~~20:40?
+(entire study during DST)
+from [NOAA solar calculator](https://gml.noaa.gov/grad/solcalc/)
+
+Or, just use the same daily time range as Ivey did? (0700-1900)
+
+Although Db is usually taken as the absolute value, I will use pos/neg values, because I want to know the directionality of Db.
+
 ```{r}
 Db <- temp_clean %>%
-  # we only want daytime Tb for this (0700-1900)
+  # we only want daytime Tb for this
+  # currently using Kat's limits
   dplyr::filter(hour_of_day <=19 & hour_of_day >=7) %>%
-  mutate(Tpref_low = 31.1,
-         Tpref_high = 38.6) %>%
-  mutate(Db = case_when(ppTempC < Tpref_low ~ Tpref_low - ppTempC,
+  mutate(Tpref_low = 32.3,
+         Tpref_high = 37.9) %>%
+  mutate(Db = case_when(ppTempC < Tpref_low ~ ppTempC - Tpref_low, # for pos/neg version
+                        #ppTempC < Tpref_low ~ Tpref_low - ppTempC, # for abs value version
                         ppTempC > Tpref_high ~ ppTempC - Tpref_high,
                         ppTempC < Tpref_high & ppTempC > Tpref_low ~ 0)) %>%
   group_by(date_chunks, Serial) %>%
-  summarise(chunk_mean_Db = mean(Db))
+  summarise(chunk_mean_Db_deg_C_diff = mean(Db))
 
 summary(Db)
 ```
@@ -305,6 +363,60 @@ summary(Db)
 To calculate microhabitat use, I literally just calculate the proportion of observations for a given individual/time range that were in each microhabitat. 
 
 *From Nicole's paper: We then calculated the percent of time G. sila used each microhabitat in May, June, and July at each site. To compare the probability that a lizard would be found underground (in burrows) between the two sites, we ran a mixed-effects logistic regression model in R (R Core Team, 2020; RStudio, 2020, lme4 package v. 1.1-26, Bates et al., 2015) with time as a polynomial, site and month as fixed effects, and lizard ID as a random effect.*
+
+So, for each time chunk, for each lizard (radio-collar serial), I need to get the following values:
+
+- number of total observations 
+- number of observations in each microhabitat
+- proportion of observations in each microhabitat
+- aboveground temps based on Ian's model ?
+
+**We do not have a lot of obs for each lizard for every time chunk, so how many observations should there be to make the proportions valid/reasonable?** One potential way to do this could be to at least have 1-2 obs for every microhabitat type we are trying to observe (so, minimum points per date chunk either 4 or 8, once I get rid of the irrelevant ones).
+
+```{r}
+MH_use_by_indiv <- microhab %>%
+  group_by(Serial, date_chunks, microhabitat) %>%
+  summarise(n_obs_micro = n()) %>%
+  group_by(Serial, date_chunks) %>%
+  mutate(n_obs_total = sum(n_obs_micro)) %>%
+  ungroup() %>%
+  mutate(MH_use_proportion = n_obs_micro/n_obs_total)
+head(MH_use_by_indiv)
+summary(MH_use_by_indiv)
+
+MH_use_across_indivs <- microhab %>%
+  group_by(date_chunks, microhabitat) %>%
+  summarise(n_obs_micro = n(),
+            mean_mod_temp = mean(ModTempC)) %>%
+  group_by(date_chunks) %>%
+  mutate(n_obs_total = sum(n_obs_micro),
+         mean_mod_temp2 = mean(mean_mod_temp)) %>%
+  ungroup() %>%
+  mutate(MH_use_proportion = n_obs_micro/n_obs_total)
+head(MH_use_across_indivs)
+```
+
+
+
+```{r}
+ggplot(MH_use_across_indivs) + 
+    geom_bar(aes(x = date_chunks,
+                 y = MH_use_proportion,
+                 fill = microhabitat
+                 ),
+             position = "fill", 
+             stat = "identity") +
+  theme_classic()
+ggplot(MH_use_by_indiv) + 
+    geom_bar(aes(x = date_chunks,
+                 y = MH_use_proportion,
+                 fill = microhabitat
+                 ),
+             position = "fill", 
+             stat = "identity") +
+  facet_wrap(~Serial) +
+  theme_classic()
+```
 
 
 
