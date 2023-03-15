@@ -10,17 +10,361 @@ output:
 ---
 
 
+# Packages
+
+```{r setup, echo=T, results='hide', message=FALSE}
+`%nin%` = Negate(`%in%`)
+if (!require("tidyverse")) install.packages("tidyverse") 
+library("tidyverse")# for dplyr workflow of calculations
+if (!require("UsingR")) install.packages("UsingR") 
+library("UsingR")
+if (!require("lme4")) install.packages("lme4") 
+library("lme4")
+if (!require("lmerTest")) install.packages("lmerTest") 
+library("lmerTest")
+if (!require("broom")) install.packages("broom")
+library("broom") # lmer model export
+if (!require("broom.mixed")) install.packages("broom.mixed")
+library("broom.mixed") # lmer model export
+if (!require("ggplot2")) install.packages("ggplot2")
+library("ggplot2")
+if (!require("RColorBrewer")) install.packages("RColorBrewer")
+library("RColorBrewer")
+if (!require("ggpubr")) install.packages("ggpubr")
+library("ggpubr") # for multi-ggplot figs
+if (!require("Hmisc")) install.packages("Hmisc")
+library("Hmisc") # correlation matrix
+if (!require("emmeans")) install.packages("emmeans")
+library("emmeans") # marginal means & confints
+```
 
 
+# Background & Introduction
 
-
-
-
-Temp response variables to test vs hydric physiology
--	Mean daily VTmax
--	Tset (IQR of field-active Tb okay???)
--	Db = thermoregulatory accuracy
 
 Telemetry response variables to test vs hydric physiology
 -	Microhabitat use = proportion of observations doing x (above, partial shade, full shade, burrow)
 -	Time of onset of estivation (once you no longer ever get aboveground obs)
+
+
+
+
+# Load Data
+
+
+## Lizard Data
+
+This is the same dataframe used in 'analysis_1'.
+
+```{r}
+liz_dat <- read_rds("./data/G_sila_clean_full_dat.RDS") %>%
+  # we only use data for radio collared lizards in this analysis
+  dplyr::filter(complete.cases(radio_collar_serial)) %>%
+  # add date chunks to help look at values over time
+  mutate(date_chunks = factor(case_when(capture_date %in% c("2021-04-23", 
+                                                     "2021-04-24", 
+                                                     "2021-04-25") ~ "Apr 26 - May 6",
+                                 capture_date %in% c("2021-05-07", 
+                                                     "2021-05-08", 
+                                                     "2021-05-09") ~ "May 10 - 20")))
+```
+
+
+
+
+## Tsurf + Wrangling
+
+We measured the surface body temperature of lizards throughout the study using Holohil temperature-sensitive transmitters, which is the data we load in this section. 
+
+variables in this dataframe:
+
+- DateTime = date and time the temperature was logged
+- Serial = the radio-collar serial number for that observation (to be used to link to specific individuals)
+- Freq = what radio frequency the collar was on
+- pp = the pulse period recorded by the radio-collar receiver (pulse period is a proxy for temperature)
+- ppTempC = the pp value converted into temperature in degrees Celsius using third order polynomial functions estimated from the reference transformations provided by Holohil
+
+```{r}
+temps <- read.csv("./data/telemetry/tower_temps_all.csv") %>%
+  # properly format data classes
+  mutate(date_only = as.Date(substr(DateTime, 1, 10), format = "%Y-%m-%d"),
+         hour_of_day = as.numeric(substr(DateTime, 12, 13)),
+         DateTime = as.POSIXct(DateTime, format = "%Y-%m-%d %H:%M:%S"),
+         Serial = factor(paste(substr(Serial, 1, 3), 
+                               substr(Serial, 4, 7), sep = "-")))
+summary(temps)
+unique(temps$Serial)
+```
+
+
+
+Subset the temperature data so that we do not use the temperatures from during up to 24h after the capturing and releasing lizards:
+**NOTE** I will also need to remove any data for lizards that went missing, and for when we re-assigned collars.
+These two radio collar serial numbers will be problematic. I need to go in to the Radio-collar temp data and add the "a" for data after the date we switched the collar to a new lizard.
+
+**to do**
+- 245-762-a
+- 229-070-a
+
+Also add columns for time chunks to make averaging easier later.
+
+```{r}
+# capture weekend dates
+cap_dates <- as.Date(c("2021-04-23", "2021-04-24", "2021-04-25", # April
+                        "2021-05-07", "2021-05-08", "2021-05-09"), # May
+                     format = "%Y-%m-%d")
+
+# grouping notes by date
+group_dates <- data.frame(date_only = c(seq(as.Date("2021-04-26"), 
+                                            as.Date("2021-07-13"), by = 1))) %>%
+  dplyr::filter(date_only %nin% cap_dates) %>%
+  mutate(date_chunks = factor(c(rep("Apr 26 - May 6", 11), 
+                                rep("May 10 - 20", 11), 
+                                rep("May 21 - 31", 11),
+                                rep("Jun 1 - 11", 11),
+                                rep("Jun 12 - 22", 11),
+                                rep("Jun 23 - Jul 3", 11), 
+                                rep("Jul 4 - 13", 10)),
+                              levels = c("Apr 26 - May 6", "May 10 - 20", 
+                                         "May 21 - 31", "Jun 1 - 11", "Jun 12 - 22", 
+                                         "Jun 23 - Jul 3", "Jul 4 - 13")))
+
+# subset dataset and add grouping notes
+temp_sub <- temps %>%
+  dplyr::filter(date_only %nin% cap_dates) %>%
+  left_join(group_dates, by = 'date_only')
+summary(temp_sub)
+```
+
+
+I also need to remove outliers, which are pretty standard erroneous points when using temperature-sensitive telemetry with devices external to the animal. I will follow Nicole Gaudenti's 2021 paper, and exclude "any outliers greater than two standard deviations away from each lizard's mean Tb"
+
+, as these likely represented glitches in the data acquisition system; such outliers were uncommon (<5% of data points).
+
+Look at data distribution:
+
+```{r}
+boxplot(temp_sub$ppTempC)
+hist(temp_sub$ppTempC)
+```
+
+
+
+Get mean and SD for each lizard's Tb data, then use it to filter out extreme values:
+
+```{r}
+temp_clean <- temp_sub %>%
+  group_by(Serial) %>%
+  mutate(mean_Tb = mean(ppTempC),
+         sd_Tb = sd(ppTempC)) %>%
+  mutate(accept_low = mean_Tb - (2*sd_Tb),
+         accept_high = mean_Tb + (2*sd_Tb)) %>%
+  dplyr::filter(ppTempC < accept_high & ppTempC > accept_low) %>%
+  dplyr::select(-mean_Tb, -sd_Tb, -accept_low, -accept_high)
+
+summary(temp_clean)
+```
+
+
+What proportion of points did we remove?
+
+```{r}
+(nrow(temp_sub) - nrow(temp_clean))/nrow(temp_sub)
+```
+
+4.6%
+
+
+
+## Microhabitat Use
+
+This data was collected by radio-tracking lizards, finding them, then recording what type of microhabitat they were in. 
+
+variables in this dataframe:
+
+- Serial = the radio-collar serial number for that observation (to be used to link to specific individuals)
+- DateTime = date and time the temperature was logged
+- microhabitat (was Micro_1) = which microhabitat lizards were observed in
+- Breed_Col = breeding coloration of lizards (we will not use)
+- bpmTempC = the temperature in Celsius from the lizards' collar, based on the handheld receivers used to locate them, which record the pulse interval in beats per minute rather than the pulse period of the tower receiver for other Tb data
+- dwsTempOut = the temperature recorded by a weather station at the study site; these values were interpolated to the specific time of the observation since the weather station was only recording data every two hours
+ModTempC = the ground surface temperature estimated by a temperature model (Ian Axsom) for the location and time that each observation occurred; this is an estimate of the operative temperature available to these lizards
+
+
+```{r}
+microhab <- read.csv("./data/telemetry/behavior_observations.csv") %>%
+  # force NAs on, then remove, observations for the "uncollared" lizard
+  mutate(Serial_no = as.numeric(substr(Serial, 1, 5))) %>%
+  dplyr::filter(complete.cases(Serial_no)) %>%
+  # properly format data classes
+  mutate(date_only = as.Date(substr(DateTime, 1, 10), format = "%Y-%m-%d"),
+         hour_of_day = as.numeric(substr(DateTime, 12, 13)),
+         DateTime = as.POSIXct(DateTime, format = "%Y-%m-%d %H:%M:%S"),
+         Serial = factor(paste(paste(substr(as.character(Serial), 1, 3), 
+                                     substr(as.character(Serial), 4, 7), sep = "-"))),
+         microhabitat = factor(Micro_1,
+                               labels = c("Burrow", # keep
+                                          "", # change from Burrow slide
+                                          "", # change from Burrow-Partial
+                                          "", # change from Burrow/ephedra
+                                          "", # change from Burrow/shrub
+                                          "Dead/Missing", # keep
+                                          "", # change from Grass trims
+                                          "", # change from IDK
+                                          "No Visual", # keep
+                                          "Open", # keep
+                                          "Shade - Full", # keep
+                                          "Shade - Partial", # keep
+                                          "Shade - Partial", # remove notes
+                                          "Shade - Partial", # remove notes
+                                          "Shade - Partial", # remove notes
+                                          "Shade - Partial", # remove notes
+                                          "Shade - Partial", # remove notes
+                                          "Shade - Partial", # remove notes
+                                          "Shade - Partial" # remove notes
+                                          ))
+         ) %>%
+  # for some reason, it only works to fix the order separately
+  mutate(microhabitat = factor(microhabitat,
+                               levels = c("Open", 
+                                          "Shade - Partial", 
+                                          "Shade - Full", 
+                                          "Burrow",
+                                          "No Visual", "Dead/Missing"))) %>%
+  dplyr::select(Serial, DateTime, date_only, hour_of_day, microhabitat, 
+                bpmTempC, dwsTempOut, ModTempC)
+summary(microhab)
+levels(microhab$Serial)
+```
+
+
+
+
+
+
+
+# Thermal Metrics
+
+For each lizard, we want to calculate the following:
+
+- mean daily voluntary maximum (VTmax) = maximum daily body temp, averaged for a given date range
+- field-active preferred temperature (Tset) = range between the 25% and 75% percentile body temperatures for a given date range
+- thermoregulatory accuracy (Db) = the absolute value of the difference between the Tset range and recorded body temperature at a given time; so, how far outside Tset is each Tb value?
+
+### VTmax
+
+```{r}
+VTmax <- temp_clean %>%
+  group_by(date_only, date_chunks, Serial) %>%
+  summarise(daily_max = max(ppTempC)) %>%
+  group_by(date_chunks, Serial) %>%
+  summarise(chunk_avg_daily_max_temp_C = mean(daily_max))
+summary(VTmax)
+```
+
+
+
+### Tpref
+
+```{r}
+Tpref <- temp_clean %>%
+  group_by(date_chunks, Serial) %>%
+  summarise(chunk_25th_quantile_temp_C = quantile(ppTempC, probs = c(0.25)),
+            chunk_75th_quantile_temp_C = quantile(ppTempC, probs = c(0.75)),
+            chunk_median_temp_C = quantile(ppTempC, probs = c(0.5)))
+summary(Tpref)
+```
+
+
+
+
+
+### Db
+
+From Kat Ivey's 2020 paper, Tset range is: 32.3±1.2 - 37.5±1.1 deg C.
+
+```{r}
+Db <- temp_clean %>%
+  # we only want daytime Tb for this (0700-1900)
+  dplyr::filter(hour_of_day <=19 & hour_of_day >=7) %>%
+  mutate(Tpref_low = 31.1,
+         Tpref_high = 38.6) %>%
+  mutate(Db = case_when(ppTempC < Tpref_low ~ Tpref_low - ppTempC,
+                        ppTempC > Tpref_high ~ ppTempC - Tpref_high,
+                        ppTempC < Tpref_high & ppTempC > Tpref_low ~ 0)) %>%
+  group_by(date_chunks, Serial) %>%
+  summarise(chunk_mean_Db = mean(Db))
+
+summary(Db)
+```
+
+
+
+## Join Data
+
+### Temp + IDs
+
+```{r}
+temp_full <- VTmax %>%
+  left_join(Tpref, by = c('Serial', 'date_chunks')) %>%
+  left_join(Db, by = c('Serial', 'date_chunks')) %>%
+  left_join(liz_ID_only, by = c('Serial' = 'radio_collar_serial'))
+
+summary(temp_full)
+```
+
+
+
+### Temp & Hydric
+
+```{r}
+#temp_hydric_dat <- temp_full 
+
+#summary(temp_hydric_dat)
+```
+
+
+
+
+
+
+
+# Plot Temp ~ Time
+
+### VTmax
+
+```{r}
+ggplot(temp_full) + 
+  geom_boxplot(aes(x = date_chunks,
+                   y = chunk_avg_daily_max_temp_C,
+                   color = sex_M_F)) + 
+  geom_point(aes(x = date_chunks,
+                   y = chunk_avg_daily_max_temp_C,
+                   color = sex_M_F)) +
+  theme_classic()
+```
+
+
+### Tpref
+
+```{r}
+ggplot(temp_full) + 
+  geom_point(aes(x = date_chunks,
+                   y = chunk_median_temp_C,
+                   color = sex_M_F)) +
+  geom_boxplot(aes(x = date_chunks,
+                   y = chunk_median_temp_C,
+                   color = sex_M_F)) +
+  #geom_errorbar(aes(x = date_chunks,
+   #                 y = chunk_median,
+    #                ymax = chunk_75th_quantile,
+     #               ymin = chunk_25th_quantile)) +
+  theme_classic()
+```
+
+
+
+
+
+
+

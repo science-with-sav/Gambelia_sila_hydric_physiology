@@ -92,6 +92,7 @@ dat <- read_rds("./data/G_sila_clean_full_dat.RDS") %>%
                                        "May Female", "May Male",
                                        "July Female", "July Male")))
 summary(dat)
+unique(dat$radio_collar_serial)
 ```
 
 
