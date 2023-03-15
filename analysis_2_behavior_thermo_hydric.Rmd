@@ -67,6 +67,10 @@ liz_dat <- read_rds("./data/G_sila_clean_full_dat.RDS") %>%
                                  capture_date %in% c("2021-05-07", 
                                                      "2021-05-08", 
                                                      "2021-05-09") ~ "May 10 - 20")))
+liz_IDs_only <- liz_dat %>%
+  group_by(radio_collar_serial, individual_ID, sex_M_F) %>%
+  summarise(n = n()) %>%
+  dplyr::select(-n)
 ```
 
 
@@ -251,35 +255,27 @@ For each lizard, we want to calculate the following:
 - field-active preferred temperature (Tset) = range between the 25% and 75% percentile body temperatures for a given date range
 - thermoregulatory accuracy (Db) = the absolute value of the difference between the Tset range and recorded body temperature at a given time; so, how far outside Tset is each Tb value?
 
-### VTmax
+
+
+## Daily Maximums
 
 ```{r}
-VTmax <- temp_clean %>%
+daily_max <- temp_clean %>%
   group_by(date_only, date_chunks, Serial) %>%
   summarise(daily_max = max(ppTempC)) %>%
   group_by(date_chunks, Serial) %>%
   summarise(chunk_avg_daily_max_temp_C = mean(daily_max))
-summary(VTmax)
-```
-
-
-
-### Tpref
-
-```{r}
-Tpref <- temp_clean %>%
-  group_by(date_chunks, Serial) %>%
-  summarise(chunk_25th_quantile_temp_C = quantile(ppTempC, probs = c(0.25)),
-            chunk_75th_quantile_temp_C = quantile(ppTempC, probs = c(0.75)),
-            chunk_median_temp_C = quantile(ppTempC, probs = c(0.5)))
-summary(Tpref)
+summary(daily_max)
 ```
 
 
 
 
 
-### Db
+
+
+
+## Db
 
 From Kat Ivey's 2020 paper, Tset range is: 32.3±1.2 - 37.5±1.1 deg C.
 
@@ -300,23 +296,39 @@ summary(Db)
 
 
 
-## Join Data
 
-### Temp + IDs
+# Microhabitat Use
+
+
+## Proportions of Observations
+
+To calculate microhabitat use, I literally just calculate the proportion of observations for a given individual/time range that were in each microhabitat. 
+
+*From Nicole's paper: We then calculated the percent of time G. sila used each microhabitat in May, June, and July at each site. To compare the probability that a lizard would be found underground (in burrows) between the two sites, we ran a mixed-effects logistic regression model in R (R Core Team, 2020; RStudio, 2020, lme4 package v. 1.1-26, Bates et al., 2015) with time as a polynomial, site and month as fixed effects, and lizard ID as a random effect.*
+
+
+
+
+
+# Join Data
+
+## Temp + IDs
+
 
 ```{r}
-temp_full <- VTmax %>%
-  left_join(Tpref, by = c('Serial', 'date_chunks')) %>%
+temp_full <- daily_max %>%
   left_join(Db, by = c('Serial', 'date_chunks')) %>%
-  left_join(liz_ID_only, by = c('Serial' = 'radio_collar_serial'))
+  # last time I tried, the date_chunks didn't
+  left_join(liz_IDs_only, by = c('date_chunks', 'Serial' = 'radio_collar_serial'))
 
 summary(temp_full)
 ```
 
 
 
-### Temp & Hydric
+## Temp & Hydric
 
+Use to do linear regression of thermal/hab sel ~ hydration across lizards.
 ```{r}
 #temp_hydric_dat <- temp_full 
 
