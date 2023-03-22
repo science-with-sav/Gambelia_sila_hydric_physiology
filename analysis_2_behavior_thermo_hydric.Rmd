@@ -95,7 +95,18 @@ temps <- read.csv("./data/telemetry/tower_temps_all.csv") %>%
          hour_of_day = as.numeric(substr(DateTime, 12, 13)),
          DateTime = as.POSIXct(DateTime, format = "%Y-%m-%d %H:%M:%S"),
          Serial = factor(paste(substr(Serial, 1, 3), 
-                               substr(Serial, 4, 7), sep = "-")))
+                               substr(Serial, 4, 7), sep = "-")),
+         Freq = round(Freq, 2))
+
+# save freq-serial link
+freq_serial <- temps %>%
+  group_by(Freq, Serial) %>%
+  summarise(n = n()) #%>%
+# check that there is 1 serial per frequency
+#  group_by(Freq) %>%
+ # summarise(n = n())
+
+# look at temps dataframe
 summary(temps)
 unique(temps$Serial)
 ```
@@ -211,7 +222,7 @@ Individual IQRs definitely look reasonable.
 
 ## Microhabitat Use
 
-This data was collected by radio-tracking lizards, finding them, then recording what type of microhabitat they were in. 
+This data was collected by radio-tracking lizards, finding them, then recording what type of microhabitat they were in. We have to read-in a few files, because at first the formatting was not consistent, then put the dataframes all together.
 
 variables in this dataframe:
 
@@ -223,17 +234,18 @@ variables in this dataframe:
 - dwsTempOut = the temperature recorded by a weather station at the study site; these values were interpolated to the specific time of the observation since the weather station was only recording data every two hours
 ModTempC = the ground surface temperature estimated by a temperature model (Ian Axsom) for the location and time that each observation occurred; this is an estimate of the operative temperature available to these lizards
 
+This is the nice, clean data that was collected early May onwards:
 
 ```{r}
-microhab <- read.csv("./data/telemetry/behavior_observations.csv") %>%
+microhab_clean <- read.csv("./data/telemetry/behavior_observations.csv") %>%
   # force NAs on, then remove, observations for the "uncollared" lizard
   mutate(Serial_no = as.numeric(substr(Serial, 1, 5))) %>%
   dplyr::filter(complete.cases(Serial_no)) %>%
   # properly format data classes
   mutate(date_only = as.Date(substr(DateTime, 1, 10), format = "%Y-%m-%d"),
-         hour_of_day = as.numeric(substr(DateTime, 12, 13)),
-         DateTime = as.POSIXct(DateTime, format = "%Y-%m-%d %H:%M:%S"),
-         Serial = factor(paste(paste(substr(as.character(Serial), 1, 3), 
+          hour_of_day = as.numeric(substr(DateTime, 12, 13)),
+          DateTime = as.POSIXct(DateTime, format = "%Y-%m-%d %H:%M:%S"),
+          Serial = factor(paste(paste(substr(as.character(Serial), 1, 3), 
                                      substr(as.character(Serial), 4, 7), sep = "-"))),
          microhabitat = factor(Micro_1,
                                labels = c("Burrow", # keep
@@ -267,12 +279,67 @@ microhab <- read.csv("./data/telemetry/behavior_observations.csv") %>%
   dplyr::select(Serial, DateTime, date_only, hour_of_day, microhabitat, 
                 bpmTempC, dwsTempOut, ModTempC) %>%
   # add date chunk grouping notes
-  dplyr::filter(date_only %nin% cap_dates) %>%
-  left_join(group_dates, by = 'date_only')
-summary(microhab)
+  dplyr::filter(date_only %nin% cap_dates)
 ```
 
 
+This is the messy data collected in late April and very early May. Unfortunately, the following radio-frequencies were unable to be linked to a serial number: 150.14, 150.19, 150.21, and 150.28. But, that only applied to 11 observations.
+
+```{r}
+microhab_early0 <- read.csv("./data/telemetry/behavior_observations_early_0.csv") %>%
+  dplyr::select(date_only = date, time, 
+                microhabitat = micro, 
+                Serial = serial, 
+                Freq = freq, freq_notes = X)
+# this one must be split by whether freq or serial number of radio collars recorded
+microhab_early0_freq_only <- microhab_early0 %>%
+  dplyr::filter(!complete.cases(Serial)) %>%
+  dplyr::select(-Serial)
+microhab_early0_serial <- microhab_early0 %>%
+  dplyr::filter(complete.cases(Serial)) %>%
+  mutate(Serial = factor(paste(substr(Serial, 1, 3), 
+                               substr(Serial, 4, 7), sep = "-")))
+
+# load other csv, and add the dfs above to it
+microhab_early_all <- read.csv("./data/telemetry/behavior_observations_early_1.csv") %>%
+  dplyr::select(date_only = date, time, 
+                microhabitat = micro, 
+                Freq = freq, freq_notes) %>%
+  rbind(microhab_early0_freq_only) %>%
+  mutate(Freq = round(Freq, 2)) %>%
+  left_join(freq_serial, by = 'Freq') %>%
+  dplyr::select(-n) %>%
+  rbind(microhab_early0_serial) %>%
+  mutate(DateTime = as.POSIXct(paste(date_only, time, sep = " "), 
+                               format = "%m/%d/%y %H:%M"),
+         hour_of_day = as.numeric(substr(as.character(DateTime), 12, 13)),
+         date_only = as.Date(date_only, format = "%m/%d/%y"),
+         microhabitat = factor(str_to_title(microhabitat))) %>%
+  dplyr::filter(complete.cases(Serial, microhabitat)) %>%
+  # some of these were "focal observations" taken every few minutes
+  # to be consistent with other obs, take first point of each focal
+  group_by(Serial, date_only) %>%
+  #summarise(min(date), max(date), min(time), max(time)) # check that data is one chunk
+  # might remove a few usable data, but OK
+  slice(1) %>%
+  # remove these to make it easy to bind to clean one
+  dplyr::select(-time, -Freq, -freq_notes) %>%
+  # add these to make it easy to bind to clean one
+  mutate(bpmTempC = NA, dwsTempOut = NA, ModTempC = NA)
+summary(microhab_early_all) 
+```
+
+
+
+Now, put together the original and messy-now-clean dataframes, and add some formatting:
+
+```{r}
+microhab <- microhab_clean %>%
+  rbind(microhab_early_all) %>%
+  left_join(group_dates, by = 'date_only')
+
+summary(microhab)
+```
 
 
 
@@ -397,6 +464,7 @@ head(MH_use_across_indivs)
 ```
 
 
+*Now*, I need to get rid of the non-microhabitat obs (i.e. "no visual") and only use props with enough obs to back them up. THEN, I can move on to joining & investigating bigger relationships. :)
 
 ```{r}
 ggplot(MH_use_across_indivs) + 
