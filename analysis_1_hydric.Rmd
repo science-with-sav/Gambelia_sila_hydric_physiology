@@ -90,7 +90,11 @@ dat <- read_rds("./data/G_sila_clean_full_dat.RDS") %>%
   mutate(month_sex = factor(paste(month, sex_M_F),
                             levels = c("April Female", "April Male",
                                        "May Female", "May Male",
-                                       "July Female", "July Male")))
+                                       "July Female", "July Male")),
+         date_chunk_pretty = factor(case_when(month == "April" ~ "Apr 23-25",
+                                              month == "May" ~ "May 7-9",
+                                              month == "July" ~ "Jul 14"),
+                                    levels = c("Apr 23-25", "May 7-9", "Jul 14")))
 summary(dat)
 unique(dat$radio_collar_serial)
 ```
