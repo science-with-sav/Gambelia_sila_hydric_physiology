@@ -7,7 +7,7 @@ radio_collar_serial,PIT_tag_ID,individual_ID,sex,tmt,radio_collar_mass_g,notes
 229-063,844-849-615,F-06,F,hydration,2,added to FO May 21
 245-747,844-848-809,F-07,F,hydration,1.9,
 229-070,844-866-633,F-08,F,hydration,2,"dropped collar found, no evidence of predation"
-229-070-a,845-578-525,F-08a,F,hydration,2,"collar switched onto this lizard May 8, added to FO June 3"
+229-070a,845-578-525,F-08a,F,hydration,2,"collar switched onto this lizard May 8, added to FO June 3"
 229-065,844-868-610,F-09,F,hydration,2.1,dropped or just missing signal? (I had only missing)
 245-741,844-846-768,F-10,F,hydration,2.1,(original FO)
 252-884,844-850-298,F-11,F,control,2.4,added to FO May 19
@@ -22,7 +22,7 @@ radio_collar_serial,PIT_tag_ID,individual_ID,sex,tmt,radio_collar_mass_g,notes
 245-761,844-866-016,M-01,M,hydration,2,
 252-886,844-858-121,M-02,M,hydration,2.3,dropped or just missing signal? (I had only missing)
 245-762,844-862-532,M-03,M,hydration,2.5,"dropped collar found, no evidence of predation"
-245-762-a,845-578-768,M-03a,M,hydration,2.2,collar switched onto this lizard May 8
+245-762a,845-578-768,M-03a,M,hydration,2.2,collar switched onto this lizard May 8
 252-887,844-865-031,M-04,M,hydration,2.2,(original FO)
 245-753,844-851-282,M-05,M,hydration,2,(original FO)
 245-752,844-848-062,M-06,M,hydration,2.6,
