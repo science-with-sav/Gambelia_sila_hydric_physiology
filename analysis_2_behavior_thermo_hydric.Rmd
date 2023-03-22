@@ -57,16 +57,23 @@ Telemetry response variables to test vs hydric physiology
 This is the same dataframe used in 'analysis_1'.
 
 ```{r}
+apr_may_dates <-  as.Date(c("2021-04-23", "2021-04-24", "2021-04-25"))
+may_dates <- as.Date(c("2021-05-07", "2021-05-08", "2021-05-09"))
+  
 liz_dat <- read_rds("./data/G_sila_clean_full_dat.RDS") %>%
   # we only use data for radio collared lizards in this analysis
   dplyr::filter(complete.cases(radio_collar_serial)) %>%
   # add date chunks to help look at values over time
-  mutate(date_chunks = factor(case_when(capture_date %in% c("2021-04-23", 
-                                                     "2021-04-24", 
-                                                     "2021-04-25") ~ "Apr 26 - May 6",
-                                 capture_date %in% c("2021-05-07", 
-                                                     "2021-05-08", 
-                                                     "2021-05-09") ~ "May 10 - 20")))
+  mutate(date_chunks = factor(case_when(capture_date %in% apr_may_dates ~ "Apr 26 - May 6",
+                                 capture_date %in% may_dates ~ "May 10 - 20")),
+         radio_collar_serial = factor(radio_collar_serial))
+summary(liz_dat)
+
+liz_dat_apr_may_only <- liz_dat %>%
+  dplyr::filter(complete.cases(date_chunks))
+liz_dat_july_only <- liz_dat %>%
+  dplyr::filter(month == "July")
+
 liz_IDs_only <- liz_dat %>%
   group_by(radio_collar_serial, individual_ID, sex_M_F) %>%
   summarise(n = n()) %>%
@@ -249,14 +256,14 @@ microhab_clean <- read.csv("./data/telemetry/behavior_observations.csv") %>%
                                      substr(as.character(Serial), 4, 7), sep = "-"))),
          microhabitat = factor(Micro_1,
                                labels = c("Burrow", # keep
-                                          "", # change from Burrow slide
-                                          "", # change from Burrow-Partial
-                                          "", # change from Burrow/ephedra
-                                          "", # change from Burrow/shrub
-                                          "Dead/Missing", # keep
-                                          "", # change from Grass trims
+                                          "Open", # change from Burrow slide
+                                          "Open", # change from Burrow-Partial
+                                          "Burrow", # change from Burrow/ephedra
+                                          "Burrow", # change from Burrow/shrub
+                                          "", ### change from Dead/Missing ###  ### ### ###
+                                          "Open", # change from Grass trims
                                           "", # change from IDK
-                                          "No Visual", # keep
+                                          "", # change from No Visual
                                           "Open", # keep
                                           "Shade - Full", # keep
                                           "Shade - Partial", # keep
@@ -274,8 +281,9 @@ microhab_clean <- read.csv("./data/telemetry/behavior_observations.csv") %>%
                                levels = c("Open", 
                                           "Shade - Partial", 
                                           "Shade - Full", 
-                                          "Burrow",
-                                          "No Visual", "Dead/Missing"))) %>%
+                                          "Burrow"
+                                          #"No Visual", "Dead/Missing"
+                                          ))) %>%
   dplyr::select(Serial, DateTime, date_only, hour_of_day, microhabitat, 
                 bpmTempC, dwsTempOut, ModTempC) %>%
   # add date chunk grouping notes
@@ -336,7 +344,8 @@ Now, put together the original and messy-now-clean dataframes, and add some form
 ```{r}
 microhab <- microhab_clean %>%
   rbind(microhab_early_all) %>%
-  left_join(group_dates, by = 'date_only')
+  left_join(group_dates, by = 'date_only') %>%
+  dplyr::filter(complete.cases(microhabitat))
 
 summary(microhab)
 ```
@@ -409,10 +418,12 @@ Db <- temp_clean %>%
   dplyr::filter(hour_of_day <=19 & hour_of_day >=7) %>%
   mutate(Tpref_low = 32.3,
          Tpref_high = 37.9) %>%
+  # calculate Db for every Tb measurement
   mutate(Db = case_when(ppTempC < Tpref_low ~ ppTempC - Tpref_low, # for pos/neg version
                         #ppTempC < Tpref_low ~ Tpref_low - ppTempC, # for abs value version
                         ppTempC > Tpref_high ~ ppTempC - Tpref_high,
                         ppTempC < Tpref_high & ppTempC > Tpref_low ~ 0)) %>%
+  # then avg Db by lizard & date chunk
   group_by(date_chunks, Serial) %>%
   summarise(chunk_mean_Db_deg_C_diff = mean(Db))
 
@@ -429,8 +440,6 @@ summary(Db)
 
 To calculate microhabitat use, I literally just calculate the proportion of observations for a given individual/time range that were in each microhabitat. 
 
-*From Nicole's paper: We then calculated the percent of time G. sila used each microhabitat in May, June, and July at each site. To compare the probability that a lizard would be found underground (in burrows) between the two sites, we ran a mixed-effects logistic regression model in R (R Core Team, 2020; RStudio, 2020, lme4 package v. 1.1-26, Bates et al., 2015) with time as a polynomial, site and month as fixed effects, and lizard ID as a random effect.*
-
 So, for each time chunk, for each lizard (radio-collar serial), I need to get the following values:
 
 - number of total observations 
@@ -441,30 +450,402 @@ So, for each time chunk, for each lizard (radio-collar serial), I need to get th
 **We do not have a lot of obs for each lizard for every time chunk, so how many observations should there be to make the proportions valid/reasonable?** One potential way to do this could be to at least have 1-2 obs for every microhabitat type we are trying to observe (so, minimum points per date chunk either 4 or 8, once I get rid of the irrelevant ones).
 
 ```{r}
+# where to cut off n obs?
+microhab %>%
+  # get only 1 per lizard
+  group_by(date_chunks, Serial) %>%
+  summarise(n_obs = n()) %>%
+  ungroup() %>%
+  # How many lizards have each (n) obs?
+  group_by(n_obs) %>%
+  summarise(n = n())
+```
+
+It seems like a good cut-off is a minimum of 4 observations per lizard, per time chunk. Otherwise, we would lose a LOT of data.
+
+```{r}
+# micro use BY individual lizard
 MH_use_by_indiv <- microhab %>%
   group_by(Serial, date_chunks, microhabitat) %>%
   summarise(n_obs_micro = n()) %>%
   group_by(Serial, date_chunks) %>%
   mutate(n_obs_total = sum(n_obs_micro)) %>%
   ungroup() %>%
-  mutate(MH_use_proportion = n_obs_micro/n_obs_total)
+  # expect that this takes out 42 obs/rows
+  dplyr::filter(n_obs_total >= 4) %>%
+  mutate(MH_use_proportion = n_obs_micro/n_obs_total) #%>%
+# check that all proportions for a given lizard and time chunk = 1
+#  group_by(Serial, date_chunks) %>%
+ # summarise(prop_total = sum(MH_use_proportion))
 head(MH_use_by_indiv)
 summary(MH_use_by_indiv)
 
+# micro use for all lizards in the study, aggregated
 MH_use_across_indivs <- microhab %>%
   group_by(date_chunks, microhabitat) %>%
   summarise(n_obs_micro = n(),
-            mean_mod_temp = mean(ModTempC)) %>%
+            mean_mod_temp = mean(ModTempC, na.rm = T)) %>%
   group_by(date_chunks) %>%
   mutate(n_obs_total = sum(n_obs_micro),
-         mean_mod_temp2 = mean(mean_mod_temp)) %>%
+         mean_mod_temp2 = mean(mean_mod_temp, na.rm = T)) %>%
   ungroup() %>%
   mutate(MH_use_proportion = n_obs_micro/n_obs_total)
 head(MH_use_across_indivs)
 ```
 
 
-*Now*, I need to get rid of the non-microhabitat obs (i.e. "no visual") and only use props with enough obs to back them up. THEN, I can move on to joining & investigating bigger relationships. :)
+
+
+
+
+
+## Onset of Estivation
+
+```{r}
+estivating <- microhab %>%
+  # for each lizard
+  group_by(Serial) %>%
+  # what was the latest date we tracked them?
+  mutate(date_last_obs = max(date_only)) %>%
+  ungroup() %>%
+  # now, subset aboveground obs only
+  dplyr::filter(microhabitat != "Burrow") %>%
+  # what was the latest date we observed each lizard ABOVEground?
+  group_by(Serial) %>%
+  mutate(date_last_aboveground_obs = max(date_only),
+         est_obs = date_last_obs - date_last_aboveground_obs) %>%
+  ungroup() %>%
+  # make sure we tracked them after "last" aboveground observation
+  dplyr::filter(date_last_aboveground_obs < date_last_obs) %>%
+  # for each lizard
+  group_by(Serial) %>%
+  summarise(est_onset = mean(date_last_aboveground_obs),
+            est_obs_days = as.numeric(mean(est_obs))
+            ) %>%
+  dplyr::filter(est_obs_days >1)
+summary(estivating)
+```
+
+
+
+
+
+
+
+
+
+# Max Temps ~ Hydric
+
+## Prep Data
+
+```{r}
+max_temps_hydric <- liz_dat_apr_may_only %>%
+  left_join(daily_max, by = c('date_chunks', 
+                              'radio_collar_serial' = 'Serial')) %>%
+  # remove NAs
+  dplyr::filter(complete.cases(chunk_avg_Tb_percentile_80_90)) %>%
+  # remove the one outlier wayyyyy below the other values
+  dplyr::filter(chunk_avg_Tb_percentile_80_90>30)
+
+summary(max_temps_hydric)
+```
+
+
+
+## Plots
+
+```{r}
+ggplot(max_temps_hydric) +
+  geom_point(aes(x = CEWL_g_m2h,
+                 y = chunk_avg_Tb_percentile_80_90,
+                 color = date_chunks)) +
+  geom_smooth(aes(x = CEWL_g_m2h,
+                 y = chunk_avg_Tb_percentile_80_90),
+              se = F,
+              method = "lm",
+              formula = y~x)
+ggplot(max_temps_hydric) +
+  geom_point(aes(x = osmolality_mmol_kg_mean,
+                 y = chunk_avg_Tb_percentile_80_90,
+                 color = date_chunks)) +
+  geom_smooth(aes(x = osmolality_mmol_kg_mean,
+                 y = chunk_avg_Tb_percentile_80_90),
+              se = F,
+              method = "lm",
+              formula = y~x)
+```
+
+
+## Models
+
+```{r}
+# CEWL
+max_temp_CEWL_mod <- lmerTest::lmer(data = max_temps_hydric,
+                                chunk_avg_Tb_percentile_80_90 ~ CEWL_g_m2h +
+                                  (1|individual_ID))
+summary(max_temp_CEWL_mod)
+anova(max_temp_CEWL_mod)
+plot(max_temp_CEWL_mod)
+
+# osmolality
+max_temp_osml_mod <- lmerTest::lmer(data = max_temps_hydric,
+                                chunk_avg_Tb_percentile_80_90 ~ osmolality_mmol_kg_mean +
+                                  (1|individual_ID))
+summary(max_temp_osml_mod)
+anova(max_temp_osml_mod)
+plot(max_temp_osml_mod)
+```
+
+
+
+
+
+
+
+
+
+# Db ~ Hydric
+
+## Prep Data
+
+```{r}
+db_hydric <- liz_dat_apr_may_only %>%
+  left_join(Db, by = c('date_chunks', 
+                              'radio_collar_serial' = 'Serial')) %>%
+  # remove NAs
+  dplyr::filter(complete.cases(chunk_mean_Db_deg_C_diff)) %>%
+  # remove outliers
+  dplyr::filter(chunk_mean_Db_deg_C_diff > -4)
+
+summary(db_hydric)
+```
+
+
+
+## Plots
+
+```{r}
+ggplot(db_hydric) +
+  geom_point(aes(x = CEWL_g_m2h,
+                 y = chunk_mean_Db_deg_C_diff,
+                 color = date_chunks)) +
+  geom_smooth(aes(x = CEWL_g_m2h,
+                 y = chunk_mean_Db_deg_C_diff),
+              se = F,
+              method = "lm",
+              formula = y~x)
+ggplot(db_hydric) +
+  geom_point(aes(x = osmolality_mmol_kg_mean,
+                 y = chunk_mean_Db_deg_C_diff,
+                 color = date_chunks)) +
+  geom_smooth(aes(x = osmolality_mmol_kg_mean,
+                 y = chunk_mean_Db_deg_C_diff),
+              se = F,
+              method = "lm",
+              formula = y~x)
+```
+
+
+## Models
+
+```{r}
+# CEWL
+db_CEWL_mod <- lmerTest::lmer(data = db_hydric,
+                                chunk_mean_Db_deg_C_diff ~ CEWL_g_m2h +
+                                  (1|individual_ID))
+summary(db_CEWL_mod)
+anova(db_CEWL_mod)
+plot(db_CEWL_mod)
+
+# osmolality
+db_osml_mod <- lmerTest::lmer(data = db_hydric,
+                                chunk_mean_Db_deg_C_diff ~ osmolality_mmol_kg_mean +
+                                  (1|individual_ID))
+summary(db_osml_mod)
+anova(db_osml_mod)
+plot(db_osml_mod)
+```
+
+
+
+
+
+
+
+
+# Microhabitat ~ Hydric
+
+## Prep Data
+
+I actually need to prep the microhabitat data- the metric I will investigate is proportion of time aboveground.
+
+```{r}
+prop_above <- MH_use_by_indiv %>%
+  dplyr::filter(microhabitat == "Burrow") %>%
+  mutate(prop_above = 1 - MH_use_proportion) %>%
+  dplyr::filter(date_chunks %in% c("Apr 26 - May 6", "May 10 - 20"))
+```
+
+
+```{r}
+micro_hydric <- liz_dat_apr_may_only %>%
+  left_join(prop_above, by = c('date_chunks', 
+                              'radio_collar_serial' = 'Serial')) %>%
+  # remove NAs
+  dplyr::filter(complete.cases(prop_above)) 
+
+summary(micro_hydric)
+```
+
+
+
+## Plots
+
+```{r}
+ggplot(micro_hydric) +
+  geom_point(aes(x = CEWL_g_m2h,
+                 y = prop_above,
+                 color = date_chunks)) +
+  geom_smooth(aes(x = CEWL_g_m2h,
+                 y = prop_above),
+              se = F,
+              method = "lm",
+              formula = y~x)
+ggplot(micro_hydric) +
+  geom_point(aes(x = osmolality_mmol_kg_mean,
+                 y = prop_above,
+                 color = date_chunks)) +
+  geom_smooth(aes(x = osmolality_mmol_kg_mean,
+                 y = prop_above),
+              se = F,
+              method = "lm",
+              formula = y~x)
+```
+
+
+## Models
+
+```{r}
+# CEWL
+micro_CEWL_mod <- lmerTest::lmer(data = micro_hydric,
+                                prop_above ~ CEWL_g_m2h +
+                                  (1|individual_ID))
+summary(micro_CEWL_mod)
+anova(micro_CEWL_mod)
+plot(micro_CEWL_mod)
+
+# osmolality
+micro_osml_mod <- lmerTest::lmer(data = micro_hydric,
+                                prop_above ~ osmolality_mmol_kg_mean +
+                                  (1|individual_ID))
+summary(micro_osml_mod)
+anova(micro_osml_mod)
+plot(micro_osml_mod)
+```
+
+
+
+
+
+
+
+# Estivation ~ Hydric
+
+## Prep Data
+
+```{r}
+est_hydric <- liz_dat_apr_may_only %>%
+  group_by(radio_collar_serial) %>%
+  summarise(mean_mass = mean(mass_g),
+            mean_SMI = mean(SMI),
+            mean_CEWL = mean(CEWL_g_m2h),
+            mean_osml = mean(osmolality_mmol_kg_mean, na.rm = T),
+            ) %>%
+  left_join(estivating, by = c('radio_collar_serial' = 'Serial')) %>%
+  # remove NAs
+  dplyr::filter(complete.cases(est_onset)) %>%
+  mutate(est_onset_scaled = scale(as.numeric(est_onset)))
+
+summary(est_hydric)
+```
+
+
+also look at just July:
+
+```{r}
+est_hydric_July <- liz_dat_july_only %>%
+  left_join(estivating, by = c('radio_collar_serial' = 'Serial')) %>%
+  # remove NAs
+  dplyr::filter(complete.cases(est_onset)) %>%
+  mutate(est_onset_scaled = scale(as.numeric(est_onset)))
+```
+
+
+
+## Plots
+
+```{r}
+ggplot(est_hydric) +
+  geom_point(aes(x = mean_CEWL,
+                 y = est_onset_scaled)) +
+  geom_smooth(aes(x = mean_CEWL,
+                 y = est_onset_scaled),
+              se = F,
+              method = "lm",
+              formula = y~x)
+ggplot(est_hydric) +
+  geom_point(aes(x = mean_osml,
+                 y = est_onset_scaled)) +
+  geom_smooth(aes(x = mean_osml,
+                 y = est_onset_scaled),
+              se = F,
+              method = "lm",
+              formula = y~x)
+```
+
+
+## Models
+
+```{r}
+# CEWL
+est_CEWL_mod <- lm(data = est_hydric, est_onset_scaled ~ mean_CEWL)
+summary(est_CEWL_mod)
+anova(est_CEWL_mod)
+plot(est_CEWL_mod)
+
+# osmolality
+est_osml_mod <- lm(data = est_hydric, est_onset_scaled ~ mean_osml)
+summary(est_osml_mod)
+anova(est_osml_mod)
+plot(est_osml_mod)
+
+# osmolality JULY
+est_osml_JULY_mod <- lm(data = est_hydric_July, est_onset_scaled ~ osmolality_mmol_kg_mean)
+summary(est_osml_JULY_mod)
+```
+
+
+
+
+
+
+
+
+
+
+
+# Hydric Conclusion
+
+There are basically **no detectable relationships** between water balance and thermoregulation or microhabitat use in BNLL. The only significant relationship we found was between plasma osmolality and relative date of onset of estivation, but the effect size was miniscule. 
+
+
+
+
+# Microhabitat Use ONLY
+
+
+*From Nicole's paper: We then calculated the percent of time G. sila used each microhabitat in May, June, and July at each site. To compare the probability that a lizard would be found underground (in burrows) between the two sites, we ran a mixed-effects logistic regression model in R (R Core Team, 2020; RStudio, 2020, lme4 package v. 1.1-26, Bates et al., 2015) with time as a polynomial, site and month as fixed effects, and lizard ID as a random effect.*
+
 
 ```{r}
 ggplot(MH_use_across_indivs) + 
@@ -485,78 +866,5 @@ ggplot(MH_use_by_indiv) +
   facet_wrap(~Serial) +
   theme_classic()
 ```
-
-
-
-
-
-# Join Data
-
-## Temp + IDs
-
-
-```{r}
-temp_full <- daily_max %>%
-  left_join(Db, by = c('Serial', 'date_chunks')) %>%
-  # last time I tried, the date_chunks didn't
-  left_join(liz_IDs_only, by = c('date_chunks', 'Serial' = 'radio_collar_serial'))
-
-summary(temp_full)
-```
-
-
-
-## Temp & Hydric
-
-Use to do linear regression of thermal/hab sel ~ hydration across lizards.
-```{r}
-#temp_hydric_dat <- temp_full 
-
-#summary(temp_hydric_dat)
-```
-
-
-
-
-
-
-
-# Plot Temp ~ Time
-
-### VTmax
-
-```{r}
-ggplot(temp_full) + 
-  geom_boxplot(aes(x = date_chunks,
-                   y = chunk_avg_daily_max_temp_C,
-                   color = sex_M_F)) + 
-  geom_point(aes(x = date_chunks,
-                   y = chunk_avg_daily_max_temp_C,
-                   color = sex_M_F)) +
-  theme_classic()
-```
-
-
-### Tpref
-
-```{r}
-ggplot(temp_full) + 
-  geom_point(aes(x = date_chunks,
-                   y = chunk_median_temp_C,
-                   color = sex_M_F)) +
-  geom_boxplot(aes(x = date_chunks,
-                   y = chunk_median_temp_C,
-                   color = sex_M_F)) +
-  #geom_errorbar(aes(x = date_chunks,
-   #                 y = chunk_median,
-    #                ymax = chunk_75th_quantile,
-     #               ymin = chunk_25th_quantile)) +
-  theme_classic()
-```
-
-
-
-
-
 
 
