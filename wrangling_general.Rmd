@@ -139,6 +139,7 @@ lizards_collared <- read.csv("./data/collared_measurements.csv") %>%
                 )
 
 summary(lizards_collared)
+unique(lizards_collared$radio_collar_serial)
 ```
 
 
