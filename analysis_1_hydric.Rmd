@@ -37,7 +37,11 @@ if (!require("emmeans")) install.packages("emmeans")
 library("emmeans") # marginal means & confints
 ```
 
-make a common figure theme:
+
+
+
+
+# Set Colors & Themes
 
 ```{r}
 savs_ggplot_theme <- theme_bw() + 
@@ -70,6 +74,10 @@ my_labels <- c("April\nF\n(n=11)", "April\nM\n(n=22)",
                "May\nF\n(n=10)", "May\nM\n(n=17)",
                "July\nF\n(n=2)", "July\nM\n(n=12)")
 ```
+
+
+
+
 
 
 
