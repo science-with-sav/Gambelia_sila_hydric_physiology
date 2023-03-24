@@ -1,0 +1,174 @@
+---
+title: "Blunt-nosed Leopard Lizard Data Analysis: Climate at the Study Site"
+author: "Savannah Weaver"
+output: 
+  rmdformats::html_clean:
+    highlight: tango
+    thumbnails: FALSE
+    toc: TRUE
+    toc_depth: 3
+---
+
+
+# Packages
+
+```{r setup, echo=T, results='hide', message=FALSE}
+`%nin%` = Negate(`%in%`)
+if (!require("tidyverse")) install.packages("tidyverse") 
+library("tidyverse")# for dplyr workflow of calculations
+if (!require("UsingR")) install.packages("UsingR") 
+library("UsingR")
+if (!require("lme4")) install.packages("lme4") 
+library("lme4")
+if (!require("lmerTest")) install.packages("lmerTest") 
+library("lmerTest")
+if (!require("broom")) install.packages("broom")
+library("broom") # lmer model export
+if (!require("broom.mixed")) install.packages("broom.mixed")
+library("broom.mixed") # lmer model export
+if (!require("ggplot2")) install.packages("ggplot2")
+library("ggplot2")
+if (!require("viridis")) install.packages("viridis")
+library("viridis")
+if (!require("RColorBrewer")) install.packages("RColorBrewer")
+library("RColorBrewer")
+if (!require("ggpubr")) install.packages("ggpubr")
+library("ggpubr") # for multi-ggplot figs
+if (!require("Hmisc")) install.packages("Hmisc")
+library("Hmisc") # correlation matrix
+if (!require("emmeans")) install.packages("emmeans")
+library("emmeans") # marginal means & confints
+```
+
+
+
+
+# Set Colors & Themes
+
+```{r}
+savs_ggplot_theme <- theme_bw() + 
+                     theme(text = element_text(color = "black", 
+                                               family = "sans", 
+                                               size = 12),
+                           axis.text = element_text(color = "black", 
+                                                    family = "sans", 
+                                                    size = 8),
+                           legend.text = element_text(color = "black", 
+                                                      family = "sans", 
+                                                      size = 8),
+                           legend.text.align = 0,
+                           legend.position = "bottom"
+                           #plot.margin = margin(t = 6, r = 6, b = 0, l = 1, unit = "pt")
+                           )
+```
+
+
+
+
+
+
+
+
+
+# Background & Introduction
+
+
+
+
+
+
+
+
+
+
+
+# Load & Wrangle Data
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Plot over time
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
