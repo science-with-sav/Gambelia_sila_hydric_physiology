@@ -28,6 +28,8 @@ if (!require("broom.mixed")) install.packages("broom.mixed")
 library("broom.mixed") # lmer model export
 if (!require("ggplot2")) install.packages("ggplot2")
 library("ggplot2")
+if (!require("viridis")) install.packages("viridis")
+library("viridis")
 if (!require("RColorBrewer")) install.packages("RColorBrewer")
 library("RColorBrewer")
 if (!require("ggpubr")) install.packages("ggpubr")
@@ -39,12 +41,84 @@ library("emmeans") # marginal means & confints
 ```
 
 
+
+
+# Set Colors & Themes
+
+```{r}
+savs_ggplot_theme <- theme_bw() + 
+                     theme(text = element_text(color = "black", 
+                                               family = "sans", 
+                                               size = 12),
+                           axis.text = element_text(color = "black", 
+                                                    family = "sans", 
+                                                    size = 8),
+                           legend.text = element_text(color = "black", 
+                                                      family = "sans", 
+                                                      size = 8),
+                           legend.text.align = 0,
+                           legend.position = "bottom"
+                           #plot.margin = margin(t = 6, r = 6, b = 0, l = 1, unit = "pt")
+                           )
+
+my_vir_cols_7 <- viridis(n = 7, 
+                        #alpha, 
+                        #begin, # determine how dark it can go
+                        end = 0.8, # makes it so it cannot get too light in color
+                        #direction = -1,
+                        option = "mako"
+                        )
+my_vir_cols_41 <- viridis(n = 4, # how many different colors do I need?
+                      alpha = 1, # transparency
+                      begin = 0, # how dark it's allowed to get
+                      end = 0.95, # how light it's allowed to get
+                      direction = -1
+                      )
+my_vir_cols_42 <- magma(n = 4, # how many different colors do I need?
+                      alpha = 1, # transparency
+                      begin = 0, # how dark it's allowed to get
+                      end = 0.95, # how light it's allowed to get
+                      direction = -1
+                      )
+my_vir_cols_43 <- plasma(n = 4, # how many different colors do I need?
+                      alpha = 1, # transparency
+                      begin = 0, # how dark it's allowed to get
+                      end = 0.95, # how light it's allowed to get
+                      direction = -1
+                      )
+my_vir_cols_44 <- cividis(n = 4, # how many different colors do I need?
+                      alpha = 1, # transparency
+                      begin = 0, # how dark it's allowed to get
+                      end = 0.95, # how light it's allowed to get
+                      direction = -1
+                      )
+my_vir_cols_45 <- mako(n = 4, # how many different colors do I need?
+                      alpha = 1, # transparency
+                      begin = 0, # how dark it's allowed to get
+                      end = 0.95, # how light it's allowed to get
+                      direction = -1
+                      )
+my_brew_cols_4 <- brewer.pal(9, "YlGnBu")[c(3,5,7,9)]
+```
+
+
+
+
+
+
+
+
+
 # Background & Introduction
 
 
 Telemetry response variables to test vs hydric physiology
 -	Microhabitat use = proportion of observations doing x (above, partial shade, full shade, burrow)
 -	Time of onset of estivation (once you no longer ever get aboveground obs)
+
+
+
+
 
 
 
@@ -344,8 +418,12 @@ Now, put together the original and messy-now-clean dataframes, and add some form
 ```{r}
 microhab <- microhab_clean %>%
   rbind(microhab_early_all) %>%
+  dplyr::filter(complete.cases(microhabitat)) %>%
   left_join(group_dates, by = 'date_only') %>%
-  dplyr::filter(complete.cases(microhabitat))
+  left_join(liz_IDs_only, by = c('Serial' = 'radio_collar_serial')) %>%
+  mutate(above_below = factor(case_when(microhabitat == "Burrow" ~ "Belowground",
+                                        microhabitat != "Burrow" ~ "Aboveground"),
+                              levels = c("Aboveground", "Belowground")))
 
 summary(microhab)
 ```
@@ -494,7 +572,6 @@ head(MH_use_across_indivs)
 
 # micro use for all lizards, BY SEX
 MH_use_across_indivs_sex <- microhab %>%
-  left_join(liz_IDs_only, by = c('Serial' = 'radio_collar_serial')) %>%
   group_by(date_chunks, microhabitat, sex_M_F) %>%
   summarise(n_obs_micro = n(),
             mean_mod_temp = mean(ModTempC, na.rm = T)) %>%
@@ -508,6 +585,19 @@ summary(MH_use_across_indivs_sex)
 
 
 
+calculate the proportion of time aboveground:
+
+```{r}
+prop_above_by_indiv <- MH_use_by_indiv %>%
+  dplyr::filter(microhabitat == "Burrow") %>%
+  mutate(prop_above = 1 - MH_use_proportion)
+prop_above_across_indiv <- MH_use_across_indivs %>%
+  dplyr::filter(microhabitat == "Burrow") %>%
+  mutate(prop_above = 1 - MH_use_proportion)
+prop_above_across_indiv_by_sex <- MH_use_across_indivs_sex %>%
+  dplyr::filter(microhabitat == "Burrow") %>%
+  mutate(prop_above = 1 - MH_use_proportion)
+```
 
 
 
@@ -607,6 +697,14 @@ max_temp_osml_mod <- lmerTest::lmer(data = max_temps_hydric,
 summary(max_temp_osml_mod)
 anova(max_temp_osml_mod)
 plot(max_temp_osml_mod)
+
+# mass
+max_temp_mass_mod <- lmerTest::lmer(data = max_temps_hydric,
+                                chunk_avg_Tb_percentile_80_90 ~ mass_g +
+                                  (1|individual_ID))
+summary(max_temp_mass_mod)
+anova(max_temp_mass_mod)
+plot(max_temp_mass_mod)
 ```
 
 
@@ -677,6 +775,14 @@ db_osml_mod <- lmerTest::lmer(data = db_hydric,
 summary(db_osml_mod)
 anova(db_osml_mod)
 plot(db_osml_mod)
+
+# mass
+db_mass_mod <- lmerTest::lmer(data = db_hydric,
+                                chunk_mean_Db_deg_C_diff ~ mass_g +
+                                  (1|individual_ID))
+summary(db_mass_mod)
+anova(db_mass_mod)
+plot(db_mass_mod)
 ```
 
 
@@ -693,16 +799,14 @@ plot(db_osml_mod)
 I actually need to prep the microhabitat data- the metric I will investigate is proportion of time aboveground.
 
 ```{r}
-prop_above <- MH_use_by_indiv %>%
-  dplyr::filter(microhabitat == "Burrow") %>%
-  mutate(prop_above = 1 - MH_use_proportion) %>%
+prop_above_hydric <- prop_above_by_indiv %>%
   dplyr::filter(date_chunks %in% c("Apr 26 - May 6", "May 10 - 20"))
 ```
 
 
 ```{r}
 micro_hydric <- liz_dat_apr_may_only %>%
-  left_join(prop_above, by = c('date_chunks', 
+  left_join(prop_above_hydric, by = c('date_chunks', 
                               'radio_collar_serial' = 'Serial')) %>%
   # remove NAs
   dplyr::filter(complete.cases(prop_above)) 
@@ -764,6 +868,14 @@ micro_osml_mod <- lmerTest::lmer(data = micro_hydric,
 summary(micro_osml_mod)
 anova(micro_osml_mod)
 plot(micro_osml_mod)
+
+# mass
+micro_mass_mod <- lmerTest::lmer(data = micro_hydric,
+                                prop_above ~ mass_g +
+                                  (1|individual_ID))
+summary(micro_mass_mod)
+anova(micro_mass_mod)
+plot(micro_mass_mod)
 ```
 
 
@@ -859,23 +971,23 @@ summary(est_osml_JULY_mod)
 
 # Hydric Conclusion
 
-There are basically **no detectable relationships** between water balance and thermoregulation or microhabitat use in BNLL. The only significant relationship we found was between plasma osmolality and relative date of onset of estivation, but the effect size was miniscule. 
+There are basically **no detectable relationships** between water balance (CEWL, osml, or mass) and thermoregulation or microhabitat use in BNLL. The only significant relationship we found was between plasma osmolality and relative date of onset of estivation, but the effect size was miniscule. 
 
-*Do I use actual microhabitat or microhabitat PROPORTION as the response?*
-if actual microhabitat, I think I need to use full, raw dataset.
+
+
+
+
+
+
+
 
 
 # Microhabitat Use ONLY
 
+
 ## Prep Data
 
-```{r}
-MH_use_above_or_no <- MH_use_across_indivs_sex %>%
-  mutate(aboveground = factor(case_when(microhabitat == "Burrow" ~ "Belowground",
-                                        microhabitat != "Burrow" ~ "Aboveground"),
-                              levels = c("Aboveground", "Belowground")))
-summary(MH_use_above_or_no)
-```
+For logistic regression, I need to have the full, raw dataset (vs proportions by group for plots), so I will actually use the 'microhab' dataframe, created in the "Load Data" > "Microhbaitat Use" section. 
 
 
 
@@ -892,12 +1004,173 @@ ggplot(MH_use_across_indivs_sex) +
   theme_classic() +
   facet_wrap(~sex_M_F)
 
-summary(glm(data = MH_use_above_or_no, aboveground ~ date_chunks,
-            family="binomial"))
+sex_micro_glm <- glm(data = microhab, 
+                     above_below ~ date_chunks*sex_M_F,
+                     family="binomial")
+summary(sex_micro_glm)
+drop1(sex_micro_glm)
+anova(sex_micro_glm)
+
+probability_sex <- sex_micro_glm %>%
+  predict(microhab, type = "response")
+
+predicted_binary_sex <- microhab %>%
+  mutate(pred_bin = if_else(probability_sex > 0.5, 1, 0))
+
+ggplot(predicted_binary_sex) +
+  aes(x = date_chunks,
+      y = pred_bin,
+      color = sex_M_F) +
+  geom_jitter(alpha = 0.2) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial"))
 ```
 
 
 
+## Date Only
+
+```{r}
+ggplot(MH_use_across_indivs) + 
+    geom_bar(aes(x = date_chunks,
+                 y = MH_use_proportion,
+                 fill = microhabitat
+                 ),
+             position = "fill", 
+             stat = "identity") +
+  theme_classic()
+
+micro_glm <- glm(data = microhab, 
+                     above_below ~ date_chunks,
+                     family="binomial")
+summary(micro_glm)
+pairs(emmeans(micro_glm, "date_chunks"))
+anova(sex_micro_glm, micro_glm)
+
+probability_micro <- micro_glm %>%
+  predict(microhab, type = "response")
+
+predicted_binary_micro <- microhab %>%
+  mutate(pred_bin = if_else(probability_micro > 0.5, 1, 0))
+
+
+ggplot(predicted_binary_micro) +
+  aes(x = date_chunks,
+      y = pred_bin,
+      color = date_chunks) +
+  scale_color_manual(values = my_vir_cols_7) +
+  savs_ggplot_theme + 
+  geom_jitter(alpha = 0.9) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial"))
+```
+
+
+
+
+## Pretty Barplot
+
+```{r}
+ggplot(MH_use_across_indivs) + 
+    geom_bar(aes(x = date_chunks,
+                 y = MH_use_proportion,
+                 fill = microhabitat
+                 ),
+             position = "fill", 
+             stat = "identity") +
+  xlab("Time Period") +
+  ylab("Microhabitat Use (proportion of time)") +
+  geom_vline(xintercept = 0.5, # first weekend of msmts
+             size = 0.7, # default size is 0.5
+             linetype = "dashed") +
+  geom_vline(xintercept = 1.5, # second weekend of msmts
+             size = 0.7, 
+             linetype = "dashed") +
+  geom_vline(xintercept = 7.5, # last few msmts
+             size = 0.7, 
+             linetype = "dashed") +
+  scale_fill_manual(values = my_brew_cols_4, name = "Microhabitat",
+                    labels = c("Open", "Partial Shade", "Full Shade", "Burrow")) +
+  savs_ggplot_theme #-> brew
+```
+
+
+
+
+
+
+```{r}
+
+ggplot(MH_use_across_indivs) + 
+    geom_bar(aes(x = date_chunks,
+                 y = MH_use_proportion,
+                 fill = microhabitat
+                 ),
+             position = "fill", 
+             stat = "identity") +
+  scale_fill_manual(values = my_vir_cols_41) +
+  savs_ggplot_theme -> v1
+ggplot(MH_use_across_indivs) + 
+    geom_bar(aes(x = date_chunks,
+                 y = MH_use_proportion,
+                 fill = microhabitat
+                 ),
+             position = "fill", 
+             stat = "identity") +
+  scale_fill_manual(values = my_vir_cols_42) +
+  savs_ggplot_theme -> v2
+ggplot(MH_use_across_indivs) + 
+    geom_bar(aes(x = date_chunks,
+                 y = MH_use_proportion,
+                 fill = microhabitat
+                 ),
+             position = "fill", 
+             stat = "identity") +
+  scale_fill_manual(values = my_vir_cols_43) +
+  savs_ggplot_theme -> v3
+ggplot(MH_use_across_indivs) + 
+    geom_bar(aes(x = date_chunks,
+                 y = MH_use_proportion,
+                 fill = microhabitat
+                 ),
+             position = "fill", 
+             stat = "identity") +
+  scale_fill_manual(values = my_vir_cols_44) +
+  savs_ggplot_theme -> v4
+ggplot(MH_use_across_indivs) + 
+    geom_bar(aes(x = date_chunks,
+                 y = MH_use_proportion,
+                 fill = microhabitat
+                 ),
+             position = "fill", 
+             stat = "identity") +
+  scale_fill_manual(values = my_vir_cols_45) +
+  savs_ggplot_theme  -> v5
+
+
+
+ggarrange(brew, v1, v2, v3, v4, v5,
+          ncol = 2, nrow = 3,
+          labels = c("A", "B", "C", "D", "E", "F"),
+          common.legend = TRUE,
+          legend = "bottom"
+          ) -> test_multi
+
+ggsave(filename = "test_multi.pdf",
+       plot = test_multi,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 200, height = 300)
+```
+
+
+
+votes:
+1
+2
+3
+4
+5
 
 
 
@@ -915,26 +1188,6 @@ Notes:
 
 *From Nicole's paper: We then calculated the percent of time G. sila used each microhabitat in May, June, and July at each site. To compare the probability that a lizard would be found underground (in burrows) between the two sites, we ran a mixed-effects logistic regression model in R (R Core Team, 2020; RStudio, 2020, lme4 package v. 1.1-26, Bates et al., 2015) with time as a polynomial, site and month as fixed effects, and lizard ID as a random effect.*
 
-Check sex differences:
 
-```{r}
-ggplot(MH_use_across_indivs_sex) + 
-    geom_bar(aes(x = date_chunks,
-                 y = MH_use_proportion,
-                 fill = microhabitat,
-                 color = sex_M_F
-                 ),
-             position = "fill", 
-             stat = "identity") +
-  theme_classic()
-
-MH_use_across_indivs_sex %>%
-  dplyr::filter(microhabitat == "Burrow") %>%
-  lm()
-
-(lm(data = MH_use_across_indivs_sex, ))
-
-summary(MH_use_across_indivs_sex)
-```
 
 
