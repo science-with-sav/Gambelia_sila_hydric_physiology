@@ -110,12 +110,26 @@ my_labels_full <- c("April\nF\n(n=26)", "April\nM\n(n=41)",
 
 # Background 
 
+This data was collected on Blunt-nosed Leopard Lizards (*Gambelia sila*) during their active season in 2021. In this document, we will investigate the nuances and trends in the hydric physiology of these desert lizards. 
+
+We will do some additional data wrangling (see other 'wrangling_' files in this repository for more details on data preparation), compute some initial summary statistics, and investigate the following questions:
+
+- Are the different hydric physiology metrics we measured related to each other?
+- Did our attempt at supplemental hydration actually do anything?
+- How did hydric physiology change over time throughout the active season (April-July) of these lizards? This section composes the biggest chunk of this file.
+- Does hydric physiology relate to reproductive ability or effort in any way?
+
+
+
+
+
+
 
 
 # Load in Data
 
-This data was collected during fieldwork with Blunt-nosed Leopard Lizards (*Gambelia sila*) in the Elkhorn Plain of the Carrizo Plain National Monument in California, USA during the 2021 active season (April-August). See published paper (doi) for complete methods and discussion of these analyses. 
 
+## Main Dataframe
 
 ```{r}
 dat <- read_rds("./data/G_sila_clean_full_dat.RDS") %>%
@@ -147,7 +161,40 @@ dat %>%
 
 ## Variable Explanation
 
+This is an explanation of each variable in our dataframe:
 
+- "capture_date_time" 
+- "capture_date"                
+- "radio_collar_serial"          
+- "PIT_tag_ID"                  
+- "individual_ID"                
+- "sex_M_F"                     
+- "mass_g"                      
+- "SVL_mm"                      
+- "tmt"                          
+- "tmt_mass_change_g"           
+- "capture_to_msmt"              
+- "hematocrit_percent"          
+- "cloacal_temp_C"              
+- "CEWL_g_m2h"                  
+- "msmt_temp_C"                  
+- "msmt_RH_percent"             
+- "e_s_kPa"                      
+- "msmt_VPD_kPa"                
+- "osmolality_mmol_kg_mean"      
+- "month"                       
+- "week"                         
+- "week_num"                    
+- "ultrasound_date"              
+- "gravid_Y_N"                  
+- "number_eggs"                  
+- "largest_egg_diameter_cm"     
+- "largest_egg_circumference_cm" 
+- "stage"                       
+- "dev_point"                    
+- "SMI"                         
+- "month_sex"                    
+- "date_chunk_pretty"     
 
 
 
@@ -156,7 +203,7 @@ dat %>%
 
 I want to make some sub-dataframes for when I want to do stats for only a subset of individuals.
 
-First, get a dataframe of only individuals that had more than one measurement taken, and note how many individuals had x measurements:
+First, get a dataframe of only individuals that had more than one measurement taken, and note how many individuals had each n measurements:
 
 ```{r}
 # how many lizards were measured 1, 2, or 3 times?
@@ -231,9 +278,25 @@ dat_repeat_females <- dat_repro_females %>%
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Does SVL change over time?
 
-I want to know whether SVL changed over time for the individuals who had more than one measurement taken. If it does, then body condition is certainly more informative than mass.
+I want to know whether SVL changed over time for the individuals who had more than one measurement taken. 
 
 ```{r}
 # model
@@ -242,7 +305,7 @@ summary(lmerTest::lmer(data = dat_repeats,
 ```
 
 
-There is no meaningful change in SVL for the individuals we were able to measure, so I could use either mass or body condition to estimate body size.
+There is no meaningful change in SVL for the individuals we were able to measure, so I could use either mass or body condition to estimate change in body size over time.
 
 
 
@@ -250,7 +313,7 @@ There is no meaningful change in SVL for the individuals we were able to measure
 
 How much is CEWL impacted by the body temperature, ambient temperature, and ambient VPD at the time of CEWL measurement? I will investigate this using *all* measurements.
 
-It's possible that I may find a relationship between ambient temp and CEWL but not body temp and CEWL because the body temp measurements we took were unfortunately only to the nearest degree...
+It's possible that I may find a relationship between ambient temp and CEWL but not body temp and CEWL because the body temp measurements we took were unfortunately only to the nearest degree (vs tenth of a degree).
 
 
 ## Plot
@@ -327,13 +390,27 @@ Well... the ranges for week 3 are not small enough to be meaningless. So, we wil
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Water Balance Metrics
 
-What is the interrelation among water balance metrics CEWL, osmolality, hematocrit, and mass/SMI. I'll use all measurements for this. *I'm not sure if we will include hematocrit in the final results, though.*
+What is the interrelation among water balance metrics CEWL, osmolality, hematocrit, and mass/SMI. I'll use all measurements for this.
+
 
 ## Models
 
-Check a simple linear model between each set of paired measurements:
+Check a simple linear model between each set of paired measurements. I started with full models that included interactions with month and sex for each relationship, then dropped if the interaction was not significant. So, the models that still have interaction effects have them because they are important, and the models that do not have interaction effects had those effects dropped because they were not important.
 
 ```{r}
 # CEWL ~
@@ -368,24 +445,22 @@ Notes on these relationships:
 - CEWL ~ SMI was sig (mass was not; & SMI did not interact with mo or sex)
 - osml & hct corr, but with no interactions of mo or sex
 - osml also corr with SMI but not mass (& no interactions with mo or sex)
-**^all of the above based on anova SS, so assessing whether these things explain variation in response (CEWL/osml)**
+- **^all of the above based on anova SS, so assessing whether these things explain variation in response (CEWL/osml)**
 
 For MS:
-Plasma osmolality explained a significant amount of the variation in CEWL (SLR: F(1,110) = 5.07, p = 0.03), with a marginally nonsignificant interaction with measurement time period (SLR: F(2,110) = 2.77, p = 0.07). CEWL could also be explained by hematocrit (SLR: F(1,114) = 9.86, p = 0.002), or body condition (SLR: F(1,116) = 3.89, p = 0.05), but not lizard mass (SLR: F(1,116) = 1.44, p = 0.2). In turn, variation in plasma osmolality could be explained by hematocrit (SLR: F(1,114) = 15.07, p < 0.001) or body condition (SLR: F(1,114) = 5.30, p = 0.02), but not lizard mass (SLR: F(1,114) < 0.001, p = 1). Hematocrit and body condition were also significantly related (SLR: F(1,112) = 9.03, p = 0.003), with an interaction of lizard sex (SLR: F(1,112) = 7.97, p = 0.005). 
 
-Plots to make *nicely*:
-
-- CEWL ~ osml*mo
-  - Fig caption stats: adj-R-sq = 0.16
-- CEWL ~ hct g
-- CEWL ~ SMI (& note about mass) g
-- osml ~ hct g
-- osml ~ SMI g
-- hct ~ SMI*sex
+- Plasma osmolality explained a significant amount of the variation in CEWL (SLR: F(1,110) = 5.07, p = 0.03), with a marginally nonsignificant interaction with measurement time period (SLR: F(2,110) = 2.77, p = 0.07). 
+- CEWL could also be explained by hematocrit (SLR: F(1,114) = 9.86, p = 0.002), or body condition (SLR: F(1,116) = 3.89, p = 0.05), but not lizard mass (SLR: F(1,116) = 1.44, p = 0.2). 
+- Variation in plasma osmolality could be explained by hematocrit (SLR: F(1,114) = 15.07, p < 0.001) or body condition (SLR: F(1,114) = 5.30, p = 0.02), but not lizard mass (SLR: F(1,114) < 0.001, p = 1). 
+- Hematocrit and body condition were also significantly related (SLR: F(1,112) = 9.03, p = 0.003), with an interaction of lizard sex (SLR: F(1,112) = 7.97, p = 0.005). 
 
 
 
-## Plot CEWL ~ Osmolality
+
+
+## Plots
+
+### CEWL ~ Osmolality
 
 
 ```{r CEWL osml fig}
@@ -423,7 +498,7 @@ CEWL_osml_fig
 ```
 
 
-## Plot CEWL ~ SMI
+### CEWL ~ SMI
 
 
 ```{r CEWL SMI fig}
@@ -454,7 +529,7 @@ CEWL_SMI_fig
 
 
 
-## Plot CEWL ~ Hematocrit
+### CEWL ~ Hematocrit
 
 
 ```{r CEWL hct fig}
@@ -490,7 +565,7 @@ CEWL_hct_fig
 
 
 
-## Plot Osmol ~ SMI
+### Osmol ~ SMI
 
 
 ```{r osml SMI fig}
@@ -524,7 +599,7 @@ osml_SMI_fig
 
 
 
-## Plot Osmol ~ Hematocrit
+### Osmol ~ Hematocrit
 
 
 ```{r osml hct fig}
@@ -560,7 +635,7 @@ osml_hct_fig
 
 
 
-## Plot Hct ~ SMI
+### Hct ~ SMI
 
 
 ```{r hct SMI fig}
@@ -627,34 +702,7 @@ ggsave(filename = "water_balance_interrelation.pdf",
 
 
 
-
-## Week Interaction
-
-Redo CEWL ~ osmolality model with an interaction of date:
-
-```{r}
-summary(lm(data = dat, CEWL_g_m2h ~ osmolality_mmol_kg_mean*week))
-```
-
-
-Once again, the relationship is only significant for week 3...\
-
-
-
-Also look at for hematocrit:
-
-```{r}
-summary(lm(data = dat,
-           CEWL_g_m2h ~ hematocrit_percent*week))
-summary(lm(data = dat,
-           osmolality_mmol_kg_mean ~ hematocrit_percent*week))
-```
-
-The relationships between CEWL and osmolality with hematocrit are not different across weeks.
-
-
-
-## Lag Effect?
+## Lag (delete?)
 
 What if I tested week 3 CEWL ~ week 1 osml, or visa versa? This is to look for a lag effect on their relationship, although the time period is likely too long.
 
@@ -693,7 +741,40 @@ It seems very unlikely there is a lag effect, at least at this time scale. t and
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 # Supplemental Hydration Treatment Effects
+
+We tried to give the lizards water to drink. Did they actually drink any? And did it affect measurable change in their physiology?
+
+
+
+
+## Tmt Effect Check
+
+
+What was mass change *during* treatment, when we either gave lizards water to drink or a sham treatment?
+
+This quantifies the difference in mass gain/loss when we gave them water to drink versus sham treatment.
+
+```{r tmt mass change stats}
+summary(lm(data = dat_tmt_change, tmt_mass_change_g ~ tmt))
+emmeans(lm(data = dat_tmt_change, tmt_mass_change_g ~ tmt), "tmt")
+```
+
+So, it did result in a significant change in mass within the same-day water supplementation tmt (vs sham), but only ~1.4g difference, on average.
+
+
+
 
 
 ## Calculate Deltas
@@ -701,6 +782,7 @@ It seems very unlikely there is a lag effect, at least at this time scale. t and
 First, calculate the change in CEWL, osmolality, and mass for each treatment individual that was recaptured between April and May.
 
 ```{r}
+# get the intitial values from April
 starting_values <- dat_repeats %>%
   # look only at lizards in hydration or sham tmt
   dplyr::filter(tmt != "No Tmt") %>%
@@ -710,6 +792,8 @@ starting_values <- dat_repeats %>%
                 CEWL_April = CEWL_g_m2h,
                 osml_April = osmolality_mmol_kg_mean,
                 mass_April = mass_g)
+
+# calculate deltas
 dat_tmt_change <- dat_repeats %>%
   # look only at lizards in hydration or sham tmt
   dplyr::filter(tmt != "No Tmt") %>%
@@ -721,13 +805,15 @@ dat_tmt_change <- dat_repeats %>%
   mutate(mass_change_from_April = mass_g - mass_April,
          CEWL_change_from_April = CEWL_g_m2h - CEWL_April,
          osml_change_from_April = osmolality_mmol_kg_mean - osml_April)
+
+# subset of data to look at change April->May only
 dat_tmt_change_May_only <- dat_tmt_change %>%
   dplyr::filter(month == "May")
 ```
 
 
 
-## Plot Change by Tmt
+## Plot Change ~ Tmt
 
 ### Mass
 
@@ -790,7 +876,10 @@ tmt_delta_CEWL
 
 It does *not* look like treatment led to any differences in the amount or direction of change in lizard mass, CEWL, or osmolality. Changes were also not consistent by sex.
 
-### Export Multi-Panel Fig
+
+
+
+## Export Multi-Panel Fig
 
 Save plots:
 
@@ -817,19 +906,7 @@ ggsave(filename = "tmt_delta_multi_fig.pdf",
 
 ## Stat Tests of Change
 
-
-What about mass change *during* treatment, when we either gave lizards water to drink or a sham treatment. 
-
-```{r tmt mass change stats}
-summary(lm(data = dat_tmt_change, tmt_mass_change_g ~ tmt))
-emmeans(lm(data = dat_tmt_change, tmt_mass_change_g ~ tmt), "tmt")
-```
-
-So, it did result in a significant change in mass within the same-day water supplementation tmt (vs sham), but only ~1.4g difference, on average.
-
-
-
-
+Quantify whether change over time differed based on treatment.
 
 These lm's are doing the same thing as a two-sample t-test, checking whether the means are statistically different. 
 
@@ -860,7 +937,18 @@ On average, lizards who were measured in both April and May increased mass, but 
 
 
 
+
+
+
+
+
+
+
+
+
 # Change Over Time
+
+Did hydric physiology change throughout these lizards' active season?
 
 
 ## Plot Delta ~ Time*Sex
@@ -931,7 +1019,7 @@ delta_CEWL_sex
 
 
 
-### Export Multi-Panel Fig
+## Export Multi-Panel Fig
 
 Save plots:
 
@@ -959,9 +1047,11 @@ ggsave(filename = "delta_multi_fig_sex.pdf",
 
 
 
+
+
 ## Time*Sex Marginal Means
 
-I want to know whether the average values for all the lizards we measured changes over time. To test this, I can run a linear model, then use emmeans to get the marginal means and confidence intervals for each time point. 
+I want to know whether the average values for the lizards we measured changes over time. To test this, I can run a linear model, then use emmeans to get the marginal means and confidence intervals for each time point. 
 
 **Do this only for lizards with repeat measurements.**
 
@@ -1094,17 +1184,18 @@ sex_emmeans_CEWL <- data.frame(emmeans(time_sex_diffs_CEWL,
 
 
 
-### Check Assumptions
+## Check Assumptions
 
 ```{r}
 plot(time_sex_diffs_CEWL)
 plot(time_sex_diffs_osml)
 plot(time_sex_diffs_mass)
+plot(time_sex_diffs_SMI)
 ```
 
 
 
-### Merge dfs
+## Merge dfs
 
 ```{r}
 emmeans_all <- emmeans_CEWL %>%
@@ -1133,13 +1224,16 @@ emmean_sex_stats <- sex_emmeans_CEWL %>%
 
 
 
-## Plot MMeans Time*Sex
+## Plot MMeans ~ Time*Sex
+
+These are plots of the marginal means, only for the dataset of lizards with repeat measurements.
+
 
 ### Mass
 
 ```{r}
 ggplot() +
-  geom_jitter(data = dat_repeats, # dat or dat_repeats ?
+  geom_jitter(data = dat_repeats,
              aes(x = month_sex,
                  y = mass_g,
                  shape = sex_M_F,
@@ -1189,7 +1283,7 @@ mass_emmean_plot
 
 ```{r}
 ggplot() +
-  geom_jitter(data = dat_repeats, # dat or dat_repeats ?
+  geom_jitter(data = dat_repeats,
              aes(x = month_sex,
                  y = SMI,
                  shape = sex_M_F,
@@ -1242,7 +1336,7 @@ SMI_emmean_plot
 
 ```{r}
 ggplot() +
-  geom_jitter(data = dat_repeats,  # dat or dat_repeats ?
+  geom_jitter(data = dat_repeats,
              aes(x = month_sex,
                  y = osmolality_mmol_kg_mean,
                  shape = sex_M_F,
@@ -1295,7 +1389,7 @@ osml_emmean_plot
 
 ```{r}
 ggplot() +
-  geom_jitter(data = dat_repeats, # dat or dat_repeats ?
+  geom_jitter(data = dat_repeats,
              aes(x = month_sex,
                  y = CEWL_g_m2h,
                  shape = sex_M_F,
@@ -1345,7 +1439,7 @@ This is **only** for lizards that were recaptured and measured more than once, s
 
 
 
-### Export Multi-Panel Fig
+## Export Repeats-Only Multi-Panel Fig
 
 Put in one plot together:
 
@@ -1387,7 +1481,7 @@ ggsave(filename = "szn_change_multi_fig.pdf",
 
 ## FULL Time*Sex Marginal Means
 
-I'm going to do literally the same exact thing, but now for **all of my data**, not just for the data on lizards with repeat measurements.
+I'm going to do literally the same exact thing as the stats and figures in the section above, but now for **all of my data**, not just for the data on lizards with repeat measurements.
 
 Check n's:
 
@@ -1501,7 +1595,7 @@ full_time_sex_diffs_CEWL_check_covaries <- lmerTest::lmer(data = dat,
                                          + msmt_temp_C + msmt_VPD_kPa +
                                         (1|individual_ID))
 anova(full_time_sex_diffs_CEWL_check_covaries, 
-      type = "1", ddf = "Kenward-Roger") # not important at all
+      type = "1", ddf = "Kenward-Roger")
 
 # mean values
 full_emmeans_CEWL <- data.frame(emmeans(full_time_sex_diffs_CEWL, 
@@ -1521,17 +1615,18 @@ full_sex_emmeans_CEWL <- data.frame(emmeans(full_time_sex_diffs_CEWL,
 
 
 
-### Check Assumptions
+## Check Assumptions
 
 ```{r}
 plot(full_time_sex_diffs_CEWL)
 plot(full_time_sex_diffs_osml)
 plot(full_time_sex_diffs_mass)
+plot(full_time_sex_diffs_SMI)
 ```
 
 
 
-### Merge dfs
+## Merge dfs
 
 ```{r}
 full_emmeans_all <- full_emmeans_CEWL %>%
@@ -1565,7 +1660,7 @@ summary(full_time_sex_diffs_all)
 
 
 
-### Export
+## Export Model Results
 
 ```{r}
 full_time_sex_diffs_4exp <- full_time_sex_diffs_all %>%
@@ -1613,7 +1708,7 @@ write.csv(full_time_sex_diffs_4exp,
 
 ```{r}
 ggplot() +
-  geom_jitter(data = dat, # dat or dat_repeats ?
+  geom_jitter(data = dat,
              aes(x = month_sex,
                  y = mass_g,
                  shape = sex_M_F,
@@ -1664,7 +1759,7 @@ full_mass_emmean_plot
 
 ```{r}
 ggplot() +
-  geom_jitter(data = dat, # dat or dat_repeats ?
+  geom_jitter(data = dat,
              aes(x = month_sex,
                  y = SMI,
                  shape = sex_M_F,
@@ -1716,7 +1811,7 @@ full_SMI_emmean_plot
 
 ```{r}
 ggplot() +
-  geom_jitter(data = dat,  # dat or dat_repeats ?
+  geom_jitter(data = dat,
              aes(x = month_sex,
                  y = osmolality_mmol_kg_mean,
                  shape = sex_M_F,
@@ -1768,7 +1863,7 @@ full_osml_emmean_plot
 
 ```{r}
 ggplot() +
-  geom_jitter(data = dat, # dat or dat_repeats ?
+  geom_jitter(data = dat,
              aes(x = month_sex,
                  y = CEWL_g_m2h,
                  shape = sex_M_F,
@@ -1817,7 +1912,7 @@ full_CEWL_emmean_plot
 
 
 
-### Export Multi-Panel Fig
+## Export Full Data Multi-Panel Fig
 
 Put in one plot together:
 
@@ -1848,7 +1943,7 @@ ggsave(filename = "szn_change_multi_fig_full.pdf",
 
 
 
-### Export Full & Repeats Multi-Panel Fig
+## Export Full & Repeats Multi-Panel Fig
 
 
 ```{r}
@@ -1892,6 +1987,8 @@ ggsave(filename = "szn_change_multi_fig_full_vs_rep.pdf",
 # Reproductive Effort
 
 Is reproductive effort related to water balance?
+
+
 
 
 ## Repeat Individuals
@@ -2062,7 +2159,7 @@ dat_repro_females %>%
 
 
 
-# July Only
+# July Only (delete?)
 
 Was hydric physiology different between lizards that were estivating vs above ground still when we removed their collars in July?
 
