@@ -429,6 +429,21 @@ summary(microhab)
 ```
 
 
+*methods stats*: How many observations and days was each lizard tracked for?
+
+```{r}
+micro_obs_ns <- microhab %>%
+  group_by(Serial) %>%
+  summarise(n = n(),
+            min_date = min(date_only),
+            max_date = max(date_only),
+            date_range = max_date - min_date)
+micro_obs_ns %>%
+  summarise(mean(n), sd(n),
+            mean(date_range), sd(date_range))
+```
+
+
 
 
 

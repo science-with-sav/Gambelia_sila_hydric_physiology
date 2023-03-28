@@ -216,7 +216,9 @@ lizards_widespread %>%
   group_by(individual_ID) %>%
   summarise(n = n()) %>%
   dplyr::filter(n > 1) -> recap_W
-lizards_widespread %>% dplyr::filter(individual_ID %in% recap_W$individual_ID)
+lizards_widespread %>% 
+  dplyr::filter(individual_ID %in% recap_W$individual_ID) %>%
+  arrange(individual_ID)
 # which collared were recaptured and when
 lizards_collared %>%
   group_by(individual_ID) %>%
@@ -224,13 +226,14 @@ lizards_collared %>%
   dplyr::filter(n > 1) -> recap_C
 lizards_collared %>% 
   dplyr::filter(individual_ID %in% recap_C$individual_ID) %>%
-  dplyr::filter(capture_date > "2021-05-01")
+  arrange(individual_ID)
 
 # check things
 lizards_collared %>% 
   dplyr::filter(individual_ID %nin% recap_C$individual_ID)
 lizards_widespread %>% dplyr::filter(individual_ID == "W-029")
-lizards_collared %>% dplyr::filter(individual_ID == "M-03a")
+lizards_collared %>% dplyr::filter(individual_ID == "M-03a") # but does he have April?? if not, add as a new capture for May (not added rn)
+# if he has an Apri msmt, then add 1 recap to May, if not, leve as-is
 ```
 
 Throughout the summer, we measured 41 collared lizards, & 38 widespread lizards.
