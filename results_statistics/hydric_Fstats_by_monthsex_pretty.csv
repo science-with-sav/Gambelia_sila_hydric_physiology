@@ -1,0 +1,19 @@
+Hydric Response Variable,Explanatory Variable,SS,F statistic (df),p-value
+CEWL,Month,163,"7.67 (2,79)",< 0.001
+CEWL,Sex,55,"5.18 (1,73)",0.026
+CEWL,Month*Sex,47,"2.2 (2,85)",0.12
+Plasma Osmolality,Month,8287,"7.16 (2,88)",< 0.01
+Plasma Osmolality,Sex,5545,"9.59 (1,70)",< 0.01
+Plasma Osmolality,Month*Sex,770,"0.67 (2,92)",0.52
+Mass,Month,299,"9.05 (2,49)",< 0.001
+Mass,Sex,32,"1.91 (1,77)",0.17
+Mass,Month*Sex,83,"2.5 (2,50)",0.092
+Body Condition,Month,336,"15.61 (2,73)",< 0.0001
+Body Condition,Sex,9,"0.8 (1,75)",0.37
+Body Condition,Month*Sex,138,"6.42 (2,80)",< 0.01
+,,,,
+abbreviations,,,,
+Month = Measurement Period (April/May/July),,,,
+Sex = Lizard Sex (Male/Female),,,,
+Month*Sex = Measurement Period * Lizard Sex Interaction,,,,
+SS = sequential sum of squares,,,,

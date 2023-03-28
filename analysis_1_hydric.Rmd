@@ -62,7 +62,19 @@ savs_ggplot_theme <- theme_bw() +
   #theme_classic() + 
   #guides(shape = guide_legend(nrow = 2, byrow = TRUE))
   
-  
+savs_ggplot_theme_corrs <- theme_classic() +
+  theme(text = element_text(color = "black", 
+                            family = "sans", 
+                            size = 20),
+        axis.text = element_text(color = "black", 
+                                 family = "sans", 
+                                 size = 18),
+        legend.text = element_text(color = "black", 
+                                 family = "sans", 
+                                 size = 18),
+        legend.text.align = 0,
+        legend.position = "right"
+        )
   
 # custom colors
 Male <- brewer.pal(11, "RdYlBu")[c(11)]
@@ -70,9 +82,21 @@ Fem <- brewer.pal(11, "RdYlBu")[c(2)]
 my_colors <- c(Fem, Male)
 my_shapes <- c(19,15)
 my_shapes_open <- c(21,22)
+
+# corr colors
+n3 <- brewer.pal(9, "YlGnBu")[c(4, 6, 8)]
+n2 <- brewer.pal(9, "YlGnBu")[c(6, 8)]
+n1 <- brewer.pal(9, "YlGnBu")[c(6)]
+
+
+# labels for plots for repeat measures lizards only
 my_labels <- c("April\nF\n(n=11)", "April\nM\n(n=22)",
                "May\nF\n(n=10)", "May\nM\n(n=17)",
                "July\nF\n(n=2)", "July\nM\n(n=12)")
+# labels for plots for full dataset of all lizards
+my_labels_full <- c("April\nF\n(n=26)", "April\nM\n(n=41)",
+                     "May\nF\n(n=15)", "May\nM\n(n=22)",
+                     "July\nF\n(n=3)", "July\nM\n(n=12)")
 ```
 
 
@@ -102,9 +126,20 @@ dat <- read_rds("./data/G_sila_clean_full_dat.RDS") %>%
          date_chunk_pretty = factor(case_when(month == "April" ~ "Apr 23-25",
                                               month == "May" ~ "May 7-9",
                                               month == "July" ~ "Jul 14"),
-                                    levels = c("Apr 23-25", "May 7-9", "Jul 14")))
+                                    levels = c("Apr 23-25", "May 7-9", "Jul 14")),
+         gravid_Y_N = factor(gravid_Y_N, levels = c("Not Gravid", "Gravid")))
 summary(dat)
 unique(dat$radio_collar_serial)
+
+# summary statistics
+dat %>%
+  summarise(mean(CEWL_g_m2h, na.rm = T), sd(CEWL_g_m2h, na.rm = T),
+            mean(osmolality_mmol_kg_mean, na.rm = T), 
+            sd(osmolality_mmol_kg_mean, na.rm = T),
+            mean(hematocrit_percent, na.rm = T), sd(hematocrit_percent, na.rm = T),
+            mean(mass_g), sd(mass_g),
+            mean(SVL_mm), sd(SVL_mm),
+            mean(SMI), sd(SMI))
 ```
 
 
@@ -157,6 +192,7 @@ To look at reproductive effort ~ water balance, I will make another subset for o
 
 ```{r}
 dat_repro_females <- dat %>%
+  dplyr::filter(sex_M_F == "Female") %>%
   dplyr::filter(complete.cases(gravid_Y_N)) %>%
   group_by(individual_ID) %>%
   mutate(n = n(),
@@ -171,6 +207,14 @@ Check whether the single-measurement females are all from the first weekend or n
 
 ```{r}
 table(dat_repro_females$week, dat_repro_females$n)
+dat_repro_females %>%
+  dplyr::filter(n == 1) %>%
+  summary() # 4 g, 6 ng
+dat_repro_females %>%
+  dplyr::filter(n == 2) %>%
+  dplyr::filter(week == 3) %>%
+  summary() # 8 g, 1 ng
+table(dat_repro_females$gravid_Y_N, dat_repro_females$n)
 ```
 
 
@@ -193,7 +237,7 @@ I want to know whether SVL changed over time for the individuals who had more th
 
 ```{r}
 # model
-summary(lme4::lmer(data = dat_repeats, 
+summary(lmerTest::lmer(data = dat_repeats, 
                    SVL_mm ~ week_num + (1|individual_ID)))
 ```
 
@@ -293,25 +337,52 @@ Check a simple linear model between each set of paired measurements:
 
 ```{r}
 # CEWL ~
+anova(lm(data = dat,
+           CEWL_g_m2h ~ osmolality_mmol_kg_mean*month))
 summary(lm(data = dat,
            CEWL_g_m2h ~ osmolality_mmol_kg_mean*month*sex_M_F))
-summary(lm(data = dat,
+anova(lm(data = dat,
            CEWL_g_m2h ~ hematocrit_percent))
-summary(lm(data = dat,
+anova(lm(data = dat,
            CEWL_g_m2h ~ mass_g))
-summary(lm(data = dat,
+anova(lm(data = dat,
            CEWL_g_m2h ~ SMI))
 
 # osmolality ~
-summary(lm(data = dat,
-           osmolality_mmol_kg_mean ~ hematocrit_percent*month*sex_M_F))
-summary(lm(data = dat,
+anova(lm(data = dat,
+           osmolality_mmol_kg_mean ~ hematocrit_percent))
+anova(lm(data = dat,
            osmolality_mmol_kg_mean ~ mass_g))
-summary(lm(data = dat,
+anova(lm(data = dat,
            osmolality_mmol_kg_mean ~ SMI))
+
+# hct
+anova(lm(data = dat,
+           hematocrit_percent ~ SMI*sex_M_F))
 ```
 
-There is a small negative correlation between CEWL and osmolality. Neither CEWL or osmolality have a relationship with body mass, but they do with SMI. Both CEWL and osmolality correlate with hematocrit.
+Notes on these relationships:
+
+- CEWL ~ osml had significant interaction of osml* month (osml* mo* sex was not sig)
+- CEWL ~ hct was sig but had no extra interactions (plot direct relationship only)
+- CEWL ~ SMI was sig (mass was not; & SMI did not interact with mo or sex)
+- osml & hct corr, but with no interactions of mo or sex
+- osml also corr with SMI but not mass (& no interactions with mo or sex)
+**^all of the above based on anova SS, so assessing whether these things explain variation in response (CEWL/osml)**
+
+For MS:
+Plasma osmolality explained a significant amount of the variation in CEWL (SLR: F(1,110) = 5.07, p = 0.03), with a marginally nonsignificant interaction with measurement time period (SLR: F(2,110) = 2.77, p = 0.07). CEWL could also be explained by hematocrit (SLR: F(1,114) = 9.86, p = 0.002), or body condition (SLR: F(1,116) = 3.89, p = 0.05), but not lizard mass (SLR: F(1,116) = 1.44, p = 0.2). In turn, variation in plasma osmolality could be explained by hematocrit (SLR: F(1,114) = 15.07, p < 0.001) or body condition (SLR: F(1,114) = 5.30, p = 0.02), but not lizard mass (SLR: F(1,114) < 0.001, p = 1). Hematocrit and body condition were also significantly related (SLR: F(1,112) = 9.03, p = 0.003), with an interaction of lizard sex (SLR: F(1,112) = 7.97, p = 0.005). 
+
+Plots to make *nicely*:
+
+- CEWL ~ osml*mo
+  - Fig caption stats: adj-R-sq = 0.16
+- CEWL ~ hct g
+- CEWL ~ SMI (& note about mass) g
+- osml ~ hct g
+- osml ~ SMI g
+- hct ~ SMI*sex
+
 
 
 ## Plot CEWL ~ Osmolality
@@ -321,7 +392,7 @@ There is a small negative correlation between CEWL and osmolality. Neither CEWL 
 ggplot(dat) + 
   aes(x = osmolality_mmol_kg_mean,
       y = CEWL_g_m2h,
-      #color = tmt
+      color = date_chunk_pretty
       #color = sex_M_F
       ) +
   geom_point(size = 1, 
@@ -331,7 +402,7 @@ ggplot(dat) +
               se = F, 
               size = 1.6, 
               alpha = 1) + 
-  theme_classic() + 
+  scale_color_manual(values = n3, name = "Measurement\nPeriod") + 
   xlab("Plasma Osmolality (mmol/kg)") + 
   ylab(bquote('CEWL (g/'*m^2*'h)')) + 
   #ylab("") +
@@ -339,18 +410,7 @@ ggplot(dat) +
   #annotate(geom = "text", x = 430, y = 24, label = bquote(''*R^2*'=0.033'), 
    #        size = 7) +
   #ylim(0, 25) +
-  theme(text = element_text(color = "black", 
-                            family = "sans", 
-                            size = 20),
-        axis.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 18),
-        legend.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 18),
-        legend.text.align = 0,
-        legend.position = "right"
-        ) -> CEWL_osml_fig
+  savs_ggplot_theme_corrs -> CEWL_osml_fig
 CEWL_osml_fig
 
 # export figure
@@ -363,6 +423,37 @@ CEWL_osml_fig
 ```
 
 
+## Plot CEWL ~ SMI
+
+
+```{r CEWL SMI fig}
+ggplot(dat) + 
+  aes(x = SMI,
+      y = CEWL_g_m2h,
+      #color = tmt
+      #color = month_sex
+      ) +
+  geom_point(size = 1, 
+             alpha = 0.4) + 
+  stat_smooth(formula = y ~ x, 
+              method = "lm", 
+              se = F, 
+              size = 1.6, 
+              alpha = 1,
+              color = n1) + 
+  xlab("Body Condition (g')") + 
+  ylab(bquote('CEWL (g/'*m^2*'h)')) + 
+  #ylab("") +
+  #xlim(300, 450) +
+  #annotate(geom = "text", x = 430, y = 24, label = bquote(''*R^2*'=0.033'), 
+   #        size = 7) +
+  #ylim(0, 25) +
+  savs_ggplot_theme_corrs -> CEWL_SMI_fig
+CEWL_SMI_fig
+```
+
+
+
 ## Plot CEWL ~ Hematocrit
 
 
@@ -371,7 +462,7 @@ ggplot(dat) +
   aes(x = hematocrit_percent,
       y = CEWL_g_m2h,
       #color = tmt
-      color = month_sex
+      #color = month_sex
       ) +
   geom_point(size = 1, 
              alpha = 0.4) + 
@@ -379,8 +470,8 @@ ggplot(dat) +
               method = "lm", 
               se = F, 
               size = 1.6, 
-              alpha = 1) + 
-  theme_classic() + 
+              alpha = 1,
+              color = n1) + 
   xlab("Hematocrit (%)") + 
   ylab(bquote('CEWL (g/'*m^2*'h)')) + 
   #ylab("") +
@@ -388,31 +479,96 @@ ggplot(dat) +
   #annotate(geom = "text", x = 430, y = 24, label = bquote(''*R^2*'=0.033'), 
    #        size = 7) +
   #ylim(0, 25) +
-  theme(text = element_text(color = "black", 
-                            family = "sans", 
-                            size = 20),
-        axis.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 18),
-        legend.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 18),
-        legend.text.align = 0,
-        legend.position = "right"
-        ) -> CEWL_hct_fig
+  savs_ggplot_theme_corrs -> CEWL_hct_fig
 CEWL_hct_fig
 ```
+
+
+
+
+
+
+
+
+## Plot Osmol ~ SMI
+
+
+```{r osml SMI fig}
+ggplot(dat) + 
+  aes(x = SMI,
+      y = osmolality_mmol_kg_mean,
+      #color = tmt
+      #color = month_sex
+      ) +
+  geom_point(size = 1, 
+             alpha = 0.4) + 
+  stat_smooth(formula = y ~ x, 
+              method = "lm", 
+              se = F, 
+              size = 1.6, 
+              alpha = 1,
+              color = n1) + 
+  xlab("Body Condition (g')") + 
+  ylab("Osmolality (mmol/kg)") + 
+  #ylab("") +
+  #xlim(300, 450) +
+  #annotate(geom = "text", x = 430, y = 24, label = bquote(''*R^2*'=0.033'), 
+   #        size = 7) +
+  #ylim(0, 25) +
+  savs_ggplot_theme_corrs -> osml_SMI_fig
+osml_SMI_fig
+```
+
+
+
+
 
 
 ## Plot Osmol ~ Hematocrit
 
 
-```{r CEWL hct fig}
+```{r osml hct fig}
 ggplot(dat) + 
   aes(x = hematocrit_percent,
       y = osmolality_mmol_kg_mean,
       #color = tmt
-      color = month_sex
+      #color = month_sex
+      ) +
+  geom_point(size = 1, 
+             alpha = 0.4) + 
+  stat_smooth(formula = y ~ x, 
+              method = "lm", 
+              se = F, 
+              size = 1.6, 
+              alpha = 1,
+              color = n1) + 
+  xlab("Hematocrit (%)") + 
+  ylab("Osmolality (mmol/kg)") + 
+  #ylab("") +
+  #xlim(300, 450) +
+  #annotate(geom = "text", x = 430, y = 24, label = bquote(''*R^2*'=0.033'), 
+   #        size = 7) +
+  #ylim(0, 25) +
+  scale_color_manual(values = n1) + 
+  savs_ggplot_theme_corrs -> osml_hct_fig
+osml_hct_fig
+```
+
+
+
+
+
+
+
+## Plot Hct ~ SMI
+
+
+```{r hct SMI fig}
+ggplot(dat) + 
+  aes(x = SMI,
+      y = hematocrit_percent,
+      color = sex_M_F,
+      #color = month_sex
       ) +
   geom_point(size = 1, 
              alpha = 0.4) + 
@@ -421,28 +577,55 @@ ggplot(dat) +
               se = F, 
               size = 1.6, 
               alpha = 1) + 
-  theme_classic() + 
-  xlab("Hematocrit (%)") + 
-  ylab("Plasma Osmolality") + 
+  xlab("Body Condition (g')") + 
+  ylab("Hematocrit (%)") + 
   #ylab("") +
   #xlim(300, 450) +
   #annotate(geom = "text", x = 430, y = 24, label = bquote(''*R^2*'=0.033'), 
    #        size = 7) +
   #ylim(0, 25) +
-  theme(text = element_text(color = "black", 
-                            family = "sans", 
-                            size = 20),
-        axis.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 18),
-        legend.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 18),
-        legend.text.align = 0,
-        legend.position = "right"
-        ) -> osml_hct_fig
-osml_hct_fig
+  scale_color_manual(values = n2) +
+  savs_ggplot_theme_corrs -> hct_SMI_fig
+hct_SMI_fig
 ```
+
+
+
+
+
+## Export Multi-Plot
+
+
+```{r}
+ggarrange(CEWL_SMI_fig, CEWL_hct_fig,
+          osml_SMI_fig, osml_hct_fig,
+          ncol = 2, nrow = 2,
+          #labels = c("A", "B", "C"),
+          common.legend = TRUE,
+          legend = "bottom"
+          ) -> water_balance_interrelation
+#water_balance_interrelation
+
+ggsave(filename = "water_balance_interrelation.pdf",
+       plot = water_balance_interrelation,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 200, height = 150
+       )
+```
+
+
+
+
+
+
+
+
+
+
+
 
 
 ## Week Interaction
@@ -634,12 +817,30 @@ ggsave(filename = "tmt_delta_multi_fig.pdf",
 
 ## Stat Tests of Change
 
+
+What about mass change *during* treatment, when we either gave lizards water to drink or a sham treatment. 
+
+```{r tmt mass change stats}
+summary(lm(data = dat_tmt_change, tmt_mass_change_g ~ tmt))
+emmeans(lm(data = dat_tmt_change, tmt_mass_change_g ~ tmt), "tmt")
+```
+
+So, it did result in a significant change in mass within the same-day water supplementation tmt (vs sham), but only ~1.4g difference, on average.
+
+
+
+
+
 These lm's are doing the same thing as a two-sample t-test, checking whether the means are statistically different. 
 
 ```{r}
 summary(lm(data = dat_tmt_change_May_only, mass_change_from_April ~ tmt))
 summary(lm(data = dat_tmt_change_May_only, CEWL_change_from_April ~ tmt))
 summary(lm(data = dat_tmt_change_May_only, osml_change_from_April ~ tmt))
+# stats in paper are from these 3 models
+summary(lm(data = dat_tmt_change, mass_change_from_April ~ tmt))
+summary(lm(data = dat_tmt_change, CEWL_change_from_April ~ tmt))
+summary(lm(data = dat_tmt_change, osml_change_from_April ~ tmt))
 ```
 
 Change was not significantly different between treatments for any of the variables. 
@@ -655,13 +856,6 @@ t.test(dat_tmt_change_May_only$osml_change_from_April)
 
 On average, lizards who were measured in both April and May increased mass, but did not experience a change in osmolality or CEWL. 
 
-What about mass change *during* treatment, when we either gave lizards water to drink or a sham treatment. 
-
-```{r tmt mass change stats}
-summary(lm(data = dat, tmt_mass_change_g ~ tmt))
-```
-
-So, it did result in a significant change in mass within the same-day water supplementation tmt (vs sham), but only ~1.4g difference, on average.
 
 
 
@@ -769,7 +963,7 @@ ggsave(filename = "delta_multi_fig_sex.pdf",
 
 I want to know whether the average values for all the lizards we measured changes over time. To test this, I can run a linear model, then use emmeans to get the marginal means and confidence intervals for each time point. 
 
-Do this only for lizards with repeat measurements.
+**Do this only for lizards with repeat measurements.**
 
 info for using emmeans with interactions:
 https://cran.r-project.org/web/packages/emmeans/vignettes/interactions.html
@@ -789,7 +983,9 @@ dat_repeats %>%
 ### Mass
 
 ```{r}
-time_sex_diffs_mass <- lm(data = dat_repeats, mass_g ~ month*sex_M_F)
+time_sex_diffs_mass <- lmerTest::lmer(data = dat_repeats, mass_g ~ month*sex_M_F +
+                                        (1|individual_ID))
+anova(time_sex_diffs_mass, type = "1", ddf = "Kenward-Roger")
 
 # mean values
 emmeans_mass <- data.frame(emmeans(time_sex_diffs_mass, 
@@ -808,12 +1004,41 @@ sex_emmeans_mass <- data.frame(emmeans(time_sex_diffs_mass,
 ```
 
 
+### Body Condition
+
+```{r}
+time_sex_diffs_SMI <- lmerTest::lmer(data = dat_repeats, SMI ~ month*sex_M_F +
+                                        (1|individual_ID))
+anova(time_sex_diffs_SMI, type = "1", ddf = "Kenward-Roger")
+
+# mean values
+emmeans_SMI <- data.frame(emmeans(time_sex_diffs_SMI, 
+                                   pairwise ~ month | sex_M_F)$emmean) %>%
+  mutate(measurement = "SMI")
+
+# stat diffs by month
+time_emmeans_SMI <- data.frame(emmeans(time_sex_diffs_SMI, 
+                                   pairwise ~ month | sex_M_F)$contrasts) %>%
+  mutate(measurement = "SMI")
+
+# stat diffs by sex
+sex_emmeans_SMI <- data.frame(emmeans(time_sex_diffs_SMI, 
+                                   pairwise ~ sex_M_F | month)$contrasts) %>%
+  mutate(measurement = "SMI")
+```
+
+
 
 
 ### Osmolality
 
+*Remember, for some reason VPD was very significant when added to the osmolality lm...*
+
 ```{r}
-time_sex_diffs_osml <- lm(data = dat_repeats, osmolality_mmol_kg_mean ~ month*sex_M_F)
+time_sex_diffs_osml <- lmerTest::lmer(data = dat_repeats, 
+                                      osmolality_mmol_kg_mean ~ month*sex_M_F +
+                                        (1|individual_ID))
+anova(time_sex_diffs_osml, type = "1", ddf = "Kenward-Roger")
 
 # mean values
 emmeans_osml <- data.frame(emmeans(time_sex_diffs_osml, 
@@ -837,7 +1062,19 @@ sex_emmeans_osml <- data.frame(emmeans(time_sex_diffs_osml,
 ### CEWL
 
 ```{r}
-time_sex_diffs_CEWL <- lm(data = dat_repeats, CEWL_g_m2h ~ month*sex_M_F)
+time_sex_diffs_CEWL <- lmerTest::lmer(data = dat_repeats, 
+                                      CEWL_g_m2h ~ month*sex_M_F +
+                                        (1|individual_ID))
+anova(time_sex_diffs_CEWL, type = "1", ddf = "Kenward-Roger")
+
+# check covariates
+time_sex_diffs_CEWL_check_covaries <- lmerTest::lmer(data = dat_repeats, 
+                                                     CEWL_g_m2h ~ month*sex_M_F
+                                         + msmt_temp_C + msmt_VPD_kPa +
+                                        (1|individual_ID))
+anova(time_sex_diffs_CEWL_check_covaries, type = "1", ddf = "Kenward-Roger") # not important at all
+59/0.09 # 655.5
+54/0.14 # 385.7
 
 # mean values
 emmeans_CEWL <- data.frame(emmeans(time_sex_diffs_CEWL, 
@@ -857,12 +1094,23 @@ sex_emmeans_CEWL <- data.frame(emmeans(time_sex_diffs_CEWL,
 
 
 
+### Check Assumptions
+
+```{r}
+plot(time_sex_diffs_CEWL)
+plot(time_sex_diffs_osml)
+plot(time_sex_diffs_mass)
+```
+
+
+
 ### Merge dfs
 
 ```{r}
 emmeans_all <- emmeans_CEWL %>%
   rbind(emmeans_osml) %>%
   rbind(emmeans_mass) %>%
+  rbind(emmeans_SMI) %>%
   mutate(month_sex = factor(paste(month, sex_M_F),
                             levels = c("April Female", "April Male",
                                        "May Female", "May Male",
@@ -871,21 +1119,13 @@ emmeans_all <- emmeans_CEWL %>%
 # all pairwise stats together
 emmean_time_stats <- time_emmeans_CEWL %>%
   rbind(time_emmeans_osml) %>%
-  rbind(time_emmeans_mass)
+  rbind(time_emmeans_mass) %>%
+  rbind(time_emmeans_SMI)
 emmean_sex_stats <- sex_emmeans_CEWL %>%
   rbind(sex_emmeans_osml) %>%
-  rbind(sex_emmeans_mass)
+  rbind(sex_emmeans_mass) %>%
+  rbind(sex_emmeans_SMI)
 ```
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -899,7 +1139,7 @@ emmean_sex_stats <- sex_emmeans_CEWL %>%
 
 ```{r}
 ggplot() +
-  geom_jitter(data = dat_repeats,
+  geom_jitter(data = dat_repeats, # dat or dat_repeats ?
              aes(x = month_sex,
                  y = mass_g,
                  shape = sex_M_F,
@@ -932,8 +1172,8 @@ ggplot() +
   annotate(geom = "text", x = 6, y = 61, label = "A", size = 3) +
   # time differences for FEMALES
   annotate(geom = "text", x = 1, y = 61, label = "a", size = 3) +
-  annotate(geom = "text", x = 3, y = 61, label = "a", size = 3) +
-  annotate(geom = "text", x = 5, y = 61, label = "a", size = 3) +
+  annotate(geom = "text", x = 3, y = 61, label = "b", size = 3) +
+  annotate(geom = "text", x = 5, y = 61, label = "c", size = 3) +
   scale_color_manual(values = my_colors, name = "Sex") +
   scale_fill_manual(values = my_colors, name = "Sex") +
   scale_shape_manual(values = my_shapes_open, name = "Sex") +
@@ -945,11 +1185,64 @@ mass_emmean_plot
 
 
 
+### Body Condition
+
+```{r}
+ggplot() +
+  geom_jitter(data = dat_repeats, # dat or dat_repeats ?
+             aes(x = month_sex,
+                 y = SMI,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 0.3,
+             size = 0.9,
+              position = position_jitter(height = 0, width = 0.2)) +
+  geom_point(data = emmeans_all[emmeans_all$measurement == "SMI",],
+             aes(x = month_sex,
+                 y = emmean,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 1,
+             size = 2) +
+  geom_errorbar(data = emmeans_all[emmeans_all$measurement == "SMI",],
+                aes(x = month_sex,
+                    y = emmean, 
+                    ymin = lower.CL,
+                    ymax = upper.CL,
+                 color = sex_M_F),
+                width = .4) +
+  xlab("") + 
+  ylab("Body Condition (g')") +
+  # sex differences
+  annotate(geom = "text", x = 3.5, y = 45, label = "*", size = 6) +
+  # time differences for MALES
+  annotate(geom = "text", x = 2, y = 54, label = "AB", size = 3) +
+  annotate(geom = "text", x = 4, y = 54, label = "A", size = 3) +
+  annotate(geom = "text", x = 6, y = 54, label = "B", size = 3) +
+  # time differences for FEMALES
+  annotate(geom = "text", x = 1, y = 54, label = "a", size = 3) +
+  annotate(geom = "text", x = 3, y = 54, label = "b", size = 3) +
+  annotate(geom = "text", x = 5, y = 54, label = "a", size = 3) +
+  scale_color_manual(values = my_colors, name = "Sex") +
+  scale_fill_manual(values = my_colors, name = "Sex") +
+  scale_shape_manual(values = my_shapes_open, name = "Sex") +
+  scale_x_discrete(labels = my_labels) +
+  ylim(20, 55) +
+  savs_ggplot_theme -> SMI_emmean_plot
+SMI_emmean_plot
+```
+
+
+
+
+
 ### Osmolality
 
 ```{r}
 ggplot() +
-  geom_jitter(data = dat_repeats,
+  geom_jitter(data = dat_repeats,  # dat or dat_repeats ?
              aes(x = month_sex,
                  y = osmolality_mmol_kg_mean,
                  shape = sex_M_F,
@@ -1002,7 +1295,7 @@ osml_emmean_plot
 
 ```{r}
 ggplot() +
-  geom_jitter(data = dat_repeats,
+  geom_jitter(data = dat_repeats, # dat or dat_repeats ?
              aes(x = month_sex,
                  y = CEWL_g_m2h,
                  shape = sex_M_F,
@@ -1029,9 +1322,9 @@ ggplot() +
   # sex differences
   annotate(geom = "text", x = 3.5, y = 16, label = "*", size = 6) +
   # time differences for MALES
-  annotate(geom = "text", x = 2, y = 19, label = "AB", size = 3) +
-  annotate(geom = "text", x = 4, y = 19, label = "A", size = 3) +
-  annotate(geom = "text", x = 6, y = 19, label = "B", size = 3) +
+  annotate(geom = "text", x = 2, y = 19, label = "A", size = 3) +
+  annotate(geom = "text", x = 4, y = 19, label = "B", size = 3) +
+  annotate(geom = "text", x = 6, y = 19, label = "A", size = 3) +
   # time differences for FEMALES
   annotate(geom = "text", x = 1, y = 19, label = "a", size = 3) +
   annotate(geom = "text", x = 3, y = 19, label = "a", size = 3) +
@@ -1047,8 +1340,6 @@ CEWL_emmean_plot
 ```
 
 
---Then, I should work on the written methods again.
-
 
 This is **only** for lizards that were recaptured and measured more than once, so I think these changes may reflect true seasonality in their water balance.
 
@@ -1062,9 +1353,10 @@ Put in one plot together:
 ggarrange(CEWL_emmean_plot, 
           osml_emmean_plot, 
           mass_emmean_plot,
-          ncol = 3, nrow = 1,
+          SMI_emmean_plot,
+          ncol = 4, nrow = 1,
 #          ncol = 1, nrow = 3,
-          labels = c("A", "B", "C"),
+          labels = c("A", "B", "C", "D"),
           common.legend = TRUE,
           legend = "bottom"
           ) -> szn_change_multi_fig
@@ -1084,7 +1376,6 @@ ggsave(filename = "szn_change_multi_fig.pdf",
 
 
 
-## SS Time vs Covariates
 
 
 
@@ -1094,306 +1385,203 @@ ggsave(filename = "szn_change_multi_fig.pdf",
 
 
 
+## FULL Time*Sex Marginal Means
 
+I'm going to do literally the same exact thing, but now for **all of my data**, not just for the data on lizards with repeat measurements.
 
+Check n's:
 
-# LMER Time + Sex Stats
-
-```{r diffs by sex + time}
-# osmolality
-osml_sex_mod <- (lmerTest::lmer(data = lizards_over_time, 
-                       osmolality_mmol_kg_mean ~ time_pt + sex_M_F + (1|individual_ID)))
-summary(osml_sex_mod)
-
-# hematocrit
-hct_sex_mod <- (lmerTest::lmer(data = lizards_over_time, 
-                       hematocrit_percent ~ time_pt + sex_M_F + (1|individual_ID)))
-summary(hct_sex_mod)
-
-# mass
-mass_sex_mod <- (lmerTest::lmer(data = lizards_over_time, 
-                       mass_g ~ time_pt + sex_M_F + (1|individual_ID)))
-summary(mass_sex_mod)
-
-#SMI
-SMI_sex_mod <- (lmerTest::lmer(data = lizards_over_time, 
-                       SMI ~ time_pt + sex_M_F + (1|individual_ID)))
-summary(SMI_sex_mod)
-
-# CEWL
-CEWL_sex_mod <- (lmerTest::lmer(data = lizards_over_time, 
-                       CEWL_g_m2h ~ time_pt + sex_M_F + (1|individual_ID)))
-summary(CEWL_sex_mod)
-```
-On average, with individual variation accounted for, osmolality and hematocrit both increased from April to May (but not for July). CEWL decreased from April to May, with no change for July. Mass increased from April to May, then decreased in July. 
-...... AND, there are differences between the sexes! :O
-
-Export those stats:
-
-```{r export time stats}
-osml_stats <- broom.mixed::tidy(osml_time_mod) %>%
-  mutate(response = "Plasma Osmolality (mmol/kg)")
-hct_stats <- broom.mixed::tidy(hct_time_mod) %>%
-  mutate(response = "Hematocrit (%)")
-SMI_stats <- broom.mixed::tidy(SMI_time_mod) %>%
-  mutate(response = "Body Condition (g)")
-CEWL_stats <- broom.mixed::tidy(CEWL_time_mod) %>%
-  mutate(response = "CEWL (g/m2h)")
-
-# aggregate and export
-time_mod_stats <- osml_stats %>%
-  rbind(hct_stats) %>%
-  rbind(SMI_stats) %>%
-  rbind(CEWL_stats)
-write.csv(time_mod_stats, "./results_statistics/phys_change_over_time.csv")
-```
-
-```{r export time*sex stats}
-osml_stats_ts <- broom.mixed::tidy(osml_sex_mod) %>%
-  mutate(response = "Plasma Osmolality (mmol/kg)")
-hct_stats_ts <- broom.mixed::tidy(hct_sex_mod) %>%
-  mutate(response = "Hematocrit (%)")
-SMI_stats_ts <- broom.mixed::tidy(SMI_sex_mod) %>%
-  mutate(response = "Body Condition (g)")
-CEWL_stats_ts <- broom.mixed::tidy(CEWL_sex_mod) %>%
-  mutate(response = "CEWL (g/m2h)")
-
-# aggregate and export
-time_sex_mod_stats <- osml_stats_ts %>%
-  rbind(hct_stats_ts) %>%
-  rbind(SMI_stats_ts) %>%
-  rbind(CEWL_stats_ts)
-write.csv(time_sex_mod_stats,
-          "./results_statistics/phys_change_over_time_by_sex.csv")
+```{r}
+dat %>%
+  group_by(month, sex_M_F) %>%
+  summarise(n = n())
 ```
 
 
 
 
-# Other Figures
+### Mass
 
-Make a figure and model for each of the following relationships-
+```{r}
+full_time_sex_diffs_mass <- lmerTest::lmer(data = dat, mass_g ~ month*sex_M_F +
+                                        (1|individual_ID))
+full_time_sex_diffs_mass_aov <- data.frame(anova(full_time_sex_diffs_mass, 
+                                                 type = "1", ddf = "Kenward-Roger")) %>%
+  mutate(explanatory = factor(row.names(.)))
 
-## CEWL ~ Body Temp (no relationship?!)
+# mean values
+full_emmeans_mass <- data.frame(emmeans(full_time_sex_diffs_mass, 
+                                   pairwise ~ month | sex_M_F)$emmean) %>%
+  mutate(measurement = "Mass")
 
-```{r CEWL ~ body temp fig}
-ggplot(data = lizards_all_SMI) + 
-  geom_point(aes(x = cloacal_temp_C, 
-                   y = CEWL_g_m2h, 
-                group = individual_ID,
-                color = individual_ID), 
-               size = 2,
-               alpha = 1) +
-  stat_smooth(aes(x = cloacal_temp_C, 
-                   y = CEWL_g_m2h), 
-              formula = y ~ x, 
-              method = "lm", 
-              se = F, 
-              #color = temp_color,
-              size = 1.6, 
-              alpha = 1) + 
-  theme_classic() + 
-  #xlim(27,37) +
-  xlab("Body Temperature (°C)") + 
-  ylab(bquote('CEWL (g/'*m^2*'h)')) + 
-  #annotate("text", x = 1, y = 64, label = "a", size = 6) +
-  #scale_color_brewer(palette = "Set2") +
-  theme(text = element_text(color = "black", 
-                            family = "sans", 
-                            size = 18),
-        axis.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 14),
-        legend.text.align = 0,
-        legend.position = "none"
-) -> CEWL_body_temp
-CEWL_body_temp
+# stat diffs by month
+full_time_emmeans_mass <- data.frame(emmeans(full_time_sex_diffs_mass, 
+                                   pairwise ~ month | sex_M_F)$contrasts) %>%
+  mutate(measurement = "Mass")
 
-# export figure
-#ggsave(filename = "SMI_over_time.jpeg",
- #      plot = SMI_over_time,
-  #     path = "./results_figures",
-   #    device = "jpeg",
-    #   dpi = 1200,
-     #  width = 6, height = 4)
-```
-
-
-model:
-
-```{r CEWL ~ body temp model}
-CEWL_temp_mod <- lmerTest::lmer(data = lizards_all_SMI, 
-                                CEWL_g_m2h ~ cloacal_temp_C + (1|individual_ID))
-summary(CEWL_temp_mod)
+# stat diffs by sex
+full_sex_emmeans_mass <- data.frame(emmeans(full_time_sex_diffs_mass, 
+                                   pairwise ~ sex_M_F | month)$contrasts) %>%
+  mutate(measurement = "Mass")
 ```
 
 
 
 
-## CEWL ~ Body Condition (nonsig)
+### Body Condition
 
+```{r}
+full_time_sex_diffs_SMI <- lmerTest::lmer(data = dat, SMI ~ month*sex_M_F +
+                                        (1|individual_ID))
+full_time_sex_diffs_SMI_aov <- data.frame(anova(full_time_sex_diffs_SMI, 
+                                          type = "1", ddf = "Kenward-Roger")) %>%
+  mutate(explanatory = factor(row.names(.)))
 
-```{r CEWL ~ SMI fig}
-ggplot(data = lizards_all_SMI) + 
-  geom_point(aes(x = SMI, 
-                   y = CEWL_g_m2h, 
-                group = individual_ID,
-                color = individual_ID), 
-               size = 2,
-               alpha = 1) +
-  stat_smooth(aes(x = SMI, 
-                   y = CEWL_g_m2h), 
-              formula = y ~ x, 
-              method = "lm", 
-              se = F, 
-              #color = temp_color,
-              size = 1.6, 
-              alpha = 1) + 
-  theme_classic() + 
-  xlab("Body Condition (g)") + 
-  ylab(bquote('CEWL (g/'*m^2*'h)')) + 
-  #annotate("text", x = 1, y = 64, label = "a", size = 6) +
-  #scale_color_brewer(palette = "Set2") +
-  theme(text = element_text(color = "black", 
-                            family = "sans", 
-                            size = 18),
-        axis.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 14),
-        legend.text.align = 0,
-        legend.position = "none"
-) -> CEWL_SMI
-CEWL_SMI
+# mean values
+full_emmeans_SMI <- data.frame(emmeans(full_time_sex_diffs_SMI, 
+                                   pairwise ~ month | sex_M_F)$emmean) %>%
+  mutate(measurement = "SMI")
 
-# export figure
-#ggsave(filename = "SMI_over_time.jpeg",
- #      plot = SMI_over_time,
-  #     path = "./results_figures",
-   #    device = "jpeg",
-    #   dpi = 1200,
-     #  width = 6, height = 4)
+# stat diffs by month
+full_time_emmeans_SMI <- data.frame(emmeans(full_time_sex_diffs_SMI, 
+                                   pairwise ~ month | sex_M_F)$contrasts) %>%
+  mutate(measurement = "SMI")
+
+# stat diffs by sex
+full_sex_emmeans_SMI <- data.frame(emmeans(full_time_sex_diffs_SMI, 
+                                   pairwise ~ sex_M_F | month)$contrasts) %>%
+  mutate(measurement = "SMI")
 ```
 
 
 
-model:
-
-```{r CEWL ~ SMI model}
-CEWL_SMI_mod <- lmerTest::lmer(data = lizards_all_SMI, 
-                                CEWL_g_m2h ~ SMI + (1|individual_ID))
-summary(CEWL_SMI_mod)
-```
+### Osmolality
 
 
+```{r}
+full_time_sex_diffs_osml <- lmerTest::lmer(data = dat, 
+                                      osmolality_mmol_kg_mean ~ month*sex_M_F +
+                                        (1|individual_ID))
+full_time_sex_diffs_osml_aov <- data.frame(anova(full_time_sex_diffs_osml, 
+                                           type = "1", ddf = "Kenward-Roger")) %>%
+  mutate(explanatory = factor(row.names(.)))
 
+# mean values
+full_emmeans_osml <- data.frame(emmeans(full_time_sex_diffs_osml, 
+                                   pairwise ~ month | sex_M_F)$emmean) %>%
+  mutate(measurement = "Osmolality")
 
+# stat diffs by month
+full_time_emmeans_osml <- data.frame(emmeans(full_time_sex_diffs_osml, 
+                                   pairwise ~ month | sex_M_F)$contrasts) %>%
+  mutate(measurement = "Osmolality")
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-model:
-
-```{r CEWL~osml model}
-CEWL_osml_mod1 <- lm(data = lizards_all,
-                                CEWL_g_m2h ~ osmolality_mmol_kg_mean:time_pt)
-CEWL_osml_mod2 <- lm(data = lizards_all,
-                                CEWL_g_m2h ~ osmolality_mmol_kg_mean)
-anova(CEWL_osml_mod1, CEWL_osml_mod2)
-
-CEWL_osml_mod3 <- lmerTest::lmer(data = lizards_all,
-                  CEWL_g_m2h ~ osmolality_mmol_kg_mean + (1|individual_ID))
-CEWL_osml_mod4 <- lmerTest::lmer(data = lizards_all,
-          CEWL_g_m2h ~ osmolality_mmol_kg_mean:time_pt + (1|individual_ID))
-
-summary(CEWL_osml_mod3)
-summary(CEWL_osml_mod4)
-
-
-# export
-#CEWL_osml_mod_stats <- broom.mixed::tidy(CEWL_osml_mod2) %>%
- # mutate(response = "CEWL (g/m2h)")
-#write.csv(CEWL_osml_mod_stats,
- #         "./results_statistics/CEWL_osml_mod_stats.csv")
+# stat diffs by sex
+full_sex_emmeans_osml <- data.frame(emmeans(full_time_sex_diffs_osml, 
+                                   pairwise ~ sex_M_F | month)$contrasts) %>%
+  mutate(measurement = "Osmolality")
 ```
 
 
 
 
+### CEWL
 
-## CEWL ~ Hematocrit
+```{r}
+full_time_sex_diffs_CEWL <- lmerTest::lmer(data = dat, 
+                                      CEWL_g_m2h ~ month*sex_M_F +
+                                        (1|individual_ID))
+full_time_sex_diffs_CEWL_aov <- data.frame(anova(full_time_sex_diffs_CEWL, 
+                                           type = "1", ddf = "Kenward-Roger")) %>%
+  mutate(explanatory = factor(row.names(.)))
 
-model:
+# check covariates
+full_time_sex_diffs_CEWL_check_covaries <- lmerTest::lmer(data = dat, 
+                                                     CEWL_g_m2h ~ month*sex_M_F
+                                         + msmt_temp_C + msmt_VPD_kPa +
+                                        (1|individual_ID))
+anova(full_time_sex_diffs_CEWL_check_covaries, 
+      type = "1", ddf = "Kenward-Roger") # not important at all
 
-```{r CEWL ~ hct model}
-CEWL_hct_mod <- lmerTest::lmer(data = lizards_all_SMI, 
-                                CEWL_g_m2h ~ hematocrit_percent + (1|individual_ID))
-summary(CEWL_hct_mod)
+# mean values
+full_emmeans_CEWL <- data.frame(emmeans(full_time_sex_diffs_CEWL, 
+                                   pairwise ~ month | sex_M_F)$emmean) %>%
+  mutate(measurement = "CEWL")
+
+# stat diffs by month
+full_time_emmeans_CEWL <- data.frame(emmeans(full_time_sex_diffs_CEWL, 
+                                   pairwise ~ month | sex_M_F)$contrasts) %>%
+  mutate(measurement = "CEWL")
+
+# stat diffs by sex
+full_sex_emmeans_CEWL <- data.frame(emmeans(full_time_sex_diffs_CEWL, 
+                                   pairwise ~ sex_M_F | month)$contrasts) %>%
+  mutate(measurement = "CEWL")
 ```
 
 
 
-## Osmolality ~ Hematocrit
+### Check Assumptions
 
-
-model:
-
-```{r osml ~ hct model}
-osml_hct_mod <- lmerTest::lmer(data = lizards_all_SMI, 
-                                osmolality_mmol_kg_mean ~ hematocrit_percent + (1|individual_ID))
-summary(osml_hct_mod)
+```{r}
+plot(full_time_sex_diffs_CEWL)
+plot(full_time_sex_diffs_osml)
+plot(full_time_sex_diffs_mass)
 ```
 
 
 
-## Osmolality ~ SMI
+### Merge dfs
 
+```{r}
+full_emmeans_all <- full_emmeans_CEWL %>%
+  rbind(full_emmeans_osml) %>%
+  rbind(full_emmeans_mass) %>%
+  rbind(full_emmeans_SMI) %>%
+  mutate(month_sex = factor(paste(month, sex_M_F),
+                            levels = c("April Female", "April Male",
+                                       "May Female", "May Male",
+                                       "July Female", "July Male")))
 
-model:
+# all pairwise stats together
+full_emmean_time_stats <- full_time_emmeans_CEWL %>%
+  rbind(full_time_emmeans_osml) %>%
+  rbind(full_time_emmeans_mass) %>%
+  rbind(full_time_emmeans_SMI)
+full_emmean_sex_stats <- full_sex_emmeans_CEWL %>%
+  rbind(full_sex_emmeans_osml) %>%
+  rbind(full_sex_emmeans_mass) %>%
+  rbind(full_sex_emmeans_SMI)
 
-```{r osml ~ SMI model}
-osml_SMI_mod <- lmerTest::lmer(data = lizards_all_SMI, 
-                                osmolality_mmol_kg_mean ~ SMI + (1|individual_ID))
-summary(osml_SMI_mod)
+# anova stats
+full_time_sex_diffs_all <- (full_time_sex_diffs_CEWL_aov) %>%
+  rbind((full_time_sex_diffs_osml_aov)) %>%
+  rbind((full_time_sex_diffs_mass_aov)) %>%
+  rbind((full_time_sex_diffs_SMI_aov)) %>%
+  mutate(response = factor(c(rep("CEWL", 3), rep("Plasma Osmolality", 3),
+                      rep("Mass", 3), rep("Body Condition", 3))))
+summary(full_time_sex_diffs_all)
 ```
 
 
 
-## Hematocrit ~ SMI
+### Export
 
-
-model:
-
-```{r osml ~ SMI model}
-hct_SMI_mod <- lmerTest::lmer(data = lizards_all_SMI, 
-                                hematocrit_percent ~ SMI + (1|individual_ID))
-summary(hct_SMI_mod)
+```{r}
+full_time_sex_diffs_4exp <- full_time_sex_diffs_all %>%
+  mutate(seq_sum_of_squares = round(Sum.Sq, 0), 
+         F_statistic = round(F.value, 2),
+         DenDF = round(DenDF, 0),
+         F_full = paste(F_statistic, " (", NumDF, ",", DenDF, ")", sep = ""),
+         p_value = round(Pr..F., 4)) %>%
+  dplyr::select(response, explanatory,
+                seq_sum_of_squares,
+                #NumDF, DenDF,
+                #F_statistic, 
+                F_full,
+                p_value)
+write.csv(full_time_sex_diffs_4exp, 
+          "./results_statistics/hydric_Fstats_by_monthsex.csv")
 ```
 
 
@@ -1405,6 +1593,292 @@ summary(hct_SMI_mod)
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## FULL Plot MMeans Time*Sex
+
+### Mass
+
+```{r}
+ggplot() +
+  geom_jitter(data = dat, # dat or dat_repeats ?
+             aes(x = month_sex,
+                 y = mass_g,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 0.3,
+             size = 0.9,
+              position = position_jitter(height = 0, width = 0.2)) +
+  geom_point(data = full_emmeans_all[full_emmeans_all$measurement == "Mass",],
+             aes(x = month_sex,
+                 y = emmean,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 1,
+             size = 2) +
+  geom_errorbar(data = full_emmeans_all[full_emmeans_all$measurement == "Mass",],
+                aes(x = month_sex,
+                    y = emmean, 
+                    ymin = lower.CL,
+                    ymax = upper.CL,
+                 color = sex_M_F),
+                width = .4) +
+  xlab("") + 
+  ylab("Lizard Mass (g)") +
+  # sex differences
+  annotate(geom = "text", x = 5.5, y = 54, label = "*", size = 6) +
+  # time differences for MALES
+  annotate(geom = "text", x = 2, y = 61, label = "AB", size = 3) +
+  annotate(geom = "text", x = 4, y = 61, label = "A", size = 3) +
+  annotate(geom = "text", x = 6, y = 61, label = "B", size = 3) +
+  # time differences for FEMALES
+  annotate(geom = "text", x = 1, y = 61, label = "a", size = 3) +
+  annotate(geom = "text", x = 3, y = 61, label = "b", size = 3) +
+  annotate(geom = "text", x = 5, y = 61, label = "a", size = 3) +
+  scale_color_manual(values = my_colors, name = "Sex") +
+  scale_fill_manual(values = my_colors, name = "Sex") +
+  scale_shape_manual(values = my_shapes_open, name = "Sex") +
+  scale_x_discrete(labels = my_labels_full) +
+  ylim(19, 61) +
+  savs_ggplot_theme -> full_mass_emmean_plot
+full_mass_emmean_plot
+```
+
+
+
+### Body Condition
+
+```{r}
+ggplot() +
+  geom_jitter(data = dat, # dat or dat_repeats ?
+             aes(x = month_sex,
+                 y = SMI,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 0.3,
+             size = 0.9,
+              position = position_jitter(height = 0, width = 0.2)) +
+  geom_point(data = full_emmeans_all[full_emmeans_all$measurement == "SMI",],
+             aes(x = month_sex,
+                 y = emmean,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 1,
+             size = 2) +
+  geom_errorbar(data = full_emmeans_all[full_emmeans_all$measurement == "SMI",],
+                aes(x = month_sex,
+                    y = emmean, 
+                    ymin = lower.CL,
+                    ymax = upper.CL,
+                 color = sex_M_F),
+                width = .4) +
+  xlab("") + 
+  ylab("Body Condition (g')") +
+  # sex differences
+  annotate(geom = "text", x = 1.5, y = 44, label = "*", size = 6) +
+  annotate(geom = "text", x = 3.5, y = 44, label = "*", size = 6) +
+  # time differences for MALES
+  annotate(geom = "text", x = 2, y = 49, label = "A", size = 3) +
+  annotate(geom = "text", x = 4, y = 49, label = "A", size = 3) +
+  annotate(geom = "text", x = 6, y = 49, label = "B", size = 3) +
+  # time differences for FEMALES
+  annotate(geom = "text", x = 1, y = 49, label = "a", size = 3) +
+  annotate(geom = "text", x = 3, y = 49, label = "b", size = 3) +
+  annotate(geom = "text", x = 5, y = 49, label = "a", size = 3) +
+  scale_color_manual(values = my_colors, name = "Sex") +
+  scale_fill_manual(values = my_colors, name = "Sex") +
+  scale_shape_manual(values = my_shapes_open, name = "Sex") +
+  scale_x_discrete(labels = my_labels_full) +
+  ylim(19, 50) +
+  savs_ggplot_theme -> full_SMI_emmean_plot
+full_SMI_emmean_plot
+```
+
+
+
+### Osmolality
+
+```{r}
+ggplot() +
+  geom_jitter(data = dat,  # dat or dat_repeats ?
+             aes(x = month_sex,
+                 y = osmolality_mmol_kg_mean,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 0.3,
+             size = 0.9,
+              position = position_jitter(height = 0, width = 0.2)) +
+  geom_point(data = full_emmeans_all[full_emmeans_all$measurement == "Osmolality",],
+             aes(x = month_sex,
+                 y = emmean,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 1,
+             size = 2) +
+  geom_errorbar(data = full_emmeans_all[full_emmeans_all$measurement == "Osmolality",],
+                aes(x = month_sex,
+                    y = emmean, 
+                    ymin = lower.CL,
+                    ymax = upper.CL,
+                 color = sex_M_F),
+                width = .4) +
+  xlab("") + 
+  ylab(bquote('Osmolality (mmol '*kg^-1*')')) +
+  # sex differences
+  annotate(geom = "text", x = 1.5, y = 422, label = "*", size = 6) +
+  # time differences for MALES
+  annotate(geom = "text", x = 2, y = 445, label = "AB", size = 3) +
+  annotate(geom = "text", x = 4, y = 445, label = "A", size = 3) +
+  annotate(geom = "text", x = 6, y = 445, label = "B", size = 3) +
+  # time differences for FEMALES
+  annotate(geom = "text", x = 1, y = 445, label = "a", size = 3) +
+  annotate(geom = "text", x = 3, y = 445, label = "a", size = 3) +
+  annotate(geom = "text", x = 5, y = 445, label = "a", size = 3) +
+  scale_color_manual(values = my_colors, name = "Sex") +
+  scale_fill_manual(values = my_colors, name = "Sex") +
+  scale_shape_manual(values = my_shapes_open, name = "Sex") +
+  scale_x_discrete(labels = my_labels_full) +
+  scale_y_continuous(limits = c(320, 450), breaks = c(320, 360, 400, 440)) +
+  savs_ggplot_theme -> full_osml_emmean_plot
+full_osml_emmean_plot
+```
+
+
+
+
+### CEWL
+
+```{r}
+ggplot() +
+  geom_jitter(data = dat, # dat or dat_repeats ?
+             aes(x = month_sex,
+                 y = CEWL_g_m2h,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 0.3,
+             size = 0.9,
+             position = position_jitter(height = 0, width = 0.2)) +
+  geom_point(data = full_emmeans_all[full_emmeans_all$measurement == "CEWL",],
+             aes(x = month_sex,
+                 y = emmean,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 1,
+             size = 2) +
+  geom_errorbar(data = full_emmeans_all[full_emmeans_all$measurement == "CEWL",],
+                aes(x = month_sex,
+                    y = emmean, 
+                    ymin = lower.CL,
+                    ymax = upper.CL,
+                    color = sex_M_F),
+                width = .4) +
+  # sex differences
+  annotate(geom = "text", x = 3.5, y = 20, label = "*", size = 6) +
+  # time differences for MALES
+  annotate(geom = "text", x = 2, y = 24, label = "A", size = 3) +
+  annotate(geom = "text", x = 4, y = 24, label = "B", size = 3) +
+  annotate(geom = "text", x = 6, y = 24, label = "A", size = 3) +
+  # time differences for FEMALES = none
+  annotate(geom = "text", x = 1, y = 24, label = "a", size = 3) +
+  annotate(geom = "text", x = 3, y = 24, label = "a", size = 3) +
+  annotate(geom = "text", x = 5, y = 24, label = "a", size = 3) +
+  xlab("") + 
+  ylab(bquote('CEWL (g '*m^-2*' '*h^-1*')')) +
+  ylim(0, 25) +
+  scale_color_manual(values = my_colors, name = "Sex") +
+  scale_fill_manual(values = my_colors, name = "Sex") +
+  scale_shape_manual(values = my_shapes_open, name = "Sex") +
+  scale_x_discrete(labels = my_labels_full) +
+  savs_ggplot_theme -> full_CEWL_emmean_plot
+full_CEWL_emmean_plot
+```
+
+
+
+
+
+### Export Multi-Panel Fig
+
+Put in one plot together:
+
+```{r}
+ggarrange(full_CEWL_emmean_plot, 
+          full_osml_emmean_plot, 
+          full_mass_emmean_plot,
+          full_SMI_emmean_plot,
+          #ncol = 4, nrow = 1,
+          ncol = 1, nrow = 4,
+          labels = c("A", "B", "C"),
+          common.legend = TRUE,
+          legend = "bottom"
+          ) -> full_szn_change_multi_fig
+#full_szn_change_multi_fig
+
+ggsave(filename = "szn_change_multi_fig_full.pdf",
+       plot = full_szn_change_multi_fig,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       #width = 200, height = 80
+       width = 80, height = 210
+       )
+```
+
+
+
+
+### Export Full & Repeats Multi-Panel Fig
+
+
+```{r}
+ggarrange(full_CEWL_emmean_plot, 
+          full_osml_emmean_plot, 
+          full_mass_emmean_plot,
+          full_SMI_emmean_plot,
+          CEWL_emmean_plot, 
+          osml_emmean_plot, 
+          mass_emmean_plot,
+          SMI_emmean_plot,
+          ncol = 4, nrow = 2,
+#          ncol = 1, nrow = 3,
+          labels = c("full", "full", "full", "full",
+                     "rep", "rep", "rep", "rep"),
+          common.legend = TRUE,
+          legend = "bottom"
+          ) -> full_vs_rep_szn_change_multi_fig
+#full_vs_rep_szn_change_multi_fig
+
+ggsave(filename = "szn_change_multi_fig_full_vs_rep.pdf",
+       plot = full_vs_rep_szn_change_multi_fig,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 210, height = 160
+       #width = 80, height = 210
+       )
+```
 
 
 
@@ -1428,6 +1902,7 @@ I have 9 females measured at both April and May time points. Let's see if their 
 First, calculate the change in CEWL, osmolality, and mass for each of those females between April to May.
 
 ```{r}
+summary(dat_repeat_females)
 fem_starting_values <- dat_repeat_females %>%
   # get the values for April measurements only 
   dplyr::filter(month == "April") %>%
@@ -1444,6 +1919,7 @@ fem_change <- dat_repeat_females %>%
   mutate(mass_change_from_April = mass_g - mass_April,
          CEWL_change_from_April = CEWL_g_m2h - CEWL_April,
          osml_change_from_April = osmolality_mmol_kg_mean - osml_April)
+summary(fem_change)
 ```
 
 
@@ -1478,21 +1954,32 @@ ggplot(fem_change) +
   geom_point() +
   geom_line() +
   theme_bw()
+boxplot(fem_change$osml_change_from_April)
+boxplot(fem_change$mass_change_from_April)
 ```
 
 
-On average, mass and osmolality both increase. There's only one lizard who was not gravid at both time points, so we can't compare change based on becoming gravid or not. But, I think it is reasonable to conclude that on average, gravid females gained mass and became less hydrated.
+On average, mass and osmolality both increase. There's only one lizard who was not gravid at both time points, so we can't compare change based on becoming gravid or not. I think it is reasonable to conclude that on average, gravid females gained mass and became less hydrated. But, we cannot say that this was DUE to gravidity, because we have nothing to compare it to
 
 
-# Stats Indiv Change
+## Stats Indiv Change
 
 Run stats tests on the change rates for only the females who were gravid in May, and use only the actual delta values, in their rows for May data.
 
 ```{r}
+# check osml outlier range
+fem_change %>%
+  group_by(month) %>%
+  summarise(mean(osml_change_from_April), sd(osml_change_from_April))
+
+# for stats
 fem_change_stats <- fem_change %>%
+  # don't use the one female still non-gravid in May
   dplyr::filter(individual_ID != "F-12") %>%
-  dplyr::filter(month == "May") #%>%
-  #dplyr::filter(osml_change_from_April > -30)
+  # only use the >resulting< change values
+  dplyr::filter(month == "May") %>%
+  # remove the crazy low outlier based on sd calculated above
+  dplyr::filter(osml_change_from_April > (12-(29*2)))
 ```
 
 
@@ -1508,78 +1995,111 @@ Only mass change was significantly different from zero... But, if we got rid of 
 
 
 
-## Likelihood
+## Stats Likelihood
 
-First, I need to figure out what to do with the individuals measured twice, and whether I need to worry about choosing between the different dates.
-
-```{r}
-dat_repro_females %>%
-  dplyr::filter(n == 1)
-table(dat_repro_females$gravid_Y_N, dat_repro_females$week)
-```
+Does anything correlate with the likelihood of being/becoming gravid?
 
 
-It will be interesting in the results section to talk about the following:
-
-- several females that we measured more than once were *not* gravid in week 1, then *were* gravid when we re-measured them in week 3. 
-- across recaptured and single-capture females, a higher proportion were gravid in week 3 than in week 1
-- the egg development stage varied greatly among individuals, showing variability in timing of breeding, and potentially ability to have several clutches
-- eggs were x-y cm in diameter, depending on development stage
-
-
-Is it reasonable to look at a dataset of the week-3 repeat females + all the 1-msmt females?
-
-Try it.. Basically, I just need to exclude the April measurements for the lizards measured at both dates.
-
-```{r}
-logit_stats_df <- dat_repro_females %>%
-  dplyr::filter(!(month == "April" & n == 2))
-```
-
-
-Start with a multiple-effect logistic model to predict gravidity:
+Start with trying each possible logistic model to predict gravidity:
 
 ```{r}
 repro_logit1 <- glm(gravid_Y_N ~ 
-                     mass_g + SMI + osmolality_mmol_kg_mean + CEWL_g_m2h, 
-                   data = logit_stats_df, 
+                     mass_g, 
+                   data = dat_repro_females, 
+                   family = "binomial")
+repro_logit2 <- glm(gravid_Y_N ~ 
+                     SMI, 
+                   data = dat_repro_females, 
+                   family = binomial)
+repro_logit3 <- glm(gravid_Y_N ~ 
+                     osmolality_mmol_kg_mean, 
+                   data = dat_repro_females, 
+                   family = binomial)
+repro_logit4 <- glm(gravid_Y_N ~ 
+                     CEWL_g_m2h, 
+                   data = dat_repro_females, 
                    family = binomial)
 summary(repro_logit1)
-drop1(repro_logit1)
-```
-
-```{r}
-repro_logit2 <- glm(gravid_Y_N ~ 
-                     mass_g + SMI + osmolality_mmol_kg_mean, 
-                   data = logit_stats_df, 
-                   family = binomial)
 summary(repro_logit2)
-drop1(repro_logit2)
+summary(repro_logit3)
+summary(repro_logit4)
 ```
+
+
+
+
+## Plot Likelihood Gravid ~ Mass
+
+```{r}
+dat_repro_females %>%
+  # dummy-fy gravid variable
+  mutate(gravid_Y_N = factor(gravid_Y_N, levels = c("Not Gravid", "Gravid"),
+                             labels = c(0,1)),
+         # goes 1-2, so fix to be 0-1
+         gravid_Y_N = as.numeric(gravid_Y_N)-1) %>%
+  # nooooowwwww I can plot and the stat_smooth will actually work
+  ggplot() +
+  aes(x = mass_g, 
+      y = gravid_Y_N) +
+  geom_jitter(alpha=.5, 
+              position = position_jitter(height = 0.1, width = 0)
+              ) +
+  # must make response variable 0-1 in order for this to work
+  stat_smooth(geom = "smooth",
+              method = "glm", 
+              formula = y~x,
+              se = FALSE, 
+              method.args = list(family = "quasibinomial")
+              ) +
+  ylab("") +
+  scale_y_continuous(labels = c("Not Gravid", "", "", "", "Gravid"), 
+                     limits = c(0,1)) +
+  xlab("Body Mass (g)") +
+  savs_ggplot_theme
+```
+
+
+
+
+
+# July Only
+
+Was hydric physiology different between lizards that were estivating vs above ground still when we removed their collars in July?
+
+## Get Estivation Onset 
+
+I get this from the 'analysis_2' data/code:
+
+```{r}
+Serials <- c("229-069", "229-078", "229-079", "245-742", "245-745", "245-748",
+             "245-752", "245-753", "245-761", "252-881", "252-883")
+estivating_yet <- c("Yes", "Yes", "Maybe", "Yes", "Maybe", 
+                    "Yes", "Yes", "Yes", "Maybe", "Yes", "Yes")
+est_df <- data.frame(radio_collar_serial = Serials,
+                     est_status = estivating_yet)
+```
+
+Now add that info to the hydric msmts:
 
 
 ```{r}
-repro_logit3 <- glm(gravid_Y_N ~ 
-                     SMI + osmolality_mmol_kg_mean, 
-                   data = logit_stats_df, 
-                   family = binomial)
-summary(repro_logit3)
-drop1(repro_logit3)
+dat_July <- dat %>%
+  dplyr::filter(capture_date == "2021-07-14") %>%
+  left_join(est_df, by = 'radio_collar_serial') %>%
+  dplyr::filter(complete.cases(est_status))
 ```
 
 
-Even when we get down to just body condition, we do not have any variables that are significant predictors of whether a female is gravid. 
+## Stats of Diffs
 
+```{r}
+summary(lm(data = dat_July, CEWL_g_m2h ~ est_status))
+summary(lm(data = dat_July, osmolality_mmol_kg_mean ~ est_status))
+hist(dat_July$osmolality_mmol_kg_mean)
+hist(dat_July$CEWL_g_m2h)
+```
 
-
-
-
-
-
-
-
-
-
+There is absolutely NO difference between lizards that were estivating or not when we measured them in July. And, which ones were estivating is just an estimate. I wouldn't trust it because we definitely lasso-ed a few lizards, but the microhabitat observations don't have any above-ground notes for any of the lizards. 
 
 
 
