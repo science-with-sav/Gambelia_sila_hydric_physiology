@@ -2159,67 +2159,6 @@ dat_repro_females %>%
 
 
 
-# July Only (delete?)
-
-Was hydric physiology different between lizards that were estivating vs above ground still when we removed their collars in July?
-
-## Get Estivation Onset 
-
-I get this from the 'analysis_2' data/code:
-
-```{r}
-Serials <- c("229-069", "229-078", "229-079", "245-742", "245-745", "245-748",
-             "245-752", "245-753", "245-761", "252-881", "252-883")
-estivating_yet <- c("Yes", "Yes", "Maybe", "Yes", "Maybe", 
-                    "Yes", "Yes", "Yes", "Maybe", "Yes", "Yes")
-est_df <- data.frame(radio_collar_serial = Serials,
-                     est_status = estivating_yet)
-```
-
-Now add that info to the hydric msmts:
-
-
-```{r}
-dat_July <- dat %>%
-  dplyr::filter(capture_date == "2021-07-14") %>%
-  left_join(est_df, by = 'radio_collar_serial') %>%
-  dplyr::filter(complete.cases(est_status))
-```
-
-
-## Stats of Diffs
-
-```{r}
-summary(lm(data = dat_July, CEWL_g_m2h ~ est_status))
-summary(lm(data = dat_July, osmolality_mmol_kg_mean ~ est_status))
-hist(dat_July$osmolality_mmol_kg_mean)
-hist(dat_July$CEWL_g_m2h)
-```
-
-There is absolutely NO difference between lizards that were estivating or not when we measured them in July. And, which ones were estivating is just an estimate. I wouldn't trust it because we definitely lasso-ed a few lizards, but the microhabitat observations don't have any above-ground notes for any of the lizards. 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

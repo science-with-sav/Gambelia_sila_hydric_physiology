@@ -109,12 +109,13 @@ my_brew_cols_4 <- brewer.pal(9, "YlGnBu")[c(3,5,7,9)]
 
 
 
-# Background & Introduction
+# Background 
 
+This data was collected on Blunt-nosed Leopard Lizards (*Gambelia sila*) during their active season in 2021. In this document, we will compute metrics of thermoregulation and behavior, then assess whether differences in those variables could be related to differences in hydric physiology.
 
-Telemetry response variables to test vs hydric physiology
--	Microhabitat use = proportion of observations doing x (above, partial shade, full shade, burrow)
--	Time of onset of estivation (once you no longer ever get aboveground obs)
+All of the data wrangling and preparation for the thermal and microhabitat use data is done within this document, but is done in the 'wrangling_' documents for the hydric data.
+
+First, we compute maximum temperatures (thermal metrics) and microhabitat use for each lizard at different time points, then we pair that with our hydric physiology data, and look for any relationships.
 
 
 
@@ -128,9 +129,10 @@ Telemetry response variables to test vs hydric physiology
 
 ## Lizard Data
 
-This is the same dataframe used in 'analysis_1'.
+This is the same dataframe used in 'analysis_1'. For info on data preparation, see the 'wrangling_' files, and for an explanation of each of the variable names, see that section in 'analysis_1'.
 
 ```{r}
+# measurement dates
 apr_may_dates <-  as.Date(c("2021-04-23", "2021-04-24", "2021-04-25"))
 may_dates <- as.Date(c("2021-05-07", "2021-05-08", "2021-05-09"))
   
@@ -143,11 +145,13 @@ liz_dat <- read_rds("./data/G_sila_clean_full_dat.RDS") %>%
          radio_collar_serial = factor(radio_collar_serial))
 summary(liz_dat)
 
+# subsets by date
 liz_dat_apr_may_only <- liz_dat %>%
   dplyr::filter(complete.cases(date_chunks))
 liz_dat_july_only <- liz_dat %>%
   dplyr::filter(month == "July")
 
+# ID info only
 liz_IDs_only <- liz_dat %>%
   group_by(radio_collar_serial, individual_ID, sex_M_F) %>%
   summarise(n = n()) %>%
@@ -157,7 +161,29 @@ liz_IDs_only <- liz_dat %>%
 
 
 
-## Tsurf + Wrangling
+## Validation
+
+This is a dataframe I can use to make sure we do not have data for these lizards after these dates, because they were either found dead or their dropped collars were found.
+
+```{r}
+check_gone <- data.frame(Serial = factor(c("229-072", # found dead June 7
+                                           "229-060", # collar found May 18
+                                           "229-074", # collar found April 28
+                                           "229-070", # became -a on May 8
+                                           "245-762", # became -a on May 8
+                                           "229-073", # dropped sometime before May msmts
+                                           "245-751"  # died May 7/8
+                                           )),
+                         date_def_gone = as.Date(c("2021-06-07", "2021-05-18",
+                                                   "2021-04-28", "2021-05-07",
+                                                   "2021-05-07", "2021-05-07",
+                                                   "2021-05-07"),
+                                                 format = "%Y-%m-%d"))
+check_gone
+```
+
+
+## Tsurf Wrangling
 
 We measured the surface body temperature of lizards throughout the study using Holohil temperature-sensitive transmitters, which is the data we load in this section. 
 
@@ -175,17 +201,9 @@ temps <- read.csv("./data/telemetry/tower_temps_all.csv") %>%
   mutate(date_only = as.Date(substr(DateTime, 1, 10), format = "%Y-%m-%d"),
          hour_of_day = as.numeric(substr(DateTime, 12, 13)),
          DateTime = as.POSIXct(DateTime, format = "%Y-%m-%d %H:%M:%S"),
-         Serial = factor(paste(substr(Serial, 1, 3), 
+         Serial = (paste(substr(Serial, 1, 3), 
                                substr(Serial, 4, 7), sep = "-")),
          Freq = round(Freq, 2))
-
-# save freq-serial link
-freq_serial <- temps %>%
-  group_by(Freq, Serial) %>%
-  summarise(n = n()) #%>%
-# check that there is 1 serial per frequency
-#  group_by(Freq) %>%
- # summarise(n = n())
 
 # look at temps dataframe
 summary(temps)
@@ -194,15 +212,68 @@ unique(temps$Serial)
 
 
 
-Subset the temperature data so that we do not use the temperatures from during up to 24h after the capturing and releasing lizards:
-**NOTE** I will also need to remove any data for lizards that went missing, and for when we re-assigned collars.
-These two radio collar serial numbers will be problematic. I need to go in to the Radio-collar temp data and add the "a" for data after the date we switched the collar to a new lizard.
+Check whether we have observations on lizards that were not alive or were not actually wearing their radio-collars because they dropped them. 
 
-**to do**
-- 245-762-a
-- 229-070-a
+```{r}
+temp_check <- temps %>%
+  left_join(check_gone, by = 'Serial') %>%
+  dplyr::filter(date_only > date_def_gone) %>%
+  arrange(Serial) %>%
+  dplyr::select(Serial, date_only, date_def_gone)
+unique(temp_check$Serial)
+```
 
-Also add columns for time chunks to make averaging easier later.
+Great... we have data for all 7 individuals that we need to clean up for
+
+```{r}
+temps2 <- temps %>%
+  # delete the obs for all Serials but 229-070 & 245-762
+  dplyr::filter(!(Serial == "229-072" & date_only >= "2021-06-07")) %>%
+  dplyr::filter(!(Serial == "229-060" & date_only >= "2021-05-18")) %>%
+  dplyr::filter(!(Serial == "229-074" & date_only >= "2021-04-28")) %>%
+  dplyr::filter(!(Serial == "229-073" & date_only >= "2021-05-07")) %>%
+  dplyr::filter(!(Serial == "245-751" & date_only >= "2021-05-07")) %>%
+  # change the serial and ID of F-08 and M-03 to be "-a" bc collar was switched
+          # for F-08a
+  mutate(Serial = replace(Serial, # what I want to change
+                          Serial == "229-070" & # if this
+                          date_only > "2021-05-07", # and this
+                          "229-070a"), # change to this
+         # for M-03a
+         Serial = replace(Serial, # what I want to change
+                          Serial == "245-762" & # if this
+                          date_only > "2021-05-07", # and this
+                          "245-762a"), # change to this
+         Serial = factor(Serial))
+```
+
+
+
+Check that it worked:
+
+```{r}
+temps_doublecheck <- temps %>%
+  # SAVE the obs for all Serials but 229-070 & 245-762
+  dplyr::filter((Serial == "229-072" & date_only >= "2021-06-07") |
+                  (Serial == "229-060" & date_only >= "2021-05-18") |
+                  (Serial == "229-074" & date_only >= "2021-04-28") |
+                  (Serial == "229-073" & date_only >= "2021-05-07") |
+                  (Serial == "245-751" & date_only >= "2021-05-07"))
+nrow(temps_doublecheck) + nrow(temps2) == nrow(temps)
+
+temp_check2 <- temps2 %>%
+  left_join(check_gone, by = 'Serial') %>%
+  dplyr::filter(date_only > date_def_gone) %>%
+  arrange(Serial) %>%
+  dplyr::select(Serial, date_only, date_def_gone)
+temp_check2
+unique(temps2$Serial)
+```
+
+
+
+
+Subset the temperature data so that we do not use the temperatures from during hydric measurement periods. Also add columns for time chunks to make averaging easier later.
 
 ```{r}
 # capture weekend dates
@@ -226,7 +297,7 @@ group_dates <- data.frame(date_only = c(seq(as.Date("2021-04-26"),
                                          "Jun 23 - Jul 3", "Jul 4 - 13")))
 
 # subset dataset and add grouping notes
-temp_sub <- temps %>%
+temp_sub <- temps2 %>%
   dplyr::filter(date_only %nin% cap_dates) %>%
   left_join(group_dates, by = 'date_only')
 summary(temp_sub)
@@ -234,8 +305,6 @@ summary(temp_sub)
 
 
 I also need to remove outliers, which are pretty standard erroneous points when using temperature-sensitive telemetry with devices external to the animal. I will follow Nicole Gaudenti's 2021 paper, and exclude "any outliers greater than two standard deviations away from each lizard's mean Tb"
-
-, as these likely represented glitches in the data acquisition system; such outliers were uncommon (<5% of data points).
 
 Look at data distribution:
 
@@ -279,7 +348,7 @@ What proportion of points did we remove?
 (nrow(temp_sub) - nrow(temp_clean))/nrow(temp_sub)
 ```
 
-4.6%
+4.5%
 
 Plot again:
 
@@ -297,6 +366,21 @@ ggplot(temp_clean) +
 ```
 
 Individual IQRs definitely look reasonable.
+
+
+Also, save the link between radio frequency and transmitter serial number to help with microhabitat data wrangling.
+
+```{r}
+freq_serial <- temp_clean %>%
+  group_by(Freq, Serial) %>%
+  summarise(n = n()) #%>%
+# check that there is 1 serial per frequency
+#  group_by(Freq) %>%
+ # summarise(n = n())
+
+```
+
+
 
 
 
@@ -416,7 +500,7 @@ summary(microhab_early_all)
 Now, put together the original and messy-now-clean dataframes, and add some formatting:
 
 ```{r}
-microhab <- microhab_clean %>%
+microhab_pre <- microhab_clean %>%
   rbind(microhab_early_all) %>%
   dplyr::filter(complete.cases(microhabitat)) %>%
   left_join(group_dates, by = 'date_only') %>%
@@ -425,7 +509,71 @@ microhab <- microhab_clean %>%
                                         microhabitat != "Burrow" ~ "Aboveground"),
                               levels = c("Aboveground", "Belowground")))
 
-summary(microhab)
+summary(microhab_pre)
+```
+
+
+Check whether we have observations on lizards that were not alive or were not actually wearing their radio-collars because they dropped them. 
+
+```{r}
+microhab_check <- microhab_pre %>%
+  left_join(check_gone, by = 'Serial') %>%
+  dplyr::filter(date_only > date_def_gone) %>%
+  arrange(Serial) %>%
+  dplyr::select(individual_ID, Serial, date_only, date_def_gone)
+microhab_check
+```
+
+
+Check what the name switch should be for F-08 and M-03:
+
+```{r}
+unique(liz_dat$radio_collar_serial)
+unique(liz_dat$individual_ID)
+```
+
+
+
+Then fix those things:
+
+```{r}
+microhab <- microhab_pre %>%
+  # delete the one obs for F-17 that was outside the valid date range
+  dplyr::filter(!(individual_ID == "F-17" & date_only == "2021-05-19")) %>%
+  # change the serial and ID of F-08 to be "-a" bc collar was switched
+          # for F-08a
+  mutate(individual_ID = replace(individual_ID, # what I want to change
+                                 individual_ID == "F-08" & # if this
+                                   date_only > "2021-05-07", # and this
+                                 "F-08a"), # change to this
+         Serial = replace(Serial, # what I want to change
+                          Serial == "229-070" & # if this
+                          date_only > "2021-05-07", # and this
+                          "229-070a"), # change to this
+         # for M-03a
+         individual_ID = replace(individual_ID, # what I want to change
+                                 individual_ID == "M-03" & # if this
+                                   date_only > "2021-05-07", # and this
+                                 "M-03a"), # change to this
+         Serial = replace(Serial, # what I want to change
+                          Serial == "245-762" & # if this
+                          date_only > "2021-05-07", # and this
+                          "245-762a") # change to this
+         )
+```
+
+Check that worked:
+
+
+```{r}
+nrow(microhab) == nrow(microhab_pre) -1
+
+microhab_check2 <- microhab %>%
+  left_join(check_gone, by = 'Serial') %>%
+  dplyr::filter(date_only > date_def_gone) %>%
+  arrange(Serial) %>%
+  dplyr::select(individual_ID, Serial, date_only, date_def_gone)
+microhab_check2
 ```
 
 
@@ -620,34 +768,45 @@ prop_above_across_indiv_by_sex <- MH_use_across_indivs_sex %>%
 ## Onset of Estivation
 
 ```{r}
-estivating <- microhab %>%
+# first, get some key dates for each lizard
+last_date <- microhab %>%
   # for each lizard
   group_by(Serial) %>%
   # what was the latest date we tracked them?
-  mutate(date_last_obs = max(date_only)) %>%
-  ungroup() %>%
-  # now, subset aboveground obs only
+  summarise(date_last_obs = max(date_only),
+            # and how many observations did they have total?
+            n_obs_total = n())
+last_date_above <- microhab %>%
+  # first, subset aboveground obs only
   dplyr::filter(microhabitat != "Burrow") %>%
-  # what was the latest date we observed each lizard ABOVEground?
-  group_by(Serial) %>%
-  mutate(date_last_aboveground_obs = max(date_only),
-         est_obs = date_last_obs - date_last_aboveground_obs) %>%
-  ungroup() %>%
-  # make sure we tracked them after "last" aboveground observation
-  dplyr::filter(date_last_aboveground_obs < date_last_obs) %>%
   # for each lizard
   group_by(Serial) %>%
-  summarise(est_onset = mean(date_last_aboveground_obs),
-            est_obs_days = as.numeric(mean(est_obs))
-            ) %>%
-  dplyr::filter(est_obs_days >1)
+  # what was the latest date we observed each lizard ABOVEground?
+  summarise(est_onset = max(date_only))
+  
+estivating <- microhab %>%
+  left_join(last_date_above, by = 'Serial') %>%
+  dplyr::filter(date_only > est_onset) %>%
+  group_by(Serial, est_onset) %>%
+  # how many times did we observe each lizard while they were estivating?
+  summarise(n_obs_est = n()) %>%
+  left_join(last_date, by = 'Serial') %>%
+  mutate(est_obs_days = as.numeric(date_last_obs - est_onset),
+         prop_obs_est = n_obs_est/n_obs_total) %>%
+  # make sure we tracked them after "last" aboveground observation
+  dplyr::filter(est_onset < date_last_obs) %>%
+  # and we still had a signal on them till the end
+  dplyr::filter(date_last_obs == "2021-07-13")
 summary(estivating)
+
+estivating %>%
+  mutate(est = "Yes") %>%
+  group_by(est) %>%
+  summarise(mean(n_obs_est),
+            sd(n_obs_est),
+            min(n_obs_est),
+            max(n_obs_est))
 ```
-
-
-
-
-
 
 
 
@@ -702,7 +861,7 @@ max_temp_CEWL_mod <- lmerTest::lmer(data = max_temps_hydric,
                                 chunk_avg_Tb_percentile_80_90 ~ CEWL_g_m2h +
                                   (1|individual_ID))
 summary(max_temp_CEWL_mod)
-anova(max_temp_CEWL_mod)
+#anova(max_temp_CEWL_mod, type = "1", ddf = "Kenward-Roger")
 plot(max_temp_CEWL_mod)
 
 # osmolality
@@ -710,16 +869,25 @@ max_temp_osml_mod <- lmerTest::lmer(data = max_temps_hydric,
                                 chunk_avg_Tb_percentile_80_90 ~ osmolality_mmol_kg_mean +
                                   (1|individual_ID))
 summary(max_temp_osml_mod)
-anova(max_temp_osml_mod)
+#anova(max_temp_osml_mod, type = "1", ddf = "Kenward-Roger")
 plot(max_temp_osml_mod)
+simple.eda(residuals(max_temp_osml_mod))
 
 # mass
 max_temp_mass_mod <- lmerTest::lmer(data = max_temps_hydric,
                                 chunk_avg_Tb_percentile_80_90 ~ mass_g +
                                   (1|individual_ID))
 summary(max_temp_mass_mod)
-anova(max_temp_mass_mod)
+#anova(max_temp_mass_mod, type = "1", ddf = "Kenward-Roger")
 plot(max_temp_mass_mod)
+
+# SMI
+max_temp_SMI_mod <- lmerTest::lmer(data = max_temps_hydric,
+                                chunk_avg_Tb_percentile_80_90 ~ SMI +
+                                  (1|individual_ID))
+summary(max_temp_SMI_mod)
+#anova(max_temp_SMI_mod, type = "1", ddf = "Kenward-Roger")
+plot(max_temp_SMI_mod)
 ```
 
 
@@ -780,7 +948,6 @@ db_CEWL_mod <- lmerTest::lmer(data = db_hydric,
                                 chunk_mean_Db_deg_C_diff ~ CEWL_g_m2h +
                                   (1|individual_ID))
 summary(db_CEWL_mod)
-anova(db_CEWL_mod)
 plot(db_CEWL_mod)
 
 # osmolality
@@ -788,16 +955,22 @@ db_osml_mod <- lmerTest::lmer(data = db_hydric,
                                 chunk_mean_Db_deg_C_diff ~ osmolality_mmol_kg_mean +
                                   (1|individual_ID))
 summary(db_osml_mod)
-anova(db_osml_mod)
 plot(db_osml_mod)
+simple.eda(residuals((db_osml_mod)))
 
 # mass
 db_mass_mod <- lmerTest::lmer(data = db_hydric,
                                 chunk_mean_Db_deg_C_diff ~ mass_g +
                                   (1|individual_ID))
 summary(db_mass_mod)
-anova(db_mass_mod)
 plot(db_mass_mod)
+
+# SMI
+db_SMI_mod <- lmerTest::lmer(data = db_hydric,
+                                chunk_mean_Db_deg_C_diff ~ SMI +
+                                  (1|individual_ID))
+summary(db_SMI_mod)
+plot(db_SMI_mod)
 ```
 
 
@@ -873,7 +1046,6 @@ micro_CEWL_mod <- lmerTest::lmer(data = micro_hydric,
                                 prop_above ~ CEWL_g_m2h +
                                   (1|individual_ID))
 summary(micro_CEWL_mod)
-anova(micro_CEWL_mod)
 plot(micro_CEWL_mod)
 
 # osmolality
@@ -881,7 +1053,6 @@ micro_osml_mod <- lmerTest::lmer(data = micro_hydric,
                                 prop_above ~ osmolality_mmol_kg_mean +
                                   (1|individual_ID))
 summary(micro_osml_mod)
-anova(micro_osml_mod)
 plot(micro_osml_mod)
 
 # mass
@@ -889,8 +1060,67 @@ micro_mass_mod <- lmerTest::lmer(data = micro_hydric,
                                 prop_above ~ mass_g +
                                   (1|individual_ID))
 summary(micro_mass_mod)
-anova(micro_mass_mod)
 plot(micro_mass_mod)
+
+# SMI
+micro_SMI_mod <- lmerTest::lmer(data = micro_hydric,
+                                prop_above ~ SMI +
+                                  (1|individual_ID))
+summary(micro_SMI_mod)
+plot(micro_SMI_mod)
+```
+
+
+
+
+# All Anovas
+
+Just so they're all in one place, get all the anovas from the models above to run:
+
+## CEWL
+
+```{r}
+anova(max_temp_CEWL_mod, type = "1", ddf = "Kenward-Roger")
+anova(db_CEWL_mod, type = "1", ddf = "Kenward-Roger")
+anova(micro_CEWL_mod, type = "1", ddf = "Kenward-Roger")
+```
+
+
+
+
+## Osmolality
+
+```{r}
+anova(max_temp_osml_mod, type = "1", ddf = "Kenward-Roger")
+summary(max_temp_osml_mod)
+anova(db_osml_mod, type = "1", ddf = "Kenward-Roger")
+summary(db_osml_mod)
+anova(micro_osml_mod, type = "1", ddf = "Kenward-Roger")
+```
+
+
+
+
+
+## Body Mass
+
+```{r}
+anova(max_temp_mass_mod, type = "1", ddf = "Kenward-Roger")
+anova(db_mass_mod, type = "1", ddf = "Kenward-Roger")
+anova(micro_mass_mod, type = "1", ddf = "Kenward-Roger")
+```
+
+
+
+
+
+## Body Condition
+
+```{r}
+anova(max_temp_SMI_mod, type = "1", ddf = "Kenward-Roger")
+summary(max_temp_SMI_mod)
+anova(db_SMI_mod, type = "1", ddf = "Kenward-Roger")
+anova(micro_SMI_mod, type = "1", ddf = "Kenward-Roger")
 ```
 
 
@@ -920,14 +1150,13 @@ summary(est_hydric)
 ```
 
 
-also look at just July:
+also look at just July for hydric ~ estivating or not:
 
 ```{r}
 est_hydric_July <- liz_dat_july_only %>%
   left_join(estivating, by = c('radio_collar_serial' = 'Serial')) %>%
-  # remove NAs
-  dplyr::filter(complete.cases(est_onset)) %>%
-  mutate(est_onset_scaled = scale(as.numeric(est_onset)))
+  mutate(est_or_not = case_when(is.na(est_onset) == TRUE ~ "Active",
+                                is.na(est_onset) == FALSE ~ "Estivating"))
 ```
 
 
@@ -954,7 +1183,7 @@ ggplot(est_hydric) +
 ```
 
 
-## Models
+## Models - Onset
 
 ```{r}
 # CEWL
@@ -969,12 +1198,163 @@ summary(est_osml_mod)
 anova(est_osml_mod)
 plot(est_osml_mod)
 
-# osmolality JULY
-est_osml_JULY_mod <- lm(data = est_hydric_July, est_onset_scaled ~ osmolality_mmol_kg_mean)
-summary(est_osml_JULY_mod)
+# mass
+est_mass_mod <- lm(data = est_hydric, est_onset_scaled ~ mean_mass)
+summary(est_mass_mod)
+anova(est_mass_mod)
+plot(est_mass_mod)
+
+# SMI
+est_SMI_mod <- lm(data = est_hydric, est_onset_scaled ~ mean_SMI)
+summary(est_SMI_mod)
+anova(est_SMI_mod)
+plot(est_SMI_mod)
 ```
 
 
+
+## Models - July Status
+
+
+compare boxplots of the same individuals in April/My (avg) vs July to make sure we have no outliers, and if no outliers, what trends look like:
+
+```{r}
+# CEWL
+ggplot(liz_dat_apr_only) +
+  aes(x = est_or_not,
+      y = mean_CEWL,
+      color = individual_ID) +
+  geom_point()
+ggplot(est_hydric_July) +
+  aes(x = est_or_not,
+      y = CEWL_g_m2h,
+      color = individual_ID) +
+  geom_point()
+
+# osml
+ggplot(liz_dat_apr_only) +
+  aes(x = est_or_not,
+      y = mean_osml,
+      color = individual_ID) +
+  geom_point()
+ggplot(est_hydric_July) +
+  aes(x = est_or_not,
+      y = osmolality_mmol_kg_mean,
+      color = individual_ID) +
+  geom_point()
+
+# mass
+ggplot(liz_dat_apr_only) +
+  aes(x = est_or_not,
+      y = mean_mass,
+      color = individual_ID) +
+  geom_point()
+ggplot(est_hydric_July) +
+  aes(x = est_or_not,
+      y = mass_g,
+      color = individual_ID) +
+  geom_point()
+
+# body condition
+ggplot(liz_dat_apr_only) +
+  aes(x = est_or_not,
+      y = mean_SMI,
+      color = individual_ID) +
+  geom_point()
+ggplot(est_hydric_July) +
+  aes(x = est_or_not,
+      y = SMI,
+      color = individual_ID) +
+  geom_point()
+```
+
+
+I'm worried about the distribution of the data for the active lizards.
+
+```{r}
+est_hydric_July %>%
+  summarise(mean(CEWL_g_m2h), sd(CEWL_g_m2h),
+            mean(osmolality_mmol_kg_mean), sd(osmolality_mmol_kg_mean),
+            mean(mass_g), sd(mass_g),
+            mean(SMI), sd(SMI))
+est_hydric_July %>%
+  dplyr::filter(individual_ID == "F-10")
+```
+It looks like F-10 is quite far outside the distribution of other points for mass and SMI, and would be likely to affect statistics, so remove her data:
+
+
+```{r}
+est_hydric_July2 <- est_hydric_July %>%
+  dplyr::filter(individual_ID != "F-10")
+```
+
+
+now run statistics:
+
+```{r}
+# CEWL
+est_CEWL_JULY_mod <- lm(data = est_hydric_July, 
+                        CEWL_g_m2h ~ est_or_not)
+anova(est_CEWL_JULY_mod)
+
+# osmolality
+est_osml_JULY_mod <- lm(data = est_hydric_July, 
+                        osmolality_mmol_kg_mean ~ est_or_not)
+anova(est_osml_JULY_mod)
+
+# mass
+est_mass_JULY_mod <- lm(data = est_hydric_July2, 
+                        mass_g ~ est_or_not)
+anova(est_mass_JULY_mod)
+
+# SMI
+est_SMI_JULY_mod <- lm(data = est_hydric_July2, 
+                        SMI ~ est_or_not)
+anova(est_SMI_JULY_mod)
+```
+
+
+What were those lizards like in April?
+
+```{r}
+liz_dat_apr_only <- liz_dat_apr_may_only %>%
+  dplyr::filter(individual_ID %in% est_hydric_July$individual_ID) %>%
+  group_by(individual_ID) %>%
+  summarise(mean_mass = mean(mass_g),
+            mean_SMI = mean(SMI),
+            mean_CEWL = mean(CEWL_g_m2h),
+            mean_osml = mean(osmolality_mmol_kg_mean, na.rm = T),
+            ) %>%
+  left_join(est_hydric_July, by = 'individual_ID') %>%
+  dplyr::filter(individual_ID != "F-10")
+```
+
+
+do the same models for April/May data:
+
+```{r}
+# CEWL
+est_CEWL_April_mod <- lm(data = liz_dat_apr_only, 
+                        mean_CEWL ~ est_or_not)
+anova(est_CEWL_April_mod)
+
+# osmolality
+est_osml_April_mod <- lm(data = liz_dat_apr_only, 
+                        mean_osml ~ est_or_not)
+anova(est_osml_April_mod)
+
+# mass
+est_mass_April_mod <- lm(data = liz_dat_apr_only, 
+                        mean_mass ~ est_or_not)
+anova(est_mass_April_mod)
+
+# SMI
+est_SMI_April_mod <- lm(data = liz_dat_apr_only, 
+                        mean_SMI ~ est_or_not)
+anova(est_SMI_April_mod)
+```
+
+No carry-over differences from April, which is good!
 
 
 
@@ -986,8 +1366,7 @@ summary(est_osml_JULY_mod)
 
 # Hydric Conclusion
 
-There are basically **no detectable relationships** between water balance (CEWL, osml, or mass) and thermoregulation or microhabitat use in BNLL. The only significant relationship we found was between plasma osmolality and relative date of onset of estivation, but the effect size was miniscule. 
-
+There are basically **no detectable relationships** between water balance (CEWL, osml, or mass) and thermoregulation or microhabitat use in BNLL. 
 
 
 
@@ -1002,7 +1381,7 @@ There are basically **no detectable relationships** between water balance (CEWL,
 
 ## Prep Data
 
-For logistic regression, I need to have the full, raw dataset (vs proportions by group for plots), so I will actually use the 'microhab' dataframe, created in the "Load Data" > "Microhbaitat Use" section. 
+For logistic regression, I need to have the full, raw dataset (vs proportions by group for plots), so I will actually use the 'microhab' dataframe, created in the "Load Data" > "Microhabitat Use" section. 
 
 
 
@@ -1162,20 +1541,20 @@ ggplot(MH_use_across_indivs) +
 
 
 
-ggarrange(brew, v1, v2, v3, v4, v5,
-          ncol = 2, nrow = 3,
-          labels = c("A", "B", "C", "D", "E", "F"),
-          common.legend = TRUE,
-          legend = "bottom"
-          ) -> test_multi
+#ggarrange(brew, v1, v2, v3, v4, v5,
+ #         ncol = 2, nrow = 3,
+  #        labels = c("A", "B", "C", "D", "E", "F"),
+   #       common.legend = TRUE,
+    #      legend = "bottom"
+     #     ) -> test_multi
 
-ggsave(filename = "test_multi.pdf",
-       plot = test_multi,
-       path = "./results_figures",
-       device = "pdf",
-       dpi = 600,
-       units = "mm",
-       width = 200, height = 300)
+#ggsave(filename = "test_multi.pdf",
+ #      plot = test_multi,
+  #     path = "./results_figures",
+   #    device = "pdf",
+    #   dpi = 600,
+     #  units = "mm",
+      # width = 200, height = 300)
 ```
 
 
