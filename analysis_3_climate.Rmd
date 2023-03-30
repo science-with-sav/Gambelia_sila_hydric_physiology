@@ -70,7 +70,7 @@ savs_ggplot_theme <- theme_bw() +
 
 
 
-# Background & Introduction
+# Background
 
 
 
@@ -82,10 +82,151 @@ savs_ggplot_theme <- theme_bw() +
 
 
 
-# Load & Wrangle Data
+# Load Data
+
+
+## Sunrise & Sunset
+
+These times were obtained from [NOAA ESRL](https://gml.noaa.gov/grad/solcalc/table.php?lat=35.304442&lon=-120.65925&year=2021).
+
+All sunrise & set times during our study are with saylight savings time in effect (1 hour shift).
+
+sunrise times:
 
 ```{r}
-dat <- read_rds("./data/burrow_HOBOs_BNLL_activeszn_2021.RDS")
+sunrises <- read.csv("./data/Carrizo_sunrise_2021.csv")
+
+rise_April <- sunrises %>%
+  dplyr::select(Day, time = Apr) %>%
+  dplyr::filter(time != "") %>%
+  mutate(date = paste("2021", "04", Day, sep = "-"),
+         sunrise = as.POSIXct(paste(date, time, sep = " ")))
+rise_May <- sunrises %>%
+  dplyr::select(Day, time = May) %>%
+  dplyr::filter(time != "") %>%
+  mutate(date = paste("2021", "05", Day, sep = "-"),
+         sunrise = as.POSIXct(paste(date, time, sep = " ")))
+rise_June <- sunrises %>%
+  dplyr::select(Day, time = Jun) %>%
+  dplyr::filter(time != "") %>%
+  mutate(date = paste("2021", "06", Day, sep = "-"),
+         sunrise = as.POSIXct(paste(date, time, sep = " ")))
+rise_July <- sunrises %>%
+  dplyr::select(Day, time = Jul) %>%
+  dplyr::filter(time != "") %>%
+  mutate(date = paste("2021", "07", Day, sep = "-"),
+         sunrise = as.POSIXct(paste(date, time, sep = " ")))
+
+sunrises_formatted <- rise_April %>%
+  rbind(rise_May) %>%
+  rbind(rise_June) %>%
+  rbind(rise_July) %>%
+  dplyr::select(date, sunrise) %>%
+  mutate(date = as.Date(date))
+head(sunrises_formatted)
+```
+
+
+sunset times:
+
+```{r}
+sunsets <- read.csv("./data/Carrizo_sunset_2021.csv")
+
+set_April <- sunsets %>%
+  dplyr::select(Day, time = Apr) %>%
+  dplyr::filter(time != "") %>%
+  mutate(date = paste("2021", "04", Day, sep = "-"),
+         sunset = as.POSIXct(paste(date, time, sep = " ")))
+set_May <- sunsets %>%
+  dplyr::select(Day, time = May) %>%
+  dplyr::filter(time != "") %>%
+  mutate(date = paste("2021", "05", Day, sep = "-"),
+         sunset = as.POSIXct(paste(date, time, sep = " ")))
+set_June <- sunsets %>%
+  dplyr::select(Day, time = Jun) %>%
+  dplyr::filter(time != "") %>%
+  mutate(date = paste("2021", "06", Day, sep = "-"),
+         sunset = as.POSIXct(paste(date, time, sep = " ")))
+set_July <- sunsets %>%
+  dplyr::select(Day, time = Jul) %>%
+  dplyr::filter(time != "") %>%
+  mutate(date = paste("2021", "07", Day, sep = "-"),
+         sunset = as.POSIXct(paste(date, time, sep = " ")))
+
+sunsets_formatted <- set_April %>%
+  rbind(set_May) %>%
+  rbind(set_June) %>%
+  rbind(set_July) %>%
+  dplyr::select(date, sunset) %>%
+  mutate(date = as.Date(date))
+head(sunsets_formatted)
+```
+
+
+
+
+## Burrows
+
+All burrow data is with daylight savings time in effect (1 hour shift), so it will pair to the sunrise/sunset times correctly.
+
+```{r}
+dat_HOBO <- read_rds("./data/burrow_HOBOs_BNLL_activeszn_2021.RDS") %>%
+  # add sunrise and sunset times
+  left_join(sunrises_formatted, by = c('date_only' = 'date')) %>%
+  left_join(sunsets_formatted, by = c('date_only' = 'date')) %>%
+  group_by(date_only) %>%
+  mutate(daytime = case_when(date_time_PST >= sunrise & date_time_PST <= sunset ~ "day",
+                             date_time_PST < sunrise ~ "night",
+                             date_time_PST > sunset ~ "night"),
+         daytime = as.factor(daytime)) %>%
+  ungroup()
+summary(dat_HOBO)
+
+# daytime only
+
+# nighttime only
+dat_HOBO_night <- dat_HOBO %>%
+  dplyr::filter(daytime == "night")
+summary(dat_HOBO_night)
+# maybe this is pre-processing tho... 
+```
+
+
+## Weather Station
+
+```{r}
+# dat_Davis <- 
+```
+
+
+
+
+
+# Prep Data
+
+## Daily Means
+
+```{r}
+dat_HOBO_means <- dat_HOBO %>%
+  # get daily means for each HOBO, each date, daytime and nighttime
+  group_by(HOBO_ID, date_only, daytime) %>%
+  summarise(temp_C_daily_mean_by_HOBO = mean(temp_C),
+            RH_daily_mean_by_HOBO = mean(RH_percent),
+            VPD_kPa_daily_mean_by_HOBO = mean(VPD_kPa)
+            ) %>%
+  # get daily means for each date, daytime and nighttime
+  group_by(date_only, daytime) %>%
+  summarise(n = n(),
+            temp_C_daily_mean = mean(temp_C_daily_mean_by_HOBO),
+            RH_daily_mean = mean(RH_daily_mean_by_HOBO),
+            VPD_kPa_daily_mean = mean(VPD_kPa_daily_mean_by_HOBO),
+            temp_C_daily_sd = sd(temp_C_daily_mean_by_HOBO),
+            RH_daily_sd = sd(RH_daily_mean_by_HOBO),
+            VPD_kPa_daily_sd = sd(VPD_kPa_daily_mean_by_HOBO),
+            sem = "sem :)" # left off here
+            )
+# do SEM for across HOBOs
+summary(dat_HOBO_means)
 ```
 
 
@@ -125,16 +266,16 @@ dat <- read_rds("./data/burrow_HOBOs_BNLL_activeszn_2021.RDS")
 
 
 
+# Figures
 
+```{r}
+ggplot(dat_HOBO) +
+  aes(x = date_time_PST,
+      y = temp_C) +
+  geom_point() +
+  savs_ggplot_theme
+```
 
-
-
-
-
-
-
-
-# Plot over time
 
 
 
