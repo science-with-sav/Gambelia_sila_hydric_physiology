@@ -206,6 +206,8 @@ summary(dat_HOBO_night)
 
 ## Daily Means
 
+I think what's interesting is not day vs night, but burrow vs weather station.
+
 ```{r}
 dat_HOBO_means <- dat_HOBO %>%
   # get daily means for each HOBO, each date, daytime and nighttime
@@ -214,7 +216,7 @@ dat_HOBO_means <- dat_HOBO %>%
             RH_daily_mean_by_HOBO = mean(RH_percent),
             VPD_kPa_daily_mean_by_HOBO = mean(VPD_kPa)
             ) %>%
-  # get daily means for each date, daytime and nighttime
+  # get daily means & SD for each date, daytime and nighttime
   group_by(date_only, daytime) %>%
   summarise(n = n(),
             temp_C_daily_mean = mean(temp_C_daily_mean_by_HOBO),
@@ -224,7 +226,18 @@ dat_HOBO_means <- dat_HOBO %>%
             RH_daily_sd = sd(RH_daily_mean_by_HOBO),
             VPD_kPa_daily_sd = sd(VPD_kPa_daily_mean_by_HOBO),
             sem = "sem :)" # left off here
-            )
+            ) %>%
+  # calculate standard error (SEM)
+  mutate(temp_C_daily_se = temp_C_daily_sd/sqrt(n),
+         RH_daily_se = RH_daily_sd/sqrt(n),
+         VPD_kPa_daily_se = VPD_kPa_daily_sd/sqrt(n)) %>%
+  # calculate standard error upper & lower limits
+  mutate(temp_C_daily_se_upper = temp_C_daily_mean + temp_C_daily_se,
+         temp_C_daily_se_lower = temp_C_daily_mean - temp_C_daily_se,
+         RH_daily_se_upper = RH_daily_mean + RH_daily_se,
+         RH_daily_se_lower = RH_daily_mean - RH_daily_se,
+         VPD_kPa_daily_se_upper = VPD_kPa_daily_mean + VPD_kPa_daily_se,
+         VPD_kPa_daily_se_lower = VPD_kPa_daily_mean - VPD_kPa_daily_se)
 # do SEM for across HOBOs
 summary(dat_HOBO_means)
 ```
@@ -268,12 +281,55 @@ summary(dat_HOBO_means)
 
 # Figures
 
+## Temperature
+
 ```{r}
-ggplot(dat_HOBO) +
-  aes(x = date_time_PST,
-      y = temp_C) +
-  geom_point() +
-  savs_ggplot_theme
+ggplot(dat_HOBO_means) +
+  aes(x = date_only,
+      y = temp_C_daily_mean) +
+  geom_point(aes(shape = daytime)) +
+  xlab("Time") +
+  ylab("Daily Mean Temperature (C)") +
+  savs_ggplot_theme -> daily_temps_fig
+daily_temps_fig
+```
+
+
+## Relative Humidity
+
+```{r}
+ggplot(dat_HOBO_means) +
+  aes(x = date_only,
+      y = RH_daily_mean) +
+  geom_point(aes(shape = daytime)) +
+  # lines to show when we took hydric physiology measurements
+  geom_vline(xintercept = as.Date("2021-04-25"),
+             linetype = "dashed",
+             color = "slategray") +
+  geom_vline(xintercept = as.Date("2021-05-08"),
+             linetype = "dashed",
+             color = "slategray") +
+  geom_vline(xintercept = as.Date("2021-07-14"),
+             linetype = "dashed",
+             color = "slategray") +
+  xlab("Time") +
+  ylab("Relative Humidity (%)") +
+  savs_ggplot_theme -> daily_RH_fig
+daily_RH_fig
+```
+
+
+## Vapor Pressure Deficit
+
+```{r}
+ggplot(dat_HOBO_means) +
+  aes(x = date_only,
+      y = VPD_kPa_daily_mean) +
+  geom_point(aes(shape = daytime)) +
+  xlab("Time") +
+  ylab("Vapor Pressure Deficit (kPa)") +
+  savs_ggplot_theme -> daily_VPD_fig
+daily_VPD_fig
 ```
 
 
@@ -284,6 +340,48 @@ ggplot(dat_HOBO) +
 
 
 
+# Export Multi-Figure
+
+```{r}
+ggarrange(daily_temps_fig, daily_RH_fig, daily_VPD_fig,
+          ncol = 1, nrow = 3,
+          labels = c("A", "B", "C"),
+          common.legend = TRUE,
+          legend = "bottom"
+          ) -> multi_climate
+
+ggsave(filename = "climate_multi_figure.pdf",
+       plot = multi_climate,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 80, height = 200)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Statistics
+
+
+do I use the same 10-11-day chunks, and calc avgs, then compute pairwise diffs? or, something else? no stats?
+
+should I do stats by month (microhab & climate), just to be comparable with Kay * Nicole??
 
 
 
