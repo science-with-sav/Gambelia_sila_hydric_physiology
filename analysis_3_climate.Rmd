@@ -84,6 +84,9 @@ savs_ggplot_theme <- theme_bw() +
 
 # Load & Wrangle Data
 
+```{r}
+dat <- read_rds("./data/burrow_HOBOs_BNLL_activeszn_2021.RDS")
+```
 
 
 
