@@ -206,17 +206,22 @@ summary(dat_HOBO_night)
 
 ## Daily Means
 
-I think what's interesting is not day vs night, but burrow vs weather station.
+*If I decide not to split day/nighttime temps, all I need to do is delete the daytime grouping factor from the code in this and the next sections.*
+
 
 ```{r}
-dat_HOBO_means <- dat_HOBO %>%
-  # get daily means for each HOBO, each date, daytime and nighttime
+dat_HOBO_means_by_burrow <- dat_HOBO %>%
+  # get daily means for each burrow/HOBO, for each date, daytime and nighttime
+  # I could consider this step averaging across technical replicates
   group_by(HOBO_ID, date_only, daytime) %>%
   summarise(temp_C_daily_mean_by_HOBO = mean(temp_C),
             RH_daily_mean_by_HOBO = mean(RH_percent),
             VPD_kPa_daily_mean_by_HOBO = mean(VPD_kPa)
-            ) %>%
+            ) 
+dat_HOBO_means <- dat_HOBO_means_by_burrow %>%
   # get daily means & SD for each date, daytime and nighttime
+  # ACROSS burrows
+  # this step is literally just for plotting the mean values, not getting values for stats
   group_by(date_only, daytime) %>%
   summarise(n = n(),
             temp_C_daily_mean = mean(temp_C_daily_mean_by_HOBO),
@@ -225,7 +230,6 @@ dat_HOBO_means <- dat_HOBO %>%
             temp_C_daily_sd = sd(temp_C_daily_mean_by_HOBO),
             RH_daily_sd = sd(RH_daily_mean_by_HOBO),
             VPD_kPa_daily_sd = sd(VPD_kPa_daily_mean_by_HOBO),
-            sem = "sem :)" # left off here
             ) %>%
   # calculate standard error (SEM)
   mutate(temp_C_daily_se = temp_C_daily_sd/sqrt(n),
@@ -244,6 +248,59 @@ summary(dat_HOBO_means)
 
 
 
+## Date Chunk Means
+
+Now, use daily means to get means across date chunks.
+
+First, create the date chunks:
+
+
+```{r}
+# capture weekend dates
+cap_dates <- as.Date(c("2021-04-23", "2021-04-24", "2021-04-25", # April
+                        "2021-05-07", "2021-05-08", "2021-05-09"), # May
+                     format = "%Y-%m-%d")
+
+# grouping notes by date
+group_dates <- data.frame(date_only = c(seq(as.Date("2021-04-26"), 
+                                            as.Date("2021-07-13"), by = 1))) %>%
+  dplyr::filter(date_only %nin% cap_dates) %>%
+  mutate(date_chunks = factor(c(rep("Apr 26 - May 6", 11), 
+                                rep("May 10 - 20", 11), 
+                                rep("May 21 - 31", 11),
+                                rep("Jun 1 - 11", 11),
+                                rep("Jun 12 - 22", 11),
+                                rep("Jun 23 - Jul 3", 11), 
+                                rep("Jul 4 - 13", 10)),
+                              levels = c("Apr 26 - May 6", "May 10 - 20", 
+                                         "May 21 - 31", "Jun 1 - 11", "Jun 12 - 22", 
+                                         "Jun 23 - Jul 3", "Jul 4 - 13")))
+head(group_dates)
+```
+
+
+
+Join date chunks & daily mean data, then get the mean daily temps for that date chunk:
+
+```{r}
+dat_HOBO_chunks_by_burrow <- dat_HOBO_means_by_burrow %>%
+  # add date chunks
+  left_join(group_dates, by = 'date_only') %>%
+  # remove NA values for date chunks (data on capture days, just for consistency)
+  dplyr::filter(complete.cases(date_chunks)) %>%
+  # get avg across days within a chunk for each HOBO
+  group_by(HOBO_ID, date_chunks, daytime) %>%
+  # get the avg of the avg daily mean (not sure if this is how I want to calculate?)
+  summarise(temp_C_chunk_mean_by_HOBO = mean(temp_C_daily_mean_by_HOBO),
+            RH_chunk_mean_by_HOBO = mean(RH_daily_mean_by_HOBO),
+            VPD_kPa_chunk_mean_by_HOBO = mean(VPD_kPa_daily_mean_by_HOBO),
+            n = n()
+            ) %>%
+  # only use an avg for a date chunk for a HOBO with at least 3 days in that chunk
+  # removes 6 values
+  dplyr::filter(n >= 3) %>%
+  arrange(HOBO_ID, date_chunks, daytime)
+```
 
 
 
@@ -254,7 +311,50 @@ summary(dat_HOBO_means)
 
 
 
+# Statistics
 
+My goal now is to calculate the emmeans, CI, and pairwise differences across HOBOs for each date chunk. **I need to do this for each climate variable, temperature, RH, and VPD.**
+
+Then, I can use the emmeans +/- CI for plotting.
+
+**NOTE** day vs night values are NOT different for burrows, so I think I should go back and remove that as a grouping variable, but that would require me also not using it as a grouping variable for the weather station data...
+
+## HOBO Temperature
+
+```{r}
+HOBO_temp_lm <- lm(data = dat_HOBO_chunks_by_burrow,
+                   temp_C_chunk_mean_by_HOBO ~ date_chunks #* daytime
+                   )
+#summary(HOBO_temp_lm)
+HOBO_temp_emmean <- emmeans(HOBO_temp_lm, "date_chunks")
+HOBO_temp_pairwise <- pairs(emmeans(HOBO_temp_lm, "date_chunks"))
+```
+
+
+
+## HOBO RH
+
+```{r}
+HOBO_RH_lm <- lm(data = dat_HOBO_chunks_by_burrow,
+                   RH_chunk_mean_by_HOBO ~ date_chunks #* daytime
+                   )
+#summary(HOBO_temp_lm)
+HOBO_RH_emmean <- emmeans(HOBO_RH_lm, "date_chunks")
+HOBO_RH_pairwise <- pairs(emmeans(HOBO_RH_lm, "date_chunks"))
+```
+
+
+
+## HOBO VPD
+
+```{r}
+HOBO_VPD_lm <- lm(data = dat_HOBO_chunks_by_burrow,
+                   VPD_kPa_chunk_mean_by_HOBO ~ date_chunks #* daytime
+                   )
+#summary(HOBO_temp_lm)
+HOBO_VPD_emmean <- emmeans(HOBO_VPD_lm, "date_chunks")
+HOBO_VPD_pairwise <- pairs(emmeans(HOBO_VPD_lm, "date_chunks"))
+```
 
 
 
@@ -372,16 +472,6 @@ ggsave(filename = "climate_multi_figure.pdf",
 
 
 
-
-
-
-
-# Statistics
-
-
-do I use the same 10-11-day chunks, and calc avgs, then compute pairwise diffs? or, something else? no stats?
-
-should I do stats by month (microhab & climate), just to be comparable with Kay * Nicole??
 
 
 

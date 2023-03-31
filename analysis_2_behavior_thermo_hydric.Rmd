@@ -1576,12 +1576,20 @@ interannual variation (Kat & Nicole ~ rainfall)
 Notes:
 
 - Kat tracked May - July & split micro use May/June/July
-^ overlaid daytime and nighttime temps on the micro use fig
+  - overlaid daytime and nighttime temps on the micro use fig
+  - results:
+    - May = 37-39% in burrows
+    - June = 65% in burrows
+    - July = 81% in burrows
 - Nicole tracked from May - mid-July & split micro use May/June/July
+  - results:
+    - May = 25-26% time in burrows at Shrubbed (my site)
+    - June = 31% time in burrows at Shrubbed
+    - July = 43% time in burrows at Shrubbed
 
 
 *From Nicole's paper: We then calculated the percent of time G. sila used each microhabitat in May, June, and July at each site. To compare the probability that a lizard would be found underground (in burrows) between the two sites, we ran a mixed-effects logistic regression model in R (R Core Team, 2020; RStudio, 2020, lme4 package v. 1.1-26, Bates et al., 2015) with time as a polynomial, site and month as fixed effects, and lizard ID as a random effect.*
 
-
+Could also do prop time below ground ~ Davis ws temperature
 
 
