@@ -101,30 +101,29 @@ sunrises <- read.csv("./data/climate/Carrizo_sunrise_2021.csv")
 rise_April <- sunrises %>%
   dplyr::select(Day, time = Apr) %>%
   dplyr::filter(time != "") %>%
-  mutate(date = paste("2021", "04", Day, sep = "-"),
-         sunrise = as.POSIXct(paste(date, time, sep = " ")))
+  mutate(date = paste("2021", "04", Day, sep = "-"))
 rise_May <- sunrises %>%
   dplyr::select(Day, time = May) %>%
   dplyr::filter(time != "") %>%
-  mutate(date = paste("2021", "05", Day, sep = "-"),
-         sunrise = as.POSIXct(paste(date, time, sep = " ")))
+  mutate(date = paste("2021", "05", Day, sep = "-"))
 rise_June <- sunrises %>%
   dplyr::select(Day, time = Jun) %>%
   dplyr::filter(time != "") %>%
-  mutate(date = paste("2021", "06", Day, sep = "-"),
-         sunrise = as.POSIXct(paste(date, time, sep = " ")))
+  mutate(date = paste("2021", "06", Day, sep = "-"))
 rise_July <- sunrises %>%
   dplyr::select(Day, time = Jul) %>%
   dplyr::filter(time != "") %>%
-  mutate(date = paste("2021", "07", Day, sep = "-"),
-         sunrise = as.POSIXct(paste(date, time, sep = " ")))
+  mutate(date = paste("2021", "07", Day, sep = "-"))
 
-sunrises_formatted <- rise_April %>%
+sunrises_full <- rise_April %>%
   rbind(rise_May) %>%
   rbind(rise_June) %>%
   rbind(rise_July) %>%
-  dplyr::select(date, sunrise) %>%
-  mutate(date = as.Date(date))
+  dplyr::select(date, time) 
+sunrises_formatted <- sunrises_full %>%
+  mutate(sunrise = as.POSIXct(paste(date, time, sep = " ")),
+         date = as.Date(date)) %>%
+  dplyr::select(-time)
 head(sunrises_formatted)
 ```
 
@@ -137,32 +136,88 @@ sunsets <- read.csv("./data/climate/Carrizo_sunset_2021.csv")
 set_April <- sunsets %>%
   dplyr::select(Day, time = Apr) %>%
   dplyr::filter(time != "") %>%
-  mutate(date = paste("2021", "04", Day, sep = "-"),
-         sunset = as.POSIXct(paste(date, time, sep = " ")))
+  mutate(date = paste("2021", "04", Day, sep = "-"))
 set_May <- sunsets %>%
   dplyr::select(Day, time = May) %>%
   dplyr::filter(time != "") %>%
-  mutate(date = paste("2021", "05", Day, sep = "-"),
-         sunset = as.POSIXct(paste(date, time, sep = " ")))
+  mutate(date = paste("2021", "05", Day, sep = "-"))
 set_June <- sunsets %>%
   dplyr::select(Day, time = Jun) %>%
   dplyr::filter(time != "") %>%
-  mutate(date = paste("2021", "06", Day, sep = "-"),
-         sunset = as.POSIXct(paste(date, time, sep = " ")))
+  mutate(date = paste("2021", "06", Day, sep = "-"))
 set_July <- sunsets %>%
   dplyr::select(Day, time = Jul) %>%
   dplyr::filter(time != "") %>%
-  mutate(date = paste("2021", "07", Day, sep = "-"),
-         sunset = as.POSIXct(paste(date, time, sep = " ")))
+  mutate(date = paste("2021", "07", Day, sep = "-"))
 
-sunsets_formatted <- set_April %>%
+sunsets_full <- set_April %>%
   rbind(set_May) %>%
   rbind(set_June) %>%
   rbind(set_July) %>%
-  dplyr::select(date, sunset) %>%
-  mutate(date = as.Date(date))
+  dplyr::select(date, time) 
+sunsets_formatted <- sunsets_full %>%
+  mutate(sunset = as.POSIXct(paste(date, time, sep = " ")),
+         date = as.Date(date)) %>%
+  dplyr::select(-time)
 head(sunsets_formatted)
 ```
+
+
+
+Then, make versions of the sunrise and sunset times for 2018-2020:
+
+```{r}
+# sunsets
+sunsets_formatted_2018 <- sunsets_full %>%
+  mutate(date = paste("2018", substr(date, 6, 10), sep = "-"),
+         sunset = as.POSIXct(paste(date, time, sep = " ")),
+         date = as.Date(date)) %>%
+  dplyr::select(-time)
+sunsets_formatted_2019 <- sunsets_full %>%
+  mutate(date = paste("2019", substr(date, 6, 10), sep = "-"),
+         sunset = as.POSIXct(paste(date, time, sep = " ")),
+         date = as.Date(date)) %>%
+  dplyr::select(-time)
+sunsets_formatted_2020 <- sunsets_full %>%
+  mutate(date = paste("2020", substr(date, 6, 10), sep = "-"),
+         sunset = as.POSIXct(paste(date, time, sep = " ")),
+         date = as.Date(date)) %>%
+  dplyr::select(-time)
+
+sunsets_formatted_all_years <- sunsets_formatted %>%
+  rbind(sunsets_formatted_2020) %>%
+  rbind(sunsets_formatted_2019) %>%
+  rbind(sunsets_formatted_2018)
+
+# sunrises
+sunrises_formatted_2018 <- sunrises_full %>%
+  mutate(date = paste("2018", substr(date, 6, 10), sep = "-"),
+         sunrise = as.POSIXct(paste(date, time, sep = " ")),
+         date = as.Date(date)) %>%
+  dplyr::select(-time)
+sunrises_formatted_2019 <- sunrises_full %>%
+  mutate(date = paste("2019", substr(date, 6, 10), sep = "-"),
+         sunrise = as.POSIXct(paste(date, time, sep = " ")),
+         date = as.Date(date)) %>%
+  dplyr::select(-time)
+sunrises_formatted_2020 <- sunrises_full %>%
+  mutate(date = paste("2020", substr(date, 6, 10), sep = "-"),
+         sunrise = as.POSIXct(paste(date, time, sep = " ")),
+         date = as.Date(date)) %>%
+  dplyr::select(-time)
+
+sunrises_formatted_all_years <- sunrises_formatted %>%
+  rbind(sunrises_formatted_2020) %>%
+  rbind(sunrises_formatted_2019) %>%
+  rbind(sunrises_formatted_2018)
+```
+
+
+
+
+
+
+
 
 
 
@@ -191,6 +246,7 @@ dat_HOBO <- read_rds("./data/climate/burrow_HOBOs_BNLL_activeszn_2021.RDS") %>%
                 temp_C, RH_percent, VPD_kPa,
                 daytime)
 summary(dat_HOBO)
+length(unique(dat_HOBO$HOBO_ID))
 ```
 
 
@@ -221,11 +277,13 @@ dat_ws <- read_csv("./data/climate/CXXC1_weather_2017to2018.csv") %>%
   rbind(read_csv("./data/climate/CXXC1_weather_2020to2021.csv")) 
 # pretty-fy
 dat_ws_clean <- dat_ws %>%
+  distinct() %>%
   dplyr::select(Station_ID,
                 date_time = Date_Time, 
                 air_temp_F, 
                 RH_percent = relative_humidity_percent, 
                 precip_accum_one_hour_inches) %>%
+  dplyr::filter(complete.cases(air_temp_F, RH_percent)) %>%
   mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%Y %H:%M"),
          date_only = as.Date(substr(as.character(date_time), 1, 10),
                       format = "%Y-%m-%d"),
@@ -235,6 +293,8 @@ dat_ws_clean <- dat_ws %>%
          # VPD
          VPD_kPa = e_s_kPa*(1 - (RH_percent/100))
          ) 
+month = as.numeric(substr(as.character(date_only), 6, 7)),
+         
 head(dat_ws_clean)
 summary(dat_ws_clean)
 ```
@@ -289,7 +349,7 @@ summary(dat_ws_2021BNLL)
 ## Join Burrow & Cochora Data
 
 Join the two dataframes for the active season that we studied Blunt-nosed Leopard Lizards.
-
+*not sure I need to do this*
 
 
 
@@ -384,7 +444,7 @@ dat_HOBO_chunks_by_burrow <- dat_HOBO_means_by_burrow %>%
   # only use an avg for a date chunk for a HOBO with at least 3 days in that chunk
   # removes 6 values
   dplyr::filter(n >= 3) %>%
-  arrange(HOBO_ID, date_chunks)
+  arrange(HOBO_ID, date_chunks) 
 ```
 
 
@@ -430,7 +490,9 @@ HOBO_temp_lm <- lm(data = dat_HOBO_chunks_by_burrow,
                    temp_C_chunk_mean_by_HOBO ~ date_chunks #* daytime
                    )
 #summary(HOBO_temp_lm)
-HOBO_temp_emmean <- data.frame(emmeans(HOBO_temp_lm, "date_chunks"))
+HOBO_temp_emmean <- data.frame(emmeans(HOBO_temp_lm, "date_chunks")) %>%
+  # add ref for plots
+  mutate(type = "Burrow")
 HOBO_temp_pairwise <- pairs(emmeans(HOBO_temp_lm, "date_chunks"))
 HOBO_temp_pairwise
 ```
@@ -459,7 +521,9 @@ HOBO_RH_lm <- lm(data = dat_HOBO_chunks_by_burrow,
                    RH_chunk_mean_by_HOBO ~ date_chunks #* daytime
                    )
 #summary(HOBO_temp_lm)
-HOBO_RH_emmean <- data.frame(emmeans(HOBO_RH_lm, "date_chunks"))
+HOBO_RH_emmean <- data.frame(emmeans(HOBO_RH_lm, "date_chunks")) %>%
+  # add ref for plots
+  mutate(type = "Burrow")
 HOBO_RH_pairwise <- pairs(emmeans(HOBO_RH_lm, "date_chunks"))
 HOBO_RH_pairwise
 ```
@@ -486,7 +550,9 @@ HOBO_VPD_lm <- lm(data = dat_HOBO_chunks_by_burrow,
                    VPD_kPa_chunk_mean_by_HOBO ~ date_chunks #* daytime
                    )
 #summary(HOBO_temp_lm)
-HOBO_VPD_emmean <- data.frame(emmeans(HOBO_VPD_lm, "date_chunks"))
+HOBO_VPD_emmean <- data.frame(emmeans(HOBO_VPD_lm, "date_chunks")) %>%
+  # add ref for plots
+  mutate(type = "Burrow")
 HOBO_VPD_pairwise <- pairs(emmeans(HOBO_VPD_lm, "date_chunks"))
 HOBO_VPD_pairwise
 ```
@@ -497,6 +563,24 @@ burrow VPD pairwise comparison groups for when I make figures:
 - (May 10 - 20) - (May 21 - 31) - (Jun 1 - 11) = B
 - (Jun 1 - 11) - (Jun 12 - 22) = C
 - (Jun 12 - 22) - (Jun 23 - Jul 3) - (Jul 4 - 13) = D
+
+
+
+
+## WS?
+
+```{r}
+ws_VPD_lm <- lm(data = dat_ws_chunk_means,
+                   VPD_kPa_chunk_mean ~ date_chunks * daytime
+                   )
+summary(ws_VPD_lm)
+ws_VPD_emmean <- data.frame(emmeans(ws_VPD_lm, "date_chunks")) %>%
+  # add ref for plots
+  mutate(type = "Burrow")
+ws_VPD_pairwise <- pairs(emmeans(ws_VPD_lm, "date_chunks"))
+ws_VPD_pairwise
+```
+
 
 
 
@@ -534,27 +618,28 @@ ggplot() +
              size = 0.9,
               position = position_jitter(height = 0, width = 0.2)) +
   geom_line(data = HOBO_temp_emmean,
-             aes(x = date_chunks,
+             aes(x = as.numeric(date_chunks)-0.1,
                  y = emmean,
                  group = 1 # tell ggplot it's okay to only have 1 obs per x value
                  ),
              alpha = 0.2,
              size = 0.5) +
   geom_point(data = HOBO_temp_emmean,
-             aes(x = date_chunks,
-                 y = emmean
+             aes(x = as.numeric(date_chunks)-0.1,
+                 y = emmean,
+                 color = type
                  ),
              alpha = 1,
              size = 2) +
   geom_errorbar(data = HOBO_temp_emmean,
-                aes(x = date_chunks,
+                aes(x = as.numeric(date_chunks)-0.1,
                     y = emmean, 
                     ymin = lower.CL,
                     ymax = upper.CL
                     ),
-                width = .4) +
+                width = .2) +
   geom_point(data = dat_ws_chunk_means,
-             aes(x = date_chunks,
+             aes(x = as.numeric(date_chunks)+0.1,
                  y = temp_C_chunk_mean,
                  fill = daytime,
                  shape = daytime
@@ -562,7 +647,7 @@ ggplot() +
              alpha = 1,
              size = 2) +
   xlab("") + 
-  ylab("Burrow Temperature (°C)") +
+  ylab("Temperature (°C)") +
   # date chunk differences
   annotate(geom = "text", x = 1, y = 36, label = "A", size = 3) +
   annotate(geom = "text", x = 2, y = 36, label = "B", size = 3) +
@@ -581,9 +666,13 @@ ggplot() +
   geom_vline(xintercept = 7.5, #as.Date("2021-07-14"),
              linetype = "dashed",
              color = "slategray") +
-  scale_fill_manual(values = c("darkred", "darkblue"), name = "Time of Day"
+  # these are for the weather station points
+  scale_fill_manual(values = c("darkred", "darkblue"), name = "Weather Station"
                      ) +
-  scale_shape_manual(values = 24:25, name = "Time of Day"
+  scale_shape_manual(values = 24:25, name = "Weather Station"
+                     ) +
+  # these are for the burrow emmean points
+  scale_color_manual(values = "black", name = "Burrows", labels = ""
                      ) +
   #scale_fill_manual(values = my_colors, name = "Sex") +
   #scale_x_discrete(labels = my_labels) +
@@ -608,27 +697,28 @@ ggplot() +
              size = 0.9,
               position = position_jitter(height = 0, width = 0.2)) +
   geom_line(data = HOBO_RH_emmean,
-             aes(x = date_chunks,
+             aes(x = as.numeric(date_chunks)-0.1,
                  y = emmean,
                  group = 1 # tell ggplot it's okay to only have 1 obs per x value
                  ),
              alpha = 0.2,
              size = 0.5) +
   geom_point(data = HOBO_RH_emmean,
-             aes(x = date_chunks,
-                 y = emmean
+             aes(x = as.numeric(date_chunks)-0.1,
+                 y = emmean,
+                 color = type
                  ),
              alpha = 1,
              size = 2) +
   geom_errorbar(data = HOBO_RH_emmean,
-                aes(x = date_chunks,
+                aes(x = as.numeric(date_chunks)-0.1,
                     y = emmean, 
                     ymin = lower.CL,
                     ymax = upper.CL
                     ),
-                width = .4) +
+                width = .2) +
   geom_point(data = dat_ws_chunk_means,
-             aes(x = date_chunks,
+             aes(x = as.numeric(date_chunks)+0.1,
                  y = RH_chunk_mean,
                  fill = daytime,
                  shape = daytime
@@ -655,9 +745,13 @@ ggplot() +
   geom_vline(xintercept = 7.5, #as.Date("2021-07-14"),
              linetype = "dashed",
              color = "slategray") +
-  scale_fill_manual(values = c("darkred", "darkblue"), name = "Time of Day"
+  # these are for the weather station points
+  scale_fill_manual(values = c("darkred", "darkblue"), name = "Weather Station"
                      ) +
-  scale_shape_manual(values = 24:25, name = "Time of Day"
+  scale_shape_manual(values = 24:25, name = "Weather Station"
+                     ) +
+  # these are for the burrow emmean points
+  scale_color_manual(values = "black", name = "Burrows", labels = ""
                      ) +
   #scale_color_manual(values = my_colors, name = "Sex") +
   #scale_fill_manual(values = my_colors, name = "Sex") +
@@ -684,27 +778,28 @@ ggplot() +
              size = 0.9,
               position = position_jitter(height = 0, width = 0.2)) +
   geom_line(data = HOBO_VPD_emmean,
-             aes(x = date_chunks,
+             aes(x = as.numeric(date_chunks)-0.1,
                  y = emmean,
                  group = 1 # tell ggplot it's okay to only have 1 obs per x value
                  ),
              alpha = 0.2,
              size = 0.5) +
   geom_point(data = HOBO_VPD_emmean,
-             aes(x = date_chunks,
-                 y = emmean
+             aes(x = as.numeric(date_chunks)-0.1,
+                 y = emmean,
+                 color = type
                  ),
              alpha = 1,
              size = 2) +
   geom_errorbar(data = HOBO_VPD_emmean,
-                aes(x = date_chunks,
+                aes(x = as.numeric(date_chunks)-0.1,
                     y = emmean, 
                     ymin = lower.CL,
                     ymax = upper.CL
                     ),
-                width = .4) +
+                width = .2) +
   geom_point(data = dat_ws_chunk_means,
-             aes(x = date_chunks,
+             aes(x = as.numeric(date_chunks)+0.1,
                  y = VPD_kPa_chunk_mean,
                  fill = daytime,
                  shape = daytime
@@ -731,15 +826,18 @@ ggplot() +
   geom_vline(xintercept = 7.5, #as.Date("2021-07-14"),
              linetype = "dashed",
              color = "slategray") +
-  scale_fill_manual(values = c("darkred", "darkblue"), name = "Time of Day"
+  scale_fill_manual(values = c("darkred", "darkblue"), name = "Weather Station"
                      ) +
-  scale_shape_manual(values = 24:25, name = "Time of Day"
+  scale_shape_manual(values = 24:25, name = "Weather Station"
+                     ) +
+  # these are for the burrow emmean points
+  scale_color_manual(values = "black", name = "Burrows", labels = ""
                      ) +
   #scale_color_manual(values = my_colors, name = "Sex") +
   #scale_fill_manual(values = my_colors, name = "Sex") +
   #scale_shape_manual(values = my_shapes_open, name = "Sex") +
   #scale_x_discrete(labels = my_labels) +
-  ylim(0, 4.4) + 
+  #ylim(0, 4.4) + 
   savs_ggplot_theme -> daily_VPD_fig
 daily_VPD_fig
 ```
@@ -787,28 +885,190 @@ ggsave(filename = "climate_multi_figure.pdf",
 
 
 
+# Across Years
+
+
+## Prep Data
+
+Winter is ~ Dec to March. We will look at precipitation in this time period.
+
+BNLL active season is April - July. We will look at temp, RH, and VPD during this time period.
+
+So, I want to add grouping variables for time period: "winter" / "active season"; and year (of active season): 2018, 2019, 2020, 2021.
+
+
+```{r}
+dat_ws_compare_years <- dat_ws_clean %>%
+  mutate(year = case_when(date_only >= as.Date("2017-12-01") &
+                            date_only < as.Date("2018-08-01") ~ 2018,
+                          date_only >= as.Date("2018-12-01") &
+                            date_only < as.Date("2019-08-01") ~ 2019,
+                          date_only >= as.Date("2019-12-01") &
+                            date_only < as.Date("2020-08-01") ~ 2020,
+                          date_only >= as.Date("2020-12-01") &
+                            date_only < as.Date("2021-08-01") ~ 2021),
+         year = factor(year)) %>%
+  dplyr::filter(complete.cases(year)) %>%
+  mutate(season = case_when(month %in% c(12, 1, 2, 3) ~ "Winter",
+                            month %in% c(4:7) ~ "Active Season"),
+         season = factor(season))
+summary(dat_ws_compare_years)
+```
 
 
 
 
 
+## Mean Precip Per Year
+
+What was the cumulative amount of rain for each winter?
+
+```{r}
+cum_rain <- dat_ws_compare_years %>%
+  dplyr::filter(season == "Winter") %>%
+  group_by(year) %>%
+  summarise(winter_precip_in = sum(precip_accum_one_hour_inches, na.rm = TRUE))
+cum_rain
+```
 
 
 
 
 
+## Means Per Year/Season
+
+Make a table of the (monthly?) means per year per season.
+
+```{r}
+annual_climate <- dat_ws_compare_years %>%
+  # during the active season only
+  dplyr::filter(season == "Active Season") %>%
+  # add sunrise/sunset to calculate daytimes only
+  left_join(sunsets_formatted_all_years, by = c('date_only' = 'date')) %>%
+  left_join(sunrises_formatted_all_years, by = c('date_only' = 'date')) %>%
+  mutate(daytime = case_when(date_time >= sunrise & date_time <= sunset ~ "day",
+                             date_time < sunrise ~ "night",
+                             date_time > sunset ~ "night"),
+         daytime = as.factor(daytime)) %>%
+  # get daily means first
+  group_by(date_only, year, month, daytime) %>%
+  summarise(temp_C_daily_mean = mean(temp_C),
+            RH_daily_mean = mean(RH_percent),
+            VPD_kPa_daily_mean = mean(VPD_kPa)) %>%
+  # avg daily means per month
+  group_by(year, month, daytime) %>%
+  summarise(temp_C_mean = mean(temp_C_daily_mean),
+            RH_mean = mean(RH_daily_mean),
+            VPD_kPa_mean = mean(VPD_kPa_daily_mean),
+            temp_C_sd = sd(temp_C_daily_mean),
+            RH_sd = sd(RH_daily_mean),
+            VPD_kPa_sd = sd(VPD_kPa_daily_mean))
+
+summary(annual_climate)
+annual_climate
+```
+
+
+rearrange the monthly values into cleaner format for joining:
+
+```{r}
+annual_climate_cleaned <- annual_climate %>%
+  dplyr::filter(daytime == "day") %>%
+  mutate(temp = paste(round(temp_C_mean, 1), 
+                             round(temp_C_sd, 1),
+                             sep = " ± "),
+         RH = paste(round(RH_mean, 1), 
+                             round(RH_sd, 1),
+                             sep = " ± "),
+         VPD = paste(round(VPD_kPa_mean, 1), 
+                             round(VPD_kPa_sd, 1),
+                             sep = " ± ")) %>%
+  dplyr::select(year, month, temp, RH, VPD) %>%
+  # get rid of month grouping so it lets me delete that column
+  ungroup()
+annual_climate_cleaned
+
+# split for April
+annual_climate_cleaned_April <- annual_climate_cleaned %>%
+  dplyr::filter(month == 4) %>%
+  dplyr::select(year,
+                April_temp = temp,
+                April_RH = RH,
+                April_VPD = VPD)
+# split for May
+annual_climate_cleaned_May <- annual_climate_cleaned %>%
+  dplyr::filter(month == 5) %>%
+  dplyr::select(year,
+                May_temp = temp,
+                May_RH = RH,
+                May_VPD = VPD)
+# split for June
+annual_climate_cleaned_June <- annual_climate_cleaned %>%
+  dplyr::filter(month == 6) %>%
+  dplyr::select(year,
+                June_temp = temp,
+                June_RH = RH,
+                June_VPD = VPD)
+# split for July
+annual_climate_cleaned_July <- annual_climate_cleaned %>%
+  dplyr::filter(month == 7) %>%
+  dplyr::select(year,
+                July_temp = temp,
+                July_RH = RH,
+                July_VPD = VPD)
+```
 
 
 
 
+## Pretty Table
+
+Now, put all the monthly values back together with the rainfall stats and microhabitat use stats.
+
+Rainfall and climate stats were calculated above. For the microhabitat use, I am estimating the proportion of time (out of 1) that BNLL spent belowground; I eyeball this from Kat and Nicole's figures for now, and use my average monthly values from 'analysis_2'. 2020 does not have microhabitat use data published yet...
+
+
+- Kat results (2018):
+    - May = 37-39% in burrows
+    - June = 65% in burrows
+    - July = 81% in burrows
+- Nicole results (2019):
+    - May = 25-26% time in burrows at Shrubbed (my site)
+    - June = 31% time in burrows at Shrubbed
+    - July = 43% time in burrows at Shrubbed
+- my results ('analysis_2' file, 2021):
+    - May = 
+    - June = 
+    - July = 
+    
+
+```{r}
+annual_climate_rainfall <- cum_rain %>%
+  left_join(annual_climate_cleaned_April, by = 'year') %>%
+  left_join(annual_climate_cleaned_May, by = 'year') %>%
+  left_join(annual_climate_cleaned_June, by = 'year') %>%
+  left_join(annual_climate_cleaned_July, by = 'year') %>%
+  # reorder by variable
+  dplyr::select(year, winter_precip_in,
+                April_temp, May_temp, June_temp, July_temp,
+                April_RH, May_RH, June_RH, July_RH,
+                April_VPD, May_VPD, June_VPD, July_VPD) %>%
+  # no microhabitat use for April in any years
+  # add microhabitat use for May-July
+  mutate(May_prop_below = c(0.38, 0.25, NA, 0.2),
+         June_prop_below = c(0.65, 0.31, NA, 0.5),
+         July_prop_below = c(0.81, 0.43, NA, 0.8))
+annual_climate_rainfall
+```
 
 
 
 
+And export that pretty table! :D
 
-
-
-
+```{r}
+write_csv(annual_climate_rainfall, "./results_statistics/climate_across_years.csv")
+```
 
 
 
