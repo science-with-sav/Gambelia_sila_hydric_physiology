@@ -1059,7 +1059,8 @@ annual_climate_rainfall <- cum_rain %>%
          June_prop_below = c(0.65, 0.31, NA, 0.52),
          July_prop_below = c(0.81, 0.43, NA, 0.74))
 annual_climate_rainfall
-annual_climate_rainfall_transposed <- data.frame(t(annual_climate_rainfall))
+annual_climate_rainfall_transposed <- data.frame(t(annual_climate_rainfall)) %>%
+  mutate(X0 = rownames(.))
 ```
 
 
