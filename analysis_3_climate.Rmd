@@ -98,32 +98,22 @@ sunrise times:
 ```{r}
 sunrises <- read.csv("./data/climate/Carrizo_sunrise_2021.csv")
 
-rise_April <- sunrises %>%
-  dplyr::select(Day, time = Apr) %>%
+sunrises_full <- sunrises %>% 
+  # put in tidy data format
+  pivot_longer(
+    cols = !Day, 
+    names_to = "month", 
+    values_to = "time"
+  ) %>%
+  # get rid of empty data
   dplyr::filter(time != "") %>%
-  mutate(date = paste("2021", "04", Day, sep = "-"))
-rise_May <- sunrises %>%
-  dplyr::select(Day, time = May) %>%
-  dplyr::filter(time != "") %>%
-  mutate(date = paste("2021", "05", Day, sep = "-"))
-rise_June <- sunrises %>%
-  dplyr::select(Day, time = Jun) %>%
-  dplyr::filter(time != "") %>%
-  mutate(date = paste("2021", "06", Day, sep = "-"))
-rise_July <- sunrises %>%
-  dplyr::select(Day, time = Jul) %>%
-  dplyr::filter(time != "") %>%
-  mutate(date = paste("2021", "07", Day, sep = "-"))
+  dplyr::filter(complete.cases(Day))
 
-sunrises_full <- rise_April %>%
-  rbind(rise_May) %>%
-  rbind(rise_June) %>%
-  rbind(rise_July) %>%
-  dplyr::select(date, time) 
-sunrises_formatted <- sunrises_full %>%
-  mutate(sunrise = as.POSIXct(paste(date, time, sep = " ")),
-         date = as.Date(date)) %>%
-  dplyr::select(-time)
+sunrises_formatted <- sunrises_full %>% 
+  mutate(date = as.POSIXct(paste("2021", month, Day, sep = "-"),
+                           format = "%Y-%b-%d"),
+         sunrise = as.POSIXct(paste(as.character(date), time, sep = " "))) %>%
+  dplyr::select(-time, -Day, -month)
 head(sunrises_formatted)
 ```
 
@@ -133,32 +123,22 @@ sunset times:
 ```{r}
 sunsets <- read.csv("./data/climate/Carrizo_sunset_2021.csv")
 
-set_April <- sunsets %>%
-  dplyr::select(Day, time = Apr) %>%
+sunsets_full <- sunsets %>% 
+  # put in tidy data format
+  pivot_longer(
+    cols = !Day, 
+    names_to = "month", 
+    values_to = "time"
+  ) %>%
+  # get rid of empty data
   dplyr::filter(time != "") %>%
-  mutate(date = paste("2021", "04", Day, sep = "-"))
-set_May <- sunsets %>%
-  dplyr::select(Day, time = May) %>%
-  dplyr::filter(time != "") %>%
-  mutate(date = paste("2021", "05", Day, sep = "-"))
-set_June <- sunsets %>%
-  dplyr::select(Day, time = Jun) %>%
-  dplyr::filter(time != "") %>%
-  mutate(date = paste("2021", "06", Day, sep = "-"))
-set_July <- sunsets %>%
-  dplyr::select(Day, time = Jul) %>%
-  dplyr::filter(time != "") %>%
-  mutate(date = paste("2021", "07", Day, sep = "-"))
+  dplyr::filter(complete.cases(Day))
 
-sunsets_full <- set_April %>%
-  rbind(set_May) %>%
-  rbind(set_June) %>%
-  rbind(set_July) %>%
-  dplyr::select(date, time) 
-sunsets_formatted <- sunsets_full %>%
-  mutate(sunset = as.POSIXct(paste(date, time, sep = " ")),
-         date = as.Date(date)) %>%
-  dplyr::select(-time)
+sunsets_formatted <- sunsets_full %>% 
+  mutate(date = as.POSIXct(paste("2021", month, Day, sep = "-"),
+                           format = "%Y-%b-%d"),
+         sunset = as.POSIXct(paste(as.character(date), time, sep = " "))) %>%
+  dplyr::select(-time, -Day, -month)
 head(sunsets_formatted)
 ```
 
@@ -168,21 +148,24 @@ Then, make versions of the sunrise and sunset times for 2018-2020:
 
 ```{r}
 # sunsets
-sunsets_formatted_2018 <- sunsets_full %>%
-  mutate(date = paste("2018", substr(date, 6, 10), sep = "-"),
-         sunset = as.POSIXct(paste(date, time, sep = " ")),
-         date = as.Date(date)) %>%
-  dplyr::select(-time)
-sunsets_formatted_2019 <- sunsets_full %>%
-  mutate(date = paste("2019", substr(date, 6, 10), sep = "-"),
-         sunset = as.POSIXct(paste(date, time, sep = " ")),
-         date = as.Date(date)) %>%
-  dplyr::select(-time)
-sunsets_formatted_2020 <- sunsets_full %>%
-  mutate(date = paste("2020", substr(date, 6, 10), sep = "-"),
-         sunset = as.POSIXct(paste(date, time, sep = " ")),
-         date = as.Date(date)) %>%
-  dplyr::select(-time)
+sunsets_formatted_2018 <- sunsets_full %>% 
+  mutate(date = as.POSIXct(paste("2018", month, Day, sep = "-"),
+                           format = "%Y-%b-%d"),
+         sunset = as.POSIXct(paste(as.character(date), time, sep = " "))) %>%
+  dplyr::select(-time, -Day, -month)
+
+sunsets_formatted_2019 <- sunsets_full %>% 
+  mutate(date = as.POSIXct(paste("2019", month, Day, sep = "-"),
+                           format = "%Y-%b-%d"),
+         sunset = as.POSIXct(paste(as.character(date), time, sep = " "))) %>%
+  dplyr::select(-time, -Day, -month)
+
+sunsets_formatted_2020 <- sunsets_full %>% 
+  mutate(date = as.POSIXct(paste("2020", month, Day, sep = "-"),
+                           format = "%Y-%b-%d"),
+         sunset = as.POSIXct(paste(as.character(date), time, sep = " "))) %>%
+  dplyr::select(-time, -Day, -month)
+
 
 sunsets_formatted_all_years <- sunsets_formatted %>%
   rbind(sunsets_formatted_2020) %>%
@@ -190,21 +173,23 @@ sunsets_formatted_all_years <- sunsets_formatted %>%
   rbind(sunsets_formatted_2018)
 
 # sunrises
-sunrises_formatted_2018 <- sunrises_full %>%
-  mutate(date = paste("2018", substr(date, 6, 10), sep = "-"),
-         sunrise = as.POSIXct(paste(date, time, sep = " ")),
-         date = as.Date(date)) %>%
-  dplyr::select(-time)
-sunrises_formatted_2019 <- sunrises_full %>%
-  mutate(date = paste("2019", substr(date, 6, 10), sep = "-"),
-         sunrise = as.POSIXct(paste(date, time, sep = " ")),
-         date = as.Date(date)) %>%
-  dplyr::select(-time)
-sunrises_formatted_2020 <- sunrises_full %>%
-  mutate(date = paste("2020", substr(date, 6, 10), sep = "-"),
-         sunrise = as.POSIXct(paste(date, time, sep = " ")),
-         date = as.Date(date)) %>%
-  dplyr::select(-time)
+sunrises_formatted_2018 <- sunrises_full %>% 
+  mutate(date = as.POSIXct(paste("2018", month, Day, sep = "-"),
+                           format = "%Y-%b-%d"),
+         sunrise = as.POSIXct(paste(as.character(date), time, sep = " "))) %>%
+  dplyr::select(-time, -Day, -month)
+
+sunrises_formatted_2019 <- sunrises_full %>% 
+  mutate(date = as.POSIXct(paste("2019", month, Day, sep = "-"),
+                           format = "%Y-%b-%d"),
+         sunrise = as.POSIXct(paste(as.character(date), time, sep = " "))) %>%
+  dplyr::select(-time, -Day, -month)
+
+sunrises_formatted_2020 <- sunrises_full%>% 
+  mutate(date = as.POSIXct(paste("2020", month, Day, sep = "-"),
+                           format = "%Y-%b-%d"),
+         sunrise = as.POSIXct(paste(as.character(date), time, sep = " "))) %>%
+  dplyr::select(-time, -Day, -month)
 
 sunrises_formatted_all_years <- sunrises_formatted %>%
   rbind(sunrises_formatted_2020) %>%
@@ -293,6 +278,8 @@ dat_ws_clean <- dat_ws %>%
          # VPD
          VPD_kPa = e_s_kPa*(1 - (RH_percent/100))
          ) 
+
+# something to fix...
 month = as.numeric(substr(as.character(date_only), 6, 7)),
          
 head(dat_ws_clean)
