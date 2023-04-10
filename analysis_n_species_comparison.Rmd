@@ -64,38 +64,261 @@ look at CEWL diffs for BNLL, WFL, and AWL
 
 
 
+## *Gambelia sila* Data
+
+```{r load Gambelia data}
+BNLL_dat <- read_rds("./data/G_sila_clean_full_dat.RDS") %>% 
+  dplyr::select(date = capture_date, individual_ID, 
+                CEWL_g_m2h,
+                msmt_temp_C,
+                msmt_RH_percent,
+                osmolality_mmol_kg = osmolality_mmol_kg_mean,
+                sex_M_F, mass_g, SVL_mm) %>%
+  dplyr::filter(complete.cases(osmolality_mmol_kg, msmt_temp_C)) %>%
+  # add column for species
+  mutate(species = "Gambelia sila",
+         group = "G")
+summary(BNLL_dat)
+```
 
 
 
 
 
 
+## *Sceloporus occidentalis* Data
 
-
-## Get S.o. Data
 
 ```{r load Sceloporus data}
-Sceloporus1 <- read.csv("./data/Sceloporus_CEWL_1.csv") %>%
-  dplyr::filter(region == "dors") %>%
-  dplyr::select(date, individual_ID, CEWL_g_m2h = TEWL_g_m2h)
-Sceloporus2 <- read.csv("./data/Sceloporus_CEWL_2.csv") %>%
-  dplyr::filter(day == "capture") %>%
-  dplyr::select(date, individual_ID, CEWL_g_m2h)
-Sceloporus <- rbind(Sceloporus1, Sceloporus2) %>%
-  mutate(species = "S. occidentalis",
-         individual_ID = as.character(individual_ID))
+Sceloporus_study1 <- read_rds("./data/Sceloporus_2021_CURE.RDS") %>%
+  dplyr::filter(region == "Dorsum") %>%
+  dplyr::filter(complete.cases(osmolality_mmol_kg)) %>% 
+  dplyr::select(date, individual_ID, 
+                CEWL_g_m2h = TEWL_g_m2h,
+                msmt_temp_C = ambient_temp_C,
+                msmt_RH_percent = ambient_RH_percent,
+                osmolality_mmol_kg,
+                sex_M_F, mass_g, SVL_mm) %>%
+  mutate(sex_M_F = factor(sex_M_F, labels = c("Female", "Male")),
+         group = "A")
+Sceloporus_study2 <- read_rds("./data/Sceloporus_2021_exp.RDS") %>%
+  dplyr::filter(complete.cases(osmolality_mmol_kg_mean)) %>% 
+  dplyr::select(date = capture_date, individual_ID, 
+                CEWL_g_m2h = CEWL_g_m2h_mean,
+                msmt_temp_C,
+                msmt_RH_percent,
+                osmolality_mmol_kg = osmolality_mmol_kg_mean,
+                mass_g, SVL_mm) %>%
+  mutate(sex_M_F = factor("Male"),
+         group = "B")
+  
+Sceloporus <- Sceloporus_study2 %>% 
+  #rbind(Sceloporus_study1, Sceloporus_study2) %>%
+  # add column for species
+  mutate(species = "Sceloporus occidentalis")
+summary(Sceloporus)
 ```
+
+
 
 
 ## Merge S.o. and G.s.
 
 ```{r merge}
-sp_compare <- lizards_all %>%
-  dplyr::select(date, individual_ID, CEWL_g_m2h) %>%
-  mutate(species = "G. sila",
-         individual_ID = as.character(individual_ID)) %>%
-  rbind(Sceloporus) 
+dat_all_liz <- BNLL_dat %>%
+  rbind(Sceloporus) %>%
+  mutate(species = factor(species),
+         # calculate VPD based on Campbell & Norman 1998
+         e_s_kPa = 0.611 * exp((17.502*msmt_temp_C)/(msmt_temp_C + 240.97)),
+         msmt_VPD_kPa = e_s_kPa*(1 - (msmt_RH_percent/100))
+         ) 
+summary(dat_all_liz)
+```
 
+
+
+
+
+
+
+
+
+
+
+# Check Distributions
+
+
+## Covariates
+
+First, I need to check that the conditions measurements were taken in mostly overlapped for the two species.
+
+```{r}
+ggplot(dat_all_liz) +
+  aes(x = msmt_temp_C,
+      y = CEWL_g_m2h,
+      color = group) +
+  geom_point()
+ggplot(dat_all_liz) +
+  aes(x = msmt_RH_percent,
+      y = CEWL_g_m2h,
+      color = group) +
+  geom_point()
+ggplot(dat_all_liz) +
+  aes(x = msmt_VPD_kPa,
+      y = CEWL_g_m2h,
+      color = group) +
+  geom_point()
+```
+
+
+
+## Body Sizes
+
+Also get stats on how different the two species are.
+
+```{r}
+ggplot(dat_all_liz) +
+  aes(x = SVL_mm,
+      y = mass_g,
+      color = group) +
+  geom_point()
+dat_all_liz %>%
+  group_by(species, sex_M_F) %>% 
+  summarise(mean_SVL_mm = mean(SVL_mm),
+            mean_mass = mean(mass_g))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Compare Hydric Physiology
+
+
+## Stats
+
+```{r}
+# osmolality
+sp_lm_osml <- lm(data = dat_all_liz, osmolality_mmol_kg ~ species)
+osml_emmean <- data.frame(emmeans(sp_lm_osml, "species")) %>%
+  rename(osml_emmean = emmean,
+         osml_lower = lower.CL,
+         osml_upper = upper.CL)
+pairs(emmeans(sp_lm_osml, "species"))
+
+# CEWL
+sp_lm_CEWL <- lm(data = dat_all_liz, CEWL_g_m2h ~ species)
+CEWL_emmean <- data.frame(emmeans(sp_lm_CEWL, "species")) %>%
+  rename(CEWL_emmean = emmean,
+         CEWL_lower = lower.CL,
+         CEWL_upper = upper.CL)
+pairs(emmeans(sp_lm_CEWL, "species"))
+
+# put marginal means together
+both_emmeans <- osml_emmean %>%
+  left_join(CEWL_emmean, by = 'species')
+```
+
+
+
+## CEWL Osml Fig
+
+
+
+```{r}
+# custom, consistent legend labels
+my_labels <- c(expression(italic("Gambelia sila")),
+               expression(italic("Sceloporus occidentalis")))
+
+ggplot() +
+  # all data
+  geom_point(data = dat_all_liz,
+             aes(x = osmolality_mmol_kg,
+                  y = CEWL_g_m2h,
+                  fill = species,
+                 color = species,
+                  shape = species),
+             alpha = 0.3) + 
+  # group
+  stat_ellipse(data = dat_all_liz,
+             aes(x = osmolality_mmol_kg,
+                  y = CEWL_g_m2h,
+                  color = species),
+             size = 0.5,
+               show.legend = FALSE) +
+  # mean points
+  geom_point(data = both_emmeans,
+             aes(x = osml_emmean,
+                 y = CEWL_emmean,
+                 fill = species,
+                 shape = species),
+             size = 5,
+             color = "black") + 
+  #geom_errorbar(data = both_emmeans,
+   #             aes(x = osml_emmean,
+    #                y = CEWL_emmean,
+     #               xmin = osml_lower,
+      #              xmax = osml_upper,
+       #             ymin = CEWL_lower,
+        #            ymax = CEWL_upper)) +
+  scale_fill_manual(values = c("Orange", "Blue"), labels = my_labels, name = NULL) +
+  scale_color_manual(values = c("Orange", "Blue"), labels = my_labels, name = NULL) +
+  scale_shape_manual(values = c(21:22), labels = my_labels, name = NULL) +
+  xlab(bquote('Plasma Osmolality (mmol '*kg^-1*')')) +
+  ylab(bquote('CEWL (g '*m^-2*' '*h^-1*')')) +
+  theme_classic() +
+  theme(text = element_text(color = "black", 
+                                               family = "sans", 
+                                               size = 12),
+                           axis.text = element_text(color = "black", 
+                                                    family = "sans", 
+                                                    size = 8),
+                           legend.text = element_text(color = "black", 
+                                                      family = "sans", 
+                                                      size = 8),
+                           legend.text.align = 0,
+                           legend.position = "bottom",
+                           #plot.margin = margin(t = 6, r = 6, b = 0, l = 1, unit = "pt")
+                           ) -> Scelop_BNLL_pts
+
+ggsave(filename = "Scelop_BNLL_compare.pdf",
+       plot = Scelop_BNLL_pts,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 160, height = 120)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# old
+
+
+
+```{r}
 sp_compare$species <- factor(sp_compare$species,
                              levels = c("S. occidentalis", "G. sila"))
 
