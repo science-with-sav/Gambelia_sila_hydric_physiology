@@ -121,6 +121,25 @@ summary(Sceloporus)
 
 
 
+## *Podarcis* Data
+
+```{r load Podarcis data}
+Podarcis <- read_csv("./data/Podarcis_2022.csv") %>%
+  dplyr::filter(Body == "Dorsum") %>%
+  dplyr::select(date = Date, individual_ID = ID, 
+                #sex_M_F = Sex, mass_g = Mass, SVL_mm = SVL,
+                CEWL_g_m2h = CEWL_g_m2h_mean,
+                msmt_temp_C, msmt_RH_percent) %>%
+  mutate(date = as.Date(date, format = "%m/%d/%y"),
+         individual_ID = factor(individual_ID),
+         #sex_M_F = factor(sex_M_F),
+         species = "Podarcis erhardii",
+         # calculate VPD based on Campbell & Norman 1998
+         e_s_kPa = 0.611 * exp((17.502*msmt_temp_C)/(msmt_temp_C + 240.97)),
+         msmt_VPD_kPa = e_s_kPa*(1 - (msmt_RH_percent/100)))
+summary(Podarcis)
+```
+
 
 ## Merge S.o. and G.s.
 
