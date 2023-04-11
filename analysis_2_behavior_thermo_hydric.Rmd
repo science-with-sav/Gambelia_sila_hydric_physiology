@@ -38,6 +38,8 @@ if (!require("Hmisc")) install.packages("Hmisc")
 library("Hmisc") # correlation matrix
 if (!require("emmeans")) install.packages("emmeans")
 library("emmeans") # marginal means & confints
+if (!require("car")) install.packages("car")
+library("car") # Anova
 ```
 
 
@@ -1470,6 +1472,9 @@ micro_glmm_sex <- lme4::glmer(data = microhab,
                            above_below ~ date_chunks*sex_M_F +
                             (1|individual_ID),
                            family="binomial")
+summary(micro_glmm_sex)
+car::Anova(micro_glmm_sex, type = 2, test.statistic = "Chisq", error.estimate = "pearson")
+
 anova(micro_glmm, micro_glmm_sex)
 ```
 
