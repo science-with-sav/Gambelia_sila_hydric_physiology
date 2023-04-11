@@ -272,6 +272,7 @@ dat_ws_clean <- dat_ws %>%
   mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%Y %H:%M"),
          date_only = as.Date(substr(as.character(date_time), 1, 10),
                       format = "%Y-%m-%d"),
+         month = as.numeric(substr(as.character(date_only), 6, 7)),
          temp_C = fahrenheit.to.celsius(air_temp_F, round = 2),
          # calculate vapor pressure deficit, Campbell & Normal 1998
          e_s_kPa = 0.611 * exp((17.502*temp_C)/(temp_C + 240.97)), # saturation VP
@@ -279,9 +280,6 @@ dat_ws_clean <- dat_ws %>%
          VPD_kPa = e_s_kPa*(1 - (RH_percent/100))
          ) 
 
-# something to fix...
-month = as.numeric(substr(as.character(date_only), 6, 7)),
-         
 head(dat_ws_clean)
 summary(dat_ws_clean)
 ```
