@@ -773,23 +773,6 @@ We tried to give the lizards water to drink. Did they actually drink any? And di
 
 
 
-## Tmt Effect Check
-
-
-What was mass change *during* treatment, when we either gave lizards water to drink or a sham treatment?
-
-This quantifies the difference in mass gain/loss when we gave them water to drink versus sham treatment.
-
-```{r tmt mass change stats}
-summary(lm(data = dat_tmt_change, tmt_mass_change_g ~ tmt))
-emmeans(lm(data = dat_tmt_change, tmt_mass_change_g ~ tmt), "tmt")
-```
-
-So, it did result in a significant change in mass within the same-day water supplementation tmt (vs sham), but only ~1.4g difference, on average.
-
-
-
-
 
 ## Calculate Deltas
 
@@ -824,6 +807,30 @@ dat_tmt_change <- dat_repeats %>%
 dat_tmt_change_May_only <- dat_tmt_change %>%
   dplyr::filter(month == "May")
 ```
+
+
+  
+
+
+## Tmt Effect Check
+
+
+What was mass change *during* treatment, when we either gave lizards water to drink or a sham treatment?
+
+This quantifies the difference in mass gain/loss when we gave them water to drink versus sham treatment.
+
+```{r tmt mass change stats}
+tmt_change <- lm(data = dat_tmt_change, tmt_mass_change_g ~ tmt)
+summary(tmt_change)
+emmeans(tmt_change, "tmt")
+```
+
+So, it did result in a significant change in mass within the same-day water supplementation tmt (vs sham), but only ~1.4g difference, on average.
+
+
+
+
+
 
 
 
