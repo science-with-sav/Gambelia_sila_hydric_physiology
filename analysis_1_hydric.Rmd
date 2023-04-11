@@ -65,15 +65,15 @@ savs_ggplot_theme <- theme_bw() +
 savs_ggplot_theme_corrs <- theme_classic() +
   theme(text = element_text(color = "black", 
                             family = "sans", 
-                            size = 20),
+                            size = 12),
         axis.text = element_text(color = "black", 
                                  family = "sans", 
-                                 size = 18),
+                                 size = 8),
         legend.text = element_text(color = "black", 
                                  family = "sans", 
-                                 size = 18),
+                                 size = 8),
         legend.text.align = 0,
-        legend.position = "right"
+        legend.position = "bottom"
         )
   
 # custom colors
@@ -359,12 +359,20 @@ Across dates, CEWL had no relationship with body temp, ambient temp, or ambient 
 Now, check linear models of the effect of each of body temp, ambient temp, and ambient VPD with the interaction of date on CEWL.
 
 ```{r}
-summary(lm(data = dat,
-           CEWL_g_m2h ~ cloacal_temp_C*week))
-summary(lm(data = dat,
-           CEWL_g_m2h ~ msmt_temp_C*week))
-summary(lm(data = dat,
-           CEWL_g_m2h ~ msmt_VPD_kPa*week))
+CEWL_cov_check_clotemp <- lm(data = dat,
+           CEWL_g_m2h ~ cloacal_temp_C*week)
+summary(CEWL_cov_check_clotemp)
+CEWL_cov_check_msmttemp <- lm(data = dat,
+           CEWL_g_m2h ~ msmt_temp_C*week)
+summary(CEWL_cov_check_msmttemp)
+CEWL_cov_check_VPD <- lm(data = dat,
+           CEWL_g_m2h ~ msmt_VPD_kPa*week)
+summary(CEWL_cov_check_VPD)
+
+# F stats
+anova(CEWL_cov_check_clotemp)
+anova(CEWL_cov_check_msmttemp)
+anova(CEWL_cov_check_VPD)
 ```
 
 CEWL had a positive relationship with each of body temp, ambient temp, and ambient VPD, *but only for the measurements taken in May* (week 3).
@@ -477,9 +485,14 @@ ggplot(dat) +
               se = F, 
               size = 1.6, 
               alpha = 1) + 
-  scale_color_manual(values = n3, name = "Measurement\nPeriod") + 
+  scale_color_manual(values = n3, name = NULL
+                     #name = "Measurement\nPeriod"
+                     ) + 
   xlab("Plasma Osmolality (mmol/kg)") + 
   ylab(bquote('CEWL (g/'*m^2*'h)')) + 
+  guides(color = guide_legend(nrow = 1, byrow = TRUE),
+         #fill = guide_legend(title.position = "left") # makes color ramp weird
+         ) +
   #ylab("") +
   #xlim(300, 450) +
   #annotate(geom = "text", x = 430, y = 24, label = bquote(''*R^2*'=0.033'), 
@@ -489,12 +502,13 @@ ggplot(dat) +
 CEWL_osml_fig
 
 # export figure
-#ggsave(filename = "CEWL_osml_fig.jpeg",
- #      plot = CEWL_osml_fig,
-  #     path = "./results_figures",
-   #    device = "jpeg",
-    #   dpi = 1200,
-     #  width = 6, height = 4)
+ggsave(filename = "CEWL_osml_fig.pdf",
+       plot = CEWL_osml_fig,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 80, height = 80)
 ```
 
 
@@ -1919,10 +1933,10 @@ Put in one plot together:
 ```{r}
 ggarrange(full_CEWL_emmean_plot, 
           full_osml_emmean_plot, 
-          full_mass_emmean_plot,
+          #full_mass_emmean_plot,
           full_SMI_emmean_plot,
           #ncol = 4, nrow = 1,
-          ncol = 1, nrow = 4,
+          ncol = 1, nrow = 3,
           labels = c("A", "B", "C"),
           common.legend = TRUE,
           legend = "bottom"
@@ -2006,7 +2020,8 @@ fem_starting_values <- dat_repeat_females %>%
   dplyr::select(individual_ID,
                 CEWL_April = CEWL_g_m2h,
                 osml_April = osmolality_mmol_kg_mean,
-                mass_April = mass_g)
+                mass_April = mass_g,
+                SMI_April = SMI)
 fem_change <- dat_repeat_females %>%
   # add starting values
   left_join(fem_starting_values, by = 'individual_ID') %>%
@@ -2014,6 +2029,7 @@ fem_change <- dat_repeat_females %>%
   dplyr::filter(complete.cases(mass_April, CEWL_April)) %>%
   # calculate difference for each msmt versus in April
   mutate(mass_change_from_April = mass_g - mass_April,
+         SMI_change_from_April = SMI - SMI_April,
          CEWL_change_from_April = CEWL_g_m2h - CEWL_April,
          osml_change_from_April = osmolality_mmol_kg_mean - osml_April)
 summary(fem_change)
@@ -2086,9 +2102,9 @@ ttests:
 t.test(fem_change_stats$CEWL_change_from_April)
 t.test(fem_change_stats$osml_change_from_April)
 t.test(fem_change_stats$mass_change_from_April)
+t.test(fem_change_stats$SMI_change_from_April)
 ```
 
-Only mass change was significantly different from zero... But, if we got rid of the one super low osmolality value, the change in osmolality would also be significant. 
 
 
 
@@ -2107,22 +2123,22 @@ repro_logit1 <- glm(gravid_Y_N ~
 repro_logit2 <- glm(gravid_Y_N ~ 
                      SMI, 
                    data = dat_repro_females, 
-                   family = binomial)
+                   family = "binomial")
 repro_logit3 <- glm(gravid_Y_N ~ 
                      osmolality_mmol_kg_mean, 
                    data = dat_repro_females, 
-                   family = binomial)
+                   family = "binomial")
 repro_logit4 <- glm(gravid_Y_N ~ 
                      CEWL_g_m2h, 
                    data = dat_repro_females, 
-                   family = binomial)
-summary(repro_logit1)
-summary(repro_logit2)
-summary(repro_logit3)
-summary(repro_logit4)
+                   family = "binomial")
+car::Anova(repro_logit1, type = 2, test.statistic = "Wald", error.estimate = "pearson")
+car::Anova(repro_logit2, type = 2, test.statistic = "Wald", error.estimate = "pearson")
+car::Anova(repro_logit3, type = 2, test.statistic = "Wald", error.estimate = "pearson")
+car::Anova(repro_logit4, type = 2, test.statistic = "Wald", error.estimate = "pearson")
 ```
 
-
+What about an ANOVA?
 
 
 ## Plot Likelihood Gravid ~ Mass
@@ -2162,7 +2178,42 @@ dat_repro_females %>%
 
 
 
+## Summary Figure
 
+
+```{r}
+dodger <- position_dodge(width = 0.2) # make dodge amt for both points and lines
+
+dat_repro_females %>%
+  # only use data for April-May
+  dplyr::filter(month %in% c("April", "May")) %>% 
+  ggplot() +
+    aes(x = month,
+        y = mass_g,
+        color = gravid_Y_N,
+        shape = gravid_Y_N,
+        group = individual_ID) +
+  geom_line(position = dodger) +
+  geom_point(size = 2,
+              position = dodger, #position_jitter(height = 0.01, width = 0),
+              alpha = 0.5) +
+  xlab("") +
+  ylab("Body Mass (g)") +
+  scale_color_manual(values = c("grey", "darkgreen"), name = NULL) +
+  scale_shape_manual(values = c(17, 19), name = NULL) +
+  savs_ggplot_theme_corrs -> when_gravid
+when_gravid
+
+ggsave(filename = "female_gravidity.pdf",
+       plot = when_gravid,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       #width = 200, height = 80
+       width = 80, height = 80
+       )
+```
 
 
 
