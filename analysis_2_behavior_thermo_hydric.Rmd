@@ -853,6 +853,10 @@ summary(max_temps_hydric)
 ## Plots
 
 ```{r}
+sub_maxs <- max_temps_hydric %>%
+  dplyr::select(chunk_avg_Tb_percentile_80_90, CEWL_g_m2h, osmolality_mmol_kg_mean, mass_g, SMI)
+PerformanceAnalytics::chart.Correlation(sub_maxs)
+
 ggplot(max_temps_hydric) +
   geom_point(aes(x = CEWL_g_m2h,
                  y = chunk_avg_Tb_percentile_80_90,
@@ -940,6 +944,10 @@ summary(db_hydric)
 ## Plots
 
 ```{r}
+sub_db <- db_hydric %>%
+  dplyr::select(chunk_mean_Db_deg_C_diff, CEWL_g_m2h, osmolality_mmol_kg_mean, mass_g, SMI)
+PerformanceAnalytics::chart.Correlation(sub_db)
+
 ggplot(db_hydric) +
   geom_point(aes(x = CEWL_g_m2h,
                  y = chunk_mean_Db_deg_C_diff,
@@ -1028,6 +1036,11 @@ summary(micro_hydric)
 ## Plots
 
 ```{r}
+sub_micro <- micro_hydric %>%
+  dplyr::select(prop_above, CEWL_g_m2h, osmolality_mmol_kg_mean, mass_g, SMI)
+PerformanceAnalytics::chart.Correlation(sub_micro)
+
+
 ggplot(MH_use_by_indiv) + 
     geom_bar(aes(x = date_chunks,
                  y = MH_use_proportion,
