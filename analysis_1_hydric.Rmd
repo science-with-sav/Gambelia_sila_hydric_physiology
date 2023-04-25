@@ -44,7 +44,7 @@ library("emmeans") # marginal means & confints
 # Set Colors & Themes
 
 ```{r}
-savs_ggplot_theme <- theme_bw() + 
+savs_ggplot_theme <- theme_classic() + 
                      theme(text = element_text(color = "black", 
                                                family = "sans", 
                                                size = 12),
@@ -55,36 +55,20 @@ savs_ggplot_theme <- theme_bw() +
                                                       family = "sans", 
                                                       size = 8),
                            legend.text.align = 0,
-                           legend.position = "bottom",
-                           #plot.margin = margin(t = 6, r = 6, b = 0, l = 1, unit = "pt")
-                           ) #+
-  
-  #theme_classic() + 
-  #guides(shape = guide_legend(nrow = 2, byrow = TRUE))
-  
-savs_ggplot_theme_corrs <- theme_classic() +
-  theme(text = element_text(color = "black", 
-                            family = "sans", 
-                            size = 12),
-        axis.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 8),
-        legend.text = element_text(color = "black", 
-                                 family = "sans", 
-                                 size = 8),
-        legend.text.align = 0,
-        legend.position = "bottom"
-        )
+                           legend.position = "bottom"
+                           )
   
 # custom colors
-Male <- brewer.pal(11, "RdYlBu")[c(11)]
-Fem <- brewer.pal(11, "RdYlBu")[c(2)]
+Male <- brewer.pal(11, "RdYlBu")[c(10)]
+Fem <- brewer.pal(11, "RdYlBu")[c(3)]
+Fem_grav <- brewer.pal(11, "RdYlBu")[c(2)]
+Fem_nongrav <- brewer.pal(11, "RdYlBu")[c(4)]
 my_colors <- c(Fem, Male)
 my_shapes <- c(19,15)
 my_shapes_open <- c(21,22)
 
 # corr colors
-n3 <- brewer.pal(9, "YlGnBu")[c(4, 6, 8)]
+n3 <- brewer.pal(11, "RdYlBu")[c(9, 10, 11)]
 n2 <- brewer.pal(9, "YlGnBu")[c(6, 8)]
 n1 <- brewer.pal(9, "YlGnBu")[c(6)]
 
@@ -97,6 +81,12 @@ my_labels <- c("April\nF\n(n=11)", "April\nM\n(n=22)",
 my_labels_full <- c("April\nF\n(n=26)", "April\nM\n(n=41)",
                      "May\nF\n(n=15)", "May\nM\n(n=22)",
                      "July\nF\n(n=3)", "July\nM\n(n=12)")
+my_labels_full_F <- c("April\n(n=26)",
+                     "May\n(n=15)",
+                     "July\n(n=3)")
+my_labels_full_M <- c("April\n(n=41)",
+                     "May\n(n=22)",
+                     "July\n(n=12)")
 ```
 
 
@@ -144,6 +134,11 @@ dat <- read_rds("./data/G_sila_clean_full_dat.RDS") %>%
          gravid_Y_N = factor(gravid_Y_N, levels = c("Not Gravid", "Gravid")))
 summary(dat)
 unique(dat$radio_collar_serial)
+
+dat_F <- dat %>%
+  dplyr::filter(sex_M_F == "Female")
+dat_M <- dat %>%
+  dplyr::filter(sex_M_F == "Male")
 
 # summary statistics
 dat %>%
@@ -475,35 +470,39 @@ For MS:
 ggplot(dat) + 
   aes(x = osmolality_mmol_kg_mean,
       y = CEWL_g_m2h,
-      color = date_chunk_pretty
-      #color = sex_M_F
+      color = month,
+      shape = month
       ) +
-  geom_point(size = 1, 
-             alpha = 0.4) + 
+  geom_point(alpha = 0.5) + 
   stat_smooth(formula = y ~ x, 
               method = "lm", 
               se = F, 
-              size = 1.6, 
-              alpha = 1) + 
+              alpha = 0.8) + 
   scale_color_manual(values = n3, name = NULL
                      #name = "Measurement\nPeriod"
                      ) + 
-  xlab("Plasma Osmolality (mmol/kg)") + 
-  ylab(bquote('CEWL (g/'*m^2*'h)')) + 
-  guides(color = guide_legend(nrow = 1, byrow = TRUE),
-         #fill = guide_legend(title.position = "left") # makes color ramp weird
-         ) +
-  #ylab("") +
-  #xlim(300, 450) +
-  #annotate(geom = "text", x = 430, y = 24, label = bquote(''*R^2*'=0.033'), 
-   #        size = 7) +
-  #ylim(0, 25) +
-  savs_ggplot_theme_corrs -> CEWL_osml_fig
+  scale_shape_manual(values = c(15, 16, 17), name = NULL) +
+  labs(x = bquote('Plasma Osmolality (mmol '*kg^-1*')'),
+       y = bquote('CEWL (g '*m^-2*' '*h^-1*')')) +
+  #guides(color = guide_legend(nrow = 1, byrow = TRUE),
+   #      #fill = guide_legend(title.position = "left") # makes color ramp weird
+    #     ) +
+  scale_x_continuous(limits = c(300, 450),
+                     breaks = c(300, 350, 400, 450),
+                     labels = c(300, 350, 400, 450)) +
+  savs_ggplot_theme -> CEWL_osml_fig
 CEWL_osml_fig
+
+# arrange to get legend centered
+ggarrange(CEWL_osml_fig,
+          ncol = 1, nrow = 1,
+          common.legend = TRUE,
+          legend = "bottom"
+          ) -> CEWL_osml_fig_arrange
 
 # export figure
 ggsave(filename = "CEWL_osml_fig.pdf",
-       plot = CEWL_osml_fig,
+       plot = CEWL_osml_fig_arrange,
        path = "./results_figures",
        device = "pdf",
        dpi = 600,
@@ -537,7 +536,7 @@ ggplot(dat) +
   #annotate(geom = "text", x = 430, y = 24, label = bquote(''*R^2*'=0.033'), 
    #        size = 7) +
   #ylim(0, 25) +
-  savs_ggplot_theme_corrs -> CEWL_SMI_fig
+  savs_ggplot_theme -> CEWL_SMI_fig
 CEWL_SMI_fig
 ```
 
@@ -568,7 +567,7 @@ ggplot(dat) +
   #annotate(geom = "text", x = 430, y = 24, label = bquote(''*R^2*'=0.033'), 
    #        size = 7) +
   #ylim(0, 25) +
-  savs_ggplot_theme_corrs -> CEWL_hct_fig
+  savs_ggplot_theme -> CEWL_hct_fig
 CEWL_hct_fig
 ```
 
@@ -604,7 +603,7 @@ ggplot(dat) +
   #annotate(geom = "text", x = 430, y = 24, label = bquote(''*R^2*'=0.033'), 
    #        size = 7) +
   #ylim(0, 25) +
-  savs_ggplot_theme_corrs -> osml_SMI_fig
+  savs_ggplot_theme -> osml_SMI_fig
 osml_SMI_fig
 ```
 
@@ -639,7 +638,7 @@ ggplot(dat) +
    #        size = 7) +
   #ylim(0, 25) +
   scale_color_manual(values = n1) + 
-  savs_ggplot_theme_corrs -> osml_hct_fig
+  savs_ggplot_theme -> osml_hct_fig
 osml_hct_fig
 ```
 
@@ -674,7 +673,7 @@ ggplot(dat) +
    #        size = 7) +
   #ylim(0, 25) +
   scale_color_manual(values = n2) +
-  savs_ggplot_theme_corrs -> hct_SMI_fig
+  savs_ggplot_theme -> hct_SMI_fig
 hct_SMI_fig
 ```
 
@@ -682,28 +681,7 @@ hct_SMI_fig
 
 
 
-## Export Multi-Plot
 
-
-```{r}
-ggarrange(CEWL_SMI_fig, CEWL_hct_fig,
-          osml_SMI_fig, osml_hct_fig,
-          ncol = 2, nrow = 2,
-          #labels = c("A", "B", "C"),
-          common.legend = TRUE,
-          legend = "bottom"
-          ) -> water_balance_interrelation
-#water_balance_interrelation
-
-ggsave(filename = "water_balance_interrelation.pdf",
-       plot = water_balance_interrelation,
-       path = "./results_figures",
-       device = "pdf",
-       dpi = 600,
-       units = "mm",
-       width = 200, height = 150
-       )
-```
 
 
 
@@ -913,14 +891,15 @@ ggarrange(tmt_delta_CEWL,
           common.legend = TRUE,
           legend = "bottom"
           ) -> tmt_delta_multi_fig
+tmt_delta_multi_fig
 
-ggsave(filename = "tmt_delta_multi_fig.pdf",
-       plot = tmt_delta_multi_fig,
-       path = "./results_figures",
-       device = "pdf",
-       dpi = 600,
-       units = "mm",
-       width = 80, height = 210)
+#ggsave(filename = "tmt_delta_multi_fig.pdf",
+ #      plot = tmt_delta_multi_fig,
+  #     path = "./results_figures",
+   #    device = "pdf",
+    #   dpi = 600,
+     #  units = "mm",
+      # width = 80, height = 210)
 ```
 
 
@@ -1658,6 +1637,10 @@ full_emmeans_all <- full_emmeans_CEWL %>%
                             levels = c("April Female", "April Male",
                                        "May Female", "May Male",
                                        "July Female", "July Male")))
+full_emmeans_F <- full_emmeans_all %>%
+  dplyr::filter(sex_M_F == "Female")
+full_emmeans_M <- full_emmeans_all %>%
+  dplyr::filter(sex_M_F == "Male")
 
 # all pairwise stats together
 full_emmean_time_stats <- full_time_emmeans_CEWL %>%
@@ -1775,6 +1758,117 @@ full_mass_emmean_plot
 ```
 
 
+### Mass - F
+
+```{r}
+ggplot() +
+  geom_jitter(data = dat_F,
+             aes(x = month,
+                 y = mass_g,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 0.3,
+             size = 0.9,
+              position = position_jitter(height = 0, width = 0.2)) +
+  geom_point(data = full_emmeans_F[full_emmeans_F$measurement == "Mass",],
+             aes(x = month,
+                 y = emmean,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 1,
+             size = 2) +
+  geom_errorbar(data = full_emmeans_F[full_emmeans_F$measurement == "Mass",],
+                aes(x = month,
+                    y = emmean, 
+                    ymin = lower.CL,
+                    ymax = upper.CL,
+                 color = sex_M_F),
+                width = .4) +
+  xlab("") + 
+  ylab("Lizard Mass (g)") +
+  # sex differences
+  annotate(geom = "text", x = 3, y = 54, label = "*", size = 6) +
+  # time differences for FEMALES
+  annotate(geom = "text", x = 1, y = 61, label = "A", size = 3) +
+  annotate(geom = "text", x = 2, y = 61, label = "B", size = 3) +
+  annotate(geom = "text", x = 3, y = 61, label = "A", size = 3) +
+  scale_color_manual(values = Fem, name = "Sex") +
+  scale_fill_manual(values = Fem, name = "Sex") +
+  scale_shape_manual(values = 19, name = "Sex") +
+  scale_x_discrete(labels = my_labels_full_F) +
+  ylim(19, 61) +
+  savs_ggplot_theme -> full_mass_emmean_plot_F
+full_mass_emmean_plot_F
+
+ggsave(filename = "szn_change_mass_F_standalone.pdf",
+       plot = full_mass_emmean_plot_F,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 60, height = 80
+       )
+```
+
+
+
+### Mass - M
+
+```{r}
+ggplot() +
+  geom_jitter(data = dat_M,
+             aes(x = month,
+                 y = mass_g,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 0.3,
+             size = 0.9,
+              position = position_jitter(height = 0, width = 0.2)) +
+  geom_point(data = full_emmeans_M[full_emmeans_M$measurement == "Mass",],
+             aes(x = month,
+                 y = emmean,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 1,
+             size = 2) +
+  geom_errorbar(data = full_emmeans_M[full_emmeans_M$measurement == "Mass",],
+                aes(x = month,
+                    y = emmean, 
+                    ymin = lower.CL,
+                    ymax = upper.CL,
+                 color = sex_M_F),
+                width = .4) +
+  xlab("") + 
+  ylab("Lizard Mass (g)") +
+  # sex differences
+  annotate(geom = "text", x = 3, y = 54, label = "*", size = 6) +
+  # time differences for MALES
+  annotate(geom = "text", x = 1, y = 61, label = "AB", size = 3) +
+  annotate(geom = "text", x = 2, y = 61, label = "A", size = 3) +
+  annotate(geom = "text", x = 3, y = 61, label = "B", size = 3) +
+  scale_color_manual(values = Male, name = "Sex") +
+  scale_fill_manual(values = Male, name = "Sex") +
+  scale_shape_manual(values = 15, name = "Sex") +
+  scale_x_discrete(labels = my_labels_full_M) +
+  ylim(19, 61) +
+  savs_ggplot_theme -> full_mass_emmean_plot_M
+full_mass_emmean_plot_M
+
+ggsave(filename = "szn_change_mass_M_standalone.pdf",
+       plot = full_mass_emmean_plot_M,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 60, height = 80
+       )
+```
+
+
 
 ### Body Condition
 
@@ -1828,6 +1922,132 @@ full_SMI_emmean_plot
 
 
 
+
+
+
+### Body Cond - F
+
+```{r}
+ggplot() +
+  geom_jitter(data = dat_F,
+             aes(x = month,
+                 y = SMI,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 0.3,
+             size = 0.9,
+              position = position_jitter(height = 0, width = 0.2)) +
+  geom_point(data = full_emmeans_F[full_emmeans_F$measurement == "SMI",],
+             aes(x = month,
+                 y = emmean,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 1,
+             size = 2) +
+  geom_errorbar(data = full_emmeans_F[full_emmeans_F$measurement == "SMI",],
+                aes(x = month,
+                    y = emmean, 
+                    ymin = lower.CL,
+                    ymax = upper.CL,
+                 color = sex_M_F),
+                width = .4) +
+  xlab("") + 
+  ylab("Body Condition (g')") +
+  # sex differences
+  annotate(geom = "text", x = 1, y = 47, label = "*", size = 6) +
+  annotate(geom = "text", x = 2, y = 47, label = "*", size = 6) +
+  # time differences for FEMALES
+  annotate(geom = "text", x = 1, y = 50, label = "A", size = 3) +
+  annotate(geom = "text", x = 2, y = 50, label = "B", size = 3) +
+  annotate(geom = "text", x = 3, y = 50, label = "A", size = 3) +
+  scale_color_manual(values = Fem, name = NULL) +
+  scale_fill_manual(values = Fem, name = NULL) +
+  scale_shape_manual(values = 21, name = NULL) +
+  scale_x_discrete(labels = my_labels_full_F) +
+  ylim(19, 50) +
+  savs_ggplot_theme +
+  theme(plot.margin = margin(t = 0, r = 0, b = 0, l = 10, unit = "pt"),
+        legend.margin = margin(0,0,0,0, unit = "pt")) -> full_SMI_emmean_plot_F
+full_SMI_emmean_plot_F
+
+ggsave(filename = "szn_change_bodycond_F_standalone.pdf",
+       plot = full_SMI_emmean_plot_F,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 60, height = 80
+       )
+```
+
+
+
+
+
+
+
+
+### Body Cond - M
+
+```{r}
+ggplot() +
+  geom_jitter(data = dat_M,
+             aes(x = month,
+                 y = SMI,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 0.3,
+             size = 0.9,
+              position = position_jitter(height = 0, width = 0.2)) +
+  geom_point(data = full_emmeans_M[full_emmeans_M$measurement == "SMI",],
+             aes(x = month,
+                 y = emmean,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 1,
+             size = 2) +
+  geom_errorbar(data = full_emmeans_M[full_emmeans_M$measurement == "SMI",],
+                aes(x = month,
+                    y = emmean, 
+                    ymin = lower.CL,
+                    ymax = upper.CL,
+                 color = sex_M_F),
+                width = .4) +
+  xlab("") + 
+  ylab("Body Condition (g')") +
+  # sex differences
+  annotate(geom = "text", x = 1, y = 47, label = "*", size = 6) +
+  annotate(geom = "text", x = 2, y = 47, label = "*", size = 6) +
+  # time differences for MALES
+  annotate(geom = "text", x = 1, y = 50, label = "A", size = 3) +
+  annotate(geom = "text", x = 2, y = 50, label = "A", size = 3) +
+  annotate(geom = "text", x = 3, y = 50, label = "B", size = 3) +
+  scale_color_manual(values = Male, name = NULL) +
+  scale_fill_manual(values = Male, name = NULL) +
+  scale_shape_manual(values = 22, name = NULL) +
+  scale_x_discrete(labels = my_labels_full_M) +
+  ylim(19, 50) +
+  savs_ggplot_theme  +
+  theme(plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        legend.margin = margin(0,0,0,0, unit = "pt")) -> full_SMI_emmean_plot_M
+full_SMI_emmean_plot_M
+
+ggsave(filename = "szn_change_bodycond_M_standalone.pdf",
+       plot = full_SMI_emmean_plot_M,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 60, height = 80
+       )
+```
+
+
+
 ### Osmolality
 
 ```{r}
@@ -1875,6 +2095,123 @@ ggplot() +
   scale_y_continuous(limits = c(320, 450), breaks = c(320, 360, 400, 440)) +
   savs_ggplot_theme -> full_osml_emmean_plot
 full_osml_emmean_plot
+```
+
+
+
+### Osmolality - F
+
+```{r}
+ggplot() +
+  geom_jitter(data = dat_F,
+             aes(x = month,
+                 y = osmolality_mmol_kg_mean,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 0.3,
+             size = 0.9,
+              position = position_jitter(height = 0, width = 0.2)) +
+  geom_point(data = full_emmeans_F[full_emmeans_F$measurement == "Osmolality",],
+             aes(x = month,
+                 y = emmean,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 1,
+             size = 2) +
+  geom_errorbar(data = full_emmeans_F[full_emmeans_F$measurement == "Osmolality",],
+                aes(x = month,
+                    y = emmean, 
+                    ymin = lower.CL,
+                    ymax = upper.CL,
+                 color = sex_M_F),
+                width = .4) +
+  xlab("") + 
+  ylab(bquote('Osmolality (mmol '*kg^-1*')')) +
+  # sex differences
+  annotate(geom = "text", x = 1, y = 435, label = "*", size = 6) +
+  # time differences for FEMALES
+  annotate(geom = "text", x = 1, y = 448, label = "A", size = 3) +
+  annotate(geom = "text", x = 2, y = 448, label = "A", size = 3) +
+  annotate(geom = "text", x = 3, y = 448, label = "A", size = 3) +
+  scale_color_manual(values = Fem, name = "Sex") +
+  scale_fill_manual(values = Fem, name = "Sex") +
+  scale_shape_manual(values = 21, name = "Sex") +
+  scale_x_discrete(labels = my_labels_full_F) +
+  scale_y_continuous(limits = c(320, 450), breaks = c(320, 360, 400, 440)) +
+  savs_ggplot_theme +
+  theme(plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        legend.margin = margin(0,0,0,0, unit = "pt")) -> full_osml_emmean_plot_F
+full_osml_emmean_plot_F
+
+ggsave(filename = "szn_change_osml_F_standalone.pdf",
+       plot = full_osml_emmean_plot_F,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 60, height = 80
+       )
+```
+
+
+
+
+### Osmolality - M
+
+```{r}
+ggplot() +
+  geom_jitter(data = dat_M,
+             aes(x = month,
+                 y = osmolality_mmol_kg_mean,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 0.3,
+             size = 0.9,
+              position = position_jitter(height = 0, width = 0.2)) +
+  geom_point(data = full_emmeans_M[full_emmeans_M$measurement == "Osmolality",],
+             aes(x = month,
+                 y = emmean,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 1,
+             size = 2) +
+  geom_errorbar(data = full_emmeans_M[full_emmeans_M$measurement == "Osmolality",],
+                aes(x = month,
+                    y = emmean, 
+                    ymin = lower.CL,
+                    ymax = upper.CL,
+                 color = sex_M_F),
+                width = .4) +
+  xlab("") + 
+  ylab(bquote('Osmolality (mmol '*kg^-1*')')) +
+  # sex differences
+  annotate(geom = "text", x = 1, y = 435, label = "*", size = 6) +
+  # time differences for MALES
+  annotate(geom = "text", x = 1, y = 448, label = "AB", size = 3) +
+  annotate(geom = "text", x = 2, y = 448, label = "A", size = 3) +
+  annotate(geom = "text", x = 3, y = 448, label = "B", size = 3) +
+  scale_color_manual(values = Male, name = "Sex") +
+  scale_fill_manual(values = Male, name = "Sex") +
+  scale_shape_manual(values = 22, name = "Sex") +
+  scale_x_discrete(labels = my_labels_full_M) +
+  scale_y_continuous(limits = c(320, 450), breaks = c(320, 360, 400, 440)) +
+  savs_ggplot_theme +
+  theme(plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        legend.margin = margin(0,0,0,0, unit = "pt")) -> full_osml_emmean_plot_M
+full_osml_emmean_plot_M
+
+ggsave(filename = "szn_change_osml_M_standalone.pdf",
+       plot = full_osml_emmean_plot_M,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 60, height = 80
+       )
 ```
 
 
@@ -1932,32 +2269,211 @@ full_CEWL_emmean_plot
 
 
 
+### CEWL - F
+
+```{r}
+ggplot() +
+  geom_jitter(data = dat_F,
+             aes(x = month,
+                 y = CEWL_g_m2h,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 0.3,
+             size = 0.9,
+             position = position_jitter(height = 0, width = 0.2)) +
+  geom_point(data = full_emmeans_F[full_emmeans_F$measurement == "CEWL",],
+             aes(x = month,
+                 y = emmean,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 1,
+             size = 2) +
+  geom_errorbar(data = full_emmeans_F[full_emmeans_F$measurement == "CEWL",],
+                aes(x = month,
+                    y = emmean, 
+                    ymin = lower.CL,
+                    ymax = upper.CL,
+                    color = sex_M_F),
+                width = .4) +
+  # sex differences
+  annotate(geom = "text", x = 2, y = 22.5, label = "*", size = 6) +
+  # time differences for FEMALES = none
+  annotate(geom = "text", x = 1, y = 25, label = "A", size = 3) +
+  annotate(geom = "text", x = 2, y = 25, label = "A", size = 3) +
+  annotate(geom = "text", x = 3, y = 25, label = "A", size = 3) +
+  xlab("") + 
+  ylab(bquote('CEWL (g '*m^-2*' '*h^-1*')')) +
+  ylim(0, 25) +
+  scale_color_manual(values = Fem, name = "Sex") +
+  scale_fill_manual(values = Fem, name = "Sex") +
+  scale_shape_manual(values = 21, name = "Sex") +
+  scale_x_discrete(labels = my_labels_full_F) +
+  savs_ggplot_theme +
+  theme(plot.margin = margin(t = 0, r = 0, b = 0, l = 4.5, unit = "pt"),
+        legend.margin = margin(0,0,0,0, unit = "pt")) -> full_CEWL_emmean_plot_F
+full_CEWL_emmean_plot_F
+
+ggsave(filename = "szn_change_CEWL_F_standalone.pdf",
+       plot = full_CEWL_emmean_plot_F,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 60, height = 80
+       )
+```
+
+
+
+
+
+
+### CEWL - M
+
+```{r}
+ggplot() +
+  geom_jitter(data = dat_M,
+             aes(x = month,
+                 y = CEWL_g_m2h,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 0.3,
+             size = 0.9,
+             position = position_jitter(height = 0, width = 0.2)) +
+  geom_point(data = full_emmeans_M[full_emmeans_M$measurement == "CEWL",],
+             aes(x = month,
+                 y = emmean,
+                 shape = sex_M_F,
+                 color = sex_M_F,
+                 fill = sex_M_F),
+             alpha = 1,
+             size = 2) +
+  geom_errorbar(data = full_emmeans_M[full_emmeans_M$measurement == "CEWL",],
+                aes(x = month,
+                    y = emmean, 
+                    ymin = lower.CL,
+                    ymax = upper.CL,
+                    color = sex_M_F),
+                width = .4) +
+  # sex differences
+  annotate(geom = "text", x = 2, y = 22.5, label = "*", size = 6) +
+  # time differences for MALES
+  annotate(geom = "text", x = 1, y = 25, label = "A", size = 3) +
+  annotate(geom = "text", x = 2, y = 25, label = "B", size = 3) +
+  annotate(geom = "text", x = 3, y = 25, label = "A", size = 3) +
+  xlab("") + 
+  ylab(bquote('CEWL (g '*m^-2*' '*h^-1*')')) +
+  ylim(0, 25) +
+  scale_color_manual(values = Male, name = "Sex") +
+  scale_fill_manual(values = Male, name = "Sex") +
+  scale_shape_manual(values = 22, name = "Sex") +
+  scale_x_discrete(labels = my_labels_full_M) +
+  savs_ggplot_theme +
+  theme(plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        legend.margin = margin(0,0,0,0, unit = "pt")) -> full_CEWL_emmean_plot_M
+full_CEWL_emmean_plot_M
+
+ggsave(filename = "szn_change_CEWL_M_standalone.pdf",
+       plot = full_CEWL_emmean_plot_M,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 60, height = 80
+       )
+```
+
+
+
+
+
+## Arrange and Export M&F Separate Panel Plot
+
+
+```{r}
+# CEWL
+full_CEWL_emmean_plot_M_multi <- full_CEWL_emmean_plot_M + 
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        legend.position = "none") +
+  labs(y = NULL)
+full_CEWL_emmean_plot_F_multi <- full_CEWL_emmean_plot_F + 
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        legend.position = "none")
+# osmolality
+full_osml_emmean_plot_M_multi <- full_osml_emmean_plot_M + 
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        legend.position = "none") +
+  labs(y = NULL)
+full_osml_emmean_plot_F_multi <- full_osml_emmean_plot_F + 
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        legend.position = "none")
+# body condition
+full_SMI_emmean_plot_M_multi <- full_SMI_emmean_plot_M + 
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  labs(y = NULL)
+
+# arrange M & F together
+ggarrange(full_CEWL_emmean_plot_F_multi, full_CEWL_emmean_plot_M_multi,
+          full_osml_emmean_plot_F_multi, full_osml_emmean_plot_M_multi,
+          full_SMI_emmean_plot_F, full_SMI_emmean_plot_M_multi,
+          ncol = 2, nrow = 3,
+          widths = c(1.36, 1), # make x-axis widths match when exported
+          heights = c(1, 1, 1.29), # heights
+          labels = c("A", "", "B", "", "C", ""),
+          label.y = c(1.02, 1.02, 1.02)
+          #common.legend = TRUE,
+          #legend = "bottom"
+          ) -> full_szn_change_multi_fig
+#full_szn_change_multi_fig
+
+ggsave(filename = "szn_change_multi_fig.pdf",
+       plot = full_szn_change_multi_fig,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 80, height = 190
+       )
+```
+
+
 
 ## Export Full Data Multi-Panel Fig
 
-Put in one plot together:
 
 ```{r}
 ggarrange(full_CEWL_emmean_plot, 
           full_osml_emmean_plot, 
           #full_mass_emmean_plot,
           full_SMI_emmean_plot,
-          #ncol = 4, nrow = 1,
-          ncol = 1, nrow = 3,
+          ncol = 3, nrow = 1,
+          #ncol = 1, nrow = 3,
           labels = c("A", "B", "C"),
           common.legend = TRUE,
           legend = "bottom"
           ) -> full_szn_change_multi_fig
 #full_szn_change_multi_fig
 
-ggsave(filename = "szn_change_multi_fig_full.pdf",
+ggsave(filename = "szn_change_multi_fig_full_horizontal.pdf",
        plot = full_szn_change_multi_fig,
        path = "./results_figures",
        device = "pdf",
        dpi = 600,
        units = "mm",
-       #width = 200, height = 80
-       width = 80, height = 210
+       width = 220, height = 80
+       #width = 80, height = 210
        )
 ```
 
@@ -1985,15 +2501,15 @@ ggarrange(full_CEWL_emmean_plot,
           ) -> full_vs_rep_szn_change_multi_fig
 #full_vs_rep_szn_change_multi_fig
 
-ggsave(filename = "szn_change_multi_fig_full_vs_rep.pdf",
-       plot = full_vs_rep_szn_change_multi_fig,
-       path = "./results_figures",
-       device = "pdf",
-       dpi = 600,
-       units = "mm",
-       width = 210, height = 160
-       #width = 80, height = 210
-       )
+#ggsave(filename = "szn_change_multi_fig_full_vs_rep.pdf",
+ #      plot = full_vs_rep_szn_change_multi_fig,
+  #     path = "./results_figures",
+   #    device = "pdf",
+    #   dpi = 600,
+     #  units = "mm",
+      # width = 210, height = 160
+       ##width = 80, height = 210
+       #)
 ```
 
 
@@ -2199,16 +2715,22 @@ dat_repro_females %>%
         y = mass_g,
         color = gravid_Y_N,
         shape = gravid_Y_N,
+        alpha = gravid_Y_N,
         group = individual_ID) +
   geom_line(position = dodger) +
   geom_point(size = 2,
               position = dodger, #position_jitter(height = 0.01, width = 0),
-              alpha = 0.5) +
-  xlab("") +
-  ylab("Body Mass (g)") +
-  scale_color_manual(values = c("grey", "darkgreen"), name = NULL) +
-  scale_shape_manual(values = c(17, 19), name = NULL) +
-  savs_ggplot_theme_corrs -> when_gravid
+             # alpha = 0.5
+             ) +
+  labs(y = "Body Mass (g)",
+       x = NULL) +
+  scale_color_manual(values = c(Fem_nongrav, Fem_grav), name = NULL) +
+  scale_shape_manual(values = c(19, 19), name = NULL) +
+  scale_alpha_manual(values = c(0.3, 0.7), name = NULL) +
+  savs_ggplot_theme_corrs +
+  theme(legend.position = "right",
+        plot.margin = margin(t = 1.5, r = 0.5, b = 0.5, l = 0.5, unit = "pt"),
+        legend.margin = margin(0,0,0,0, unit = "pt")) -> when_gravid
 when_gravid
 
 ggsave(filename = "female_gravidity.pdf",
@@ -2218,7 +2740,7 @@ ggsave(filename = "female_gravidity.pdf",
        dpi = 600,
        units = "mm",
        #width = 200, height = 80
-       width = 80, height = 80
+       width = 80, height = 60
        )
 ```
 
