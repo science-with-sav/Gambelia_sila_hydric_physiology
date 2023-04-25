@@ -48,7 +48,7 @@ library("weathermetrics") # convert F to C
 # Set Colors & Themes
 
 ```{r}
-savs_ggplot_theme <- theme_bw() + 
+savs_ggplot_theme <- theme_classic() + 
                      theme(text = element_text(color = "black", 
                                                family = "sans", 
                                                size = 12),
@@ -267,6 +267,7 @@ dat_ws_clean <- dat_ws %>%
                 date_time = Date_Time, 
                 air_temp_F, 
                 RH_percent = relative_humidity_percent, 
+                wind_speed_mph,
                 precip_accum_one_hour_inches) %>%
   dplyr::filter(complete.cases(air_temp_F, RH_percent)) %>%
   mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%Y %H:%M"),
@@ -323,7 +324,7 @@ dat_ws_2021BNLL <- dat_ws_clean %>%
   ungroup() %>%
   dplyr::select(date_time,
                 date_only, Station_ID,
-                temp_C, RH_percent, VPD_kPa,
+                temp_C, RH_percent, VPD_kPa, wind_speed_mph,
                 daytime)
 summary(dat_ws_2021BNLL)
 ```
@@ -368,7 +369,8 @@ dat_ws_means <- dat_ws_2021BNLL %>%
            ) %>%
   summarise(temp_C_daily_mean = mean(temp_C),
             RH_daily_mean = mean(RH_percent),
-            VPD_kPa_daily_mean = mean(VPD_kPa)
+            VPD_kPa_daily_mean = mean(VPD_kPa),
+            wind_mph_mean = mean(wind_speed_mph)
             )
 ```
 
@@ -452,6 +454,7 @@ dat_ws_chunk_means <- dat_ws_means %>%
   summarise(temp_C_chunk_mean = mean(temp_C_daily_mean),
             RH_chunk_mean = mean(RH_daily_mean),
             VPD_kPa_chunk_mean = mean(VPD_kPa_daily_mean),
+            wind_speed_mph_chunk_mean = mean(wind_mph_mean),
             n = n()
             )
 ```
@@ -594,10 +597,7 @@ ws_VPD_pairwise
 ggplot() +
   geom_jitter(data = dat_HOBO_chunks_by_burrow,
              aes(x = date_chunks,
-                 y = temp_C_chunk_mean_by_HOBO,
-                 #shape = ,
-                 #color = ,
-                 #fill = 
+                 y = temp_C_chunk_mean_by_HOBO
                  ),
              alpha = 0.3,
              size = 0.9,
@@ -631,39 +631,59 @@ ggplot() +
                  ),
              alpha = 1,
              size = 2) +
-  xlab("") + 
-  ylab("Temperature (°C)") +
-  # date chunk differences
-  annotate(geom = "text", x = 1, y = 36, label = "A", size = 3) +
-  annotate(geom = "text", x = 2, y = 36, label = "B", size = 3) +
-  annotate(geom = "text", x = 3, y = 36, label = "B", size = 3) +
-  annotate(geom = "text", x = 4, y = 36, label = "C", size = 3) +
-  annotate(geom = "text", x = 5, y = 36, label = "C", size = 3) +
-  annotate(geom = "text", x = 6, y = 36, label = "D", size = 3) +
-  annotate(geom = "text", x = 7, y = 36, label = "D", size = 3) +
+  labs(y = "Temperature (°C)") +
+  scale_x_discrete(labels = c("Apr 26\n-May 6",
+                              "May\n10-20",
+                              "May\n21-31",
+                              "Jun\n1-11",
+                              "Jun\n12-22",
+                              "Jun 23\n-Jul 3",
+                              "Jul\n4-13"
+                              ),
+                   name = "") +
+  # date chunk HOBO differences
+  annotate(geom = "text", x = 1, y = 37, label = "A", size = 3) +
+  annotate(geom = "text", x = 2, y = 37, label = "B", size = 3) +
+  annotate(geom = "text", x = 3, y = 37, label = "B", size = 3) +
+  annotate(geom = "text", x = 4, y = 37, label = "C", size = 3) +
+  annotate(geom = "text", x = 5, y = 37, label = "C", size = 3) +
+  annotate(geom = "text", x = 6, y = 37, label = "D", size = 3) +
+  annotate(geom = "text", x = 7, y = 37, label = "D", size = 3) +
   # lines to show when we took hydric physiology measurements
-  geom_vline(xintercept = 0.5, #as.Date("2021-04-25"),
+  geom_vline(xintercept = 0.5,
              linetype = "dashed",
-             color = "slategray") +
-  geom_vline(xintercept = 1.5, #as.Date("2021-05-08"),
+             size = 0.5) +
+  geom_vline(xintercept = 1.5, 
              linetype = "dashed",
-             color = "slategray") +
-  geom_vline(xintercept = 7.5, #as.Date("2021-07-14"),
+             size = 0.5) +
+  geom_vline(xintercept = 7.5,
              linetype = "dashed",
-             color = "slategray") +
+             size = 0.5) +
   # these are for the weather station points
-  scale_fill_manual(values = c("darkred", "darkblue"), name = "Weather Station"
+  scale_fill_manual(values = c(brewer.pal(11, "RdYlBu")[c(1,10)]), name = NULL,
+                    labels = c("Aboveground\nDaytime", "Aboveground\nNighttime")
                      ) +
-  scale_shape_manual(values = 24:25, name = "Weather Station"
+  scale_shape_manual(values = 24:25, name = NULL,
+                    labels = c("Aboveground\nDaytime", "Aboveground\nNighttime")
                      ) +
   # these are for the burrow emmean points
-  scale_color_manual(values = "black", name = "Burrows", labels = ""
+  scale_color_manual(values = "black", name = NULL, labels = "Burrow"
                      ) +
-  #scale_fill_manual(values = my_colors, name = "Sex") +
-  #scale_x_discrete(labels = my_labels) +
-  ylim(16, 36) +
-  savs_ggplot_theme -> daily_temps_fig
+
+  ylim(16, 37) +
+  savs_ggplot_theme +
+  theme(plot.margin = margin(t = 0, r = 0, b = 0, l = 5, unit = "pt"),
+        legend.margin = margin(0,0,0,0, unit = "pt")) -> daily_temps_fig
 daily_temps_fig
+
+ggsave(filename = "climate_temp_standalone.pdf",
+       plot = daily_temps_fig,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 80, height = 80
+       )
 ```
 
 
@@ -674,9 +694,6 @@ ggplot() +
   geom_jitter(data = dat_HOBO_chunks_by_burrow,
              aes(x = date_chunks,
                  y = RH_chunk_mean_by_HOBO,
-                 #shape = ,
-                 #color = ,
-                 #fill = 
                  ),
              alpha = 0.3,
              size = 0.9,
@@ -710,41 +727,60 @@ ggplot() +
                  ),
              alpha = 1,
              size = 2) +
-  xlab("") +
-  ylab("Relative Humidity (%)") +
+  labs(y = "Relative Humidity (%)") +
+  scale_x_discrete(labels = c("Apr 26\n-May 6",
+                              "May\n10-20",
+                              "May\n21-31",
+                              "Jun\n1-11",
+                              "Jun\n12-22",
+                              "Jun 23\n-Jul 3",
+                              "Jul\n4-13"
+                              ),
+                   name = "") +
   # date chunk differences
-  annotate(geom = "text", x = 1, y = 105, label = "A", size = 3) +
-  annotate(geom = "text", x = 2, y = 105, label = "AB", size = 3) +
-  annotate(geom = "text", x = 3, y = 105, label = "AB", size = 3) +
-  annotate(geom = "text", x = 4, y = 105, label = "AB", size = 3) +
-  annotate(geom = "text", x = 5, y = 105, label = "AB", size = 3) +
-  annotate(geom = "text", x = 6, y = 105, label = "AB", size = 3) +
-  annotate(geom = "text", x = 7, y = 105, label = "B", size = 3) +
+  annotate(geom = "text", x = 1, y = 107, label = "A", size = 3) +
+  annotate(geom = "text", x = 2, y = 107, label = "AB", size = 3) +
+  annotate(geom = "text", x = 3, y = 107, label = "AB", size = 3) +
+  annotate(geom = "text", x = 4, y = 107, label = "AB", size = 3) +
+  annotate(geom = "text", x = 5, y = 107, label = "AB", size = 3) +
+  annotate(geom = "text", x = 6, y = 107, label = "AB", size = 3) +
+  annotate(geom = "text", x = 7, y = 107, label = "B", size = 3) +
   # lines to show when we took hydric physiology measurements
-  geom_vline(xintercept = 0.5, #as.Date("2021-04-25"),
+  geom_vline(xintercept = 0.5,
              linetype = "dashed",
-             color = "slategray") +
-  geom_vline(xintercept = 1.5, #as.Date("2021-05-08"),
+             size = 0.5) +
+  geom_vline(xintercept = 1.5, 
              linetype = "dashed",
-             color = "slategray") +
-  geom_vline(xintercept = 7.5, #as.Date("2021-07-14"),
+             size = 0.5) +
+  geom_vline(xintercept = 7.5,
              linetype = "dashed",
-             color = "slategray") +
+             size = 0.5) +
   # these are for the weather station points
-  scale_fill_manual(values = c("darkred", "darkblue"), name = "Weather Station"
+  scale_fill_manual(values = c(brewer.pal(11, "RdYlBu")[c(1,10)]), name = NULL,
+                    labels = c("Aboveground\nDaytime", "Aboveground\nNighttime")
                      ) +
-  scale_shape_manual(values = 24:25, name = "Weather Station"
+  scale_shape_manual(values = 24:25, name = NULL,
+                    labels = c("Aboveground\nDaytime", "Aboveground\nNighttime")
                      ) +
   # these are for the burrow emmean points
-  scale_color_manual(values = "black", name = "Burrows", labels = ""
+  scale_color_manual(values = "black", name = NULL, labels = "Burrow"
                      ) +
-  #scale_color_manual(values = my_colors, name = "Sex") +
-  #scale_fill_manual(values = my_colors, name = "Sex") +
-  #scale_shape_manual(values = my_shapes_open, name = "Sex") +
-  #scale_x_discrete(labels = my_labels) +
-  ylim(0, 105) + 
-  savs_ggplot_theme -> daily_RH_fig
+  scale_y_continuous(limits = c(0, 107),
+                     breaks = c(seq(0, 100, 20)),
+                     labels = c(seq(0, 100, 20))) + 
+  savs_ggplot_theme +
+  theme(plot.margin = margin(t = 0, r = 0, b = 0, l = 0.5, unit = "pt"),
+        legend.margin = margin(0,0,0,0, unit = "pt")) -> daily_RH_fig
 daily_RH_fig
+
+ggsave(filename = "climate_RH_standalone.pdf",
+       plot = daily_RH_fig,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 80, height = 80
+       )
 ```
 
 
@@ -754,10 +790,7 @@ daily_RH_fig
 ggplot() +
   geom_jitter(data = dat_HOBO_chunks_by_burrow,
              aes(x = date_chunks,
-                 y = VPD_kPa_chunk_mean_by_HOBO,
-                 #shape = ,
-                 #color = ,
-                 #fill = 
+                 y = VPD_kPa_chunk_mean_by_HOBO
                  ),
              alpha = 0.3,
              size = 0.9,
@@ -791,16 +824,77 @@ ggplot() +
                  ),
              alpha = 1,
              size = 2) +
-  xlab("") +
-  ylab("Vapor Pressure Deficit (kPa)") +
+  labs(y = "VPD (kPa)") +
+  scale_x_discrete(labels = c("Apr 26\n-May 6",
+                              "May\n10-20",
+                              "May\n21-31",
+                              "Jun\n1-11",
+                              "Jun\n12-22",
+                              "Jun 23\n-Jul 3",
+                              "Jul\n4-13"
+                              ),
+                   name = "") +
   # date chunk differences
-  annotate(geom = "text", x = 1, y = 4.4, label = "A", size = 3) +
-  annotate(geom = "text", x = 2, y = 4.4, label = "AB", size = 3) +
-  annotate(geom = "text", x = 3, y = 4.4, label = "AB", size = 3) +
-  annotate(geom = "text", x = 4, y = 4.4, label = "BC", size = 3) +
-  annotate(geom = "text", x = 5, y = 4.4, label = "CD", size = 3) +
-  annotate(geom = "text", x = 6, y = 4.4, label = "D", size = 3) +
-  annotate(geom = "text", x = 7, y = 4.4, label = "D", size = 3) +
+  annotate(geom = "text", x = 1, y = 5, label = "A", size = 3) +
+  annotate(geom = "text", x = 2, y = 5, label = "AB", size = 3) +
+  annotate(geom = "text", x = 3, y = 5, label = "AB", size = 3) +
+  annotate(geom = "text", x = 4, y = 5, label = "BC", size = 3) +
+  annotate(geom = "text", x = 5, y = 5, label = "CD", size = 3) +
+  annotate(geom = "text", x = 6, y = 5, label = "D", size = 3) +
+  annotate(geom = "text", x = 7, y = 5, label = "D", size = 3) +
+  # lines to show when we took hydric physiology measurements
+  geom_vline(xintercept = 0.5,
+             linetype = "dashed",
+             size = 0.5) +
+  geom_vline(xintercept = 1.5, 
+             linetype = "dashed",
+             size = 0.5) +
+  geom_vline(xintercept = 7.5,
+             linetype = "dashed",
+             size = 0.5) +
+  # these are for the weather station points
+  scale_fill_manual(values = c(brewer.pal(11, "RdYlBu")[c(1,10)]), name = NULL,
+                    labels = c("Aboveground\nDaytime", "Aboveground\nNighttime")
+                     ) +
+  scale_shape_manual(values = 24:25, name = NULL,
+                    labels = c("Aboveground\nDaytime", "Aboveground\nNighttime")
+                     ) +
+  # these are for the burrow emmean points
+  scale_color_manual(values = "black", name = NULL, labels = "Burrow"
+                     ) +
+  ylim(-0.01, 5) +
+  savs_ggplot_theme +
+  theme(plot.margin = margin(t = 0, r = 0, b = 0, l = 9, unit = "pt"),
+        legend.margin = margin(0,0,0,0, unit = "pt")) -> daily_VPD_fig
+daily_VPD_fig
+
+ggsave(filename = "climate_vpd_standalone.pdf",
+       plot = daily_VPD_fig,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 80, height = 80
+       )
+```
+
+
+
+
+## Wind
+
+```{r}
+ggplot() +
+  geom_point(data = dat_ws_chunk_means,
+             aes(x = as.numeric(date_chunks)+0.1,
+                 y = wind_speed_mph_chunk_mean,
+                 fill = daytime,
+                 shape = daytime
+                 ),
+             alpha = 1,
+             size = 2) +
+  xlab("") +
+  ylab("Wind Speed (mph)") +
   # lines to show when we took hydric physiology measurements
   geom_vline(xintercept = 0.5, #as.Date("2021-04-25"),
              linetype = "dashed",
@@ -823,8 +917,8 @@ ggplot() +
   #scale_shape_manual(values = my_shapes_open, name = "Sex") +
   #scale_x_discrete(labels = my_labels) +
   #ylim(0, 4.4) + 
-  savs_ggplot_theme -> daily_VPD_fig
-daily_VPD_fig
+  savs_ggplot_theme -> daily_wind_fig
+daily_wind_fig
 ```
 
 
@@ -838,20 +932,34 @@ daily_VPD_fig
 # Export Multi-Figure
 
 ```{r}
-ggarrange(daily_temps_fig, daily_RH_fig, daily_VPD_fig,
+daily_temps_fig_multi <- daily_temps_fig + 
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+daily_RH_fig_multi <- daily_RH_fig + 
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+
+
+ggarrange(daily_temps_fig_multi, daily_RH_fig_multi, daily_VPD_fig,
           ncol = 1, nrow = 3,
+          #ncol = 3, nrow = 1,
           labels = c("A", "B", "C"),
+          label.y = c(1.02, 1.02, 1.02),
+          label.x = c(-0.02, -0.02, -0.02),
+          heights = c(1, 1, 1.11),
           common.legend = TRUE,
           legend = "bottom"
           ) -> multi_climate
 
-ggsave(filename = "climate_multi_figure.pdf",
+ggsave(filename = "climate_multi_figure_vertical.pdf",
        plot = multi_climate,
        path = "./results_figures",
        device = "pdf",
        dpi = 600,
        units = "mm",
-       width = 80, height = 200)
+       width = 80, height = 190
+       #width = 220, height = 80
+       )
 ```
 
 
