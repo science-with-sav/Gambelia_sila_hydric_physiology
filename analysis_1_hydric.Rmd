@@ -2527,6 +2527,23 @@ Is reproductive effort related to water balance?
 
 
 
+## Egg Investment
+
+```{r}
+summary(dat_repeat_females)
+dat_repeat_females_eggs <- dat_repeat_females %>% 
+  dplyr::filter(gravid_Y_N == "Gravid") %>% 
+  dplyr::filter(month == "May") # so we don't have any repeats
+
+summary(lm(data = dat_repeat_females_eggs, number_eggs ~ mass_g))
+summary(lm(data = dat_repeat_females_eggs, number_eggs ~ SVL_mm))
+summary(lm(data = dat_repeat_females_eggs, number_eggs ~ SMI))
+
+anova(lm(data = dat_repeat_females_eggs, number_eggs ~ mass_g))
+anova(lm(data = dat_repeat_females_eggs, number_eggs ~ SVL_mm))
+```
+
+
 
 ## Repeat Individuals
 
@@ -2536,7 +2553,6 @@ I have 9 females measured at both April and May time points. Let's see if their 
 First, calculate the change in CEWL, osmolality, and mass for each of those females between April to May.
 
 ```{r}
-summary(dat_repeat_females)
 fem_starting_values <- dat_repeat_females %>%
   # get the values for April measurements only 
   dplyr::filter(month == "April") %>%
@@ -2727,7 +2743,7 @@ dat_repro_females %>%
   scale_color_manual(values = c(Fem_nongrav, Fem_grav), name = NULL) +
   scale_shape_manual(values = c(19, 19), name = NULL) +
   scale_alpha_manual(values = c(0.3, 0.7), name = NULL) +
-  savs_ggplot_theme_corrs +
+  savs_ggplot_theme +
   theme(legend.position = "right",
         plot.margin = margin(t = 1.5, r = 0.5, b = 0.5, l = 0.5, unit = "pt"),
         legend.margin = margin(0,0,0,0, unit = "pt")) -> when_gravid
