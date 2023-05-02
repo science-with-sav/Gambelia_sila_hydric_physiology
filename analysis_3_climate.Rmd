@@ -1020,13 +1020,20 @@ What was the cumulative amount of rain for each winter?
 cum_rain <- dat_ws_compare_years %>%
   dplyr::filter(season == "Winter") %>%
   group_by(year) %>%
-  summarise(winter_precip_in = sum(precip_accum_one_hour_inches, na.rm = TRUE))
+  summarise(winter_precip_in = sum(precip_accum_one_hour_inches, na.rm = TRUE)) %>%
+  mutate(winter_precip_mm = winter_precip_in*25.4)
 cum_rain
 
-prior_mean <- cum_rain %>%
+prior_mean_in <- cum_rain %>%
   dplyr::filter(year != 2021) %>%
   summarise(mean(winter_precip_in))
-2.91/prior_mean
+
+prior_mean_mm <- cum_rain %>%
+  dplyr::filter(year != 2021) %>%
+  summarise(mean(winter_precip_mm))
+
+2.91/prior_mean_in # inches
+73.914/prior_mean_mm #mm (same prop)
 ```
 
 
