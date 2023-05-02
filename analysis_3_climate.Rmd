@@ -1022,10 +1022,19 @@ cum_rain <- dat_ws_compare_years %>%
   group_by(year) %>%
   summarise(winter_precip_in = sum(precip_accum_one_hour_inches, na.rm = TRUE))
 cum_rain
+
+prior_mean <- cum_rain %>%
+  dplyr::filter(year != 2021) %>%
+  summarise(mean(winter_precip_in))
+2.91/prior_mean
 ```
 
 
 
+
+
+
+# below = move to BNLL rain paper
 
 
 ## Means Per Year/Season
