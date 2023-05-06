@@ -1,5 +1,5 @@
 ---
-title: "CEWL species comparison"
+title: "Species Comparison of Water Balance"
 author: "Savannah Weaver"
 output: 
   rmdformats::html_clean:
@@ -33,14 +33,58 @@ if (!require("Hmisc")) install.packages("Hmisc")
 library("Hmisc") # correlation matrix
 if (!require("emmeans")) install.packages("emmeans")
 library("emmeans") # marginal means & confints
+if (!require("RColorBrewer")) install.packages("RColorBrewer")
+library("RColorBrewer") # marginal means & confints
 ```
+
+
+
+
+
+
+
+
+
+# Set Colors & Themes
+
+```{r}
+savs_ggplot_theme <- theme_classic() + 
+                     theme(text = element_text(color = "black", 
+                                               family = "sans", 
+                                               size = 12),
+                           axis.text = element_text(color = "black", 
+                                                    family = "sans", 
+                                                    size = 8),
+                           legend.text = element_text(color = "black", 
+                                                      family = "sans", 
+                                                      size = 8),
+                           legend.text.align = 0,
+                           legend.position = "bottom"
+                           )
+  
+# custom colors & shapes for WFL vs BNLL
+Scelop <- brewer.pal(11, "RdYlBu")[c(9)]
+Gambel <- brewer.pal(11, "RdYlBu")[c(2)]
+my_colors <- c(Gambel, Scelop)
+my_shapes <- c(21, 23)
+
+# custom, consistent legend labels
+my_labels <- c(expression(italic("Gambelia sila")),
+               expression(italic("Sceloporus occidentalis")))
+```
+
+
+
+
+
+
 
 
 
 
 # Background
 
-
+Because there are so few data measuring CEWL with the same methods we use, we decided to compare BNLL to two Mediterranean lizards that we've measured using the exact same methods.
 
 look at CEWL-osml distribution for BNLL & WFL
 look at CEWL diffs for BNLL, WFL, and AWL
@@ -113,7 +157,8 @@ Sceloporus_study2 <- read_rds("./data/Sceloporus_2021_exp.RDS") %>%
          group = "B")
   
 Sceloporus <- Sceloporus_study2 %>% 
-  #rbind(Sceloporus_study1, Sceloporus_study2) %>%
+  #rbind(Sceloporus_study1) %>%
+  # rbind 2022 data?
   # add column for species
   mutate(species = "Sceloporus occidentalis")
 summary(Sceloporus)
@@ -144,14 +189,14 @@ summary(Podarcis)
 ## Merge S.o. and G.s.
 
 ```{r merge}
-dat_all_liz <- BNLL_dat %>%
+dat_CA_liz <- BNLL_dat %>%
   rbind(Sceloporus) %>%
   mutate(species = factor(species),
          # calculate VPD based on Campbell & Norman 1998
          e_s_kPa = 0.611 * exp((17.502*msmt_temp_C)/(msmt_temp_C + 240.97)),
          msmt_VPD_kPa = e_s_kPa*(1 - (msmt_RH_percent/100))
          ) 
-summary(dat_all_liz)
+summary(dat_CA_liz)
 ```
 
 
@@ -171,21 +216,23 @@ summary(dat_all_liz)
 
 First, I need to check that the conditions measurements were taken in mostly overlapped for the two species.
 
+The temperature and VPD figures will actually be used in publication. I'll make nicer versions later.
+
 ```{r}
-ggplot(dat_all_liz) +
+ggplot(dat_CA_liz) +
   aes(x = msmt_temp_C,
       y = CEWL_g_m2h,
-      color = group) +
+      color = species) +
   geom_point()
-ggplot(dat_all_liz) +
+ggplot(dat_CA_liz) +
   aes(x = msmt_RH_percent,
       y = CEWL_g_m2h,
-      color = group) +
+      color = species) +
   geom_point()
-ggplot(dat_all_liz) +
+ggplot(dat_CA_liz) +
   aes(x = msmt_VPD_kPa,
       y = CEWL_g_m2h,
-      color = group) +
+      color = species) +
   geom_point()
 ```
 
@@ -196,12 +243,12 @@ ggplot(dat_all_liz) +
 Also get stats on how different the two species are.
 
 ```{r}
-ggplot(dat_all_liz) +
+ggplot(dat_CA_liz) +
   aes(x = SVL_mm,
       y = mass_g,
       color = group) +
   geom_point()
-dat_all_liz %>%
+dat_CA_liz %>%
   group_by(species, sex_M_F) %>% 
   summarise(mean_SVL_mm = mean(SVL_mm),
             mean_mass = mean(mass_g))
@@ -216,65 +263,202 @@ dat_all_liz %>%
 
 
 
+# Marginal Mean Differences
 
-
-
-
-
-# Compare Hydric Physiology
-
-
-## Stats
+## osmolality
 
 ```{r}
-# osmolality
-sp_lm_osml <- lm(data = dat_all_liz, osmolality_mmol_kg ~ species)
+sp_lm_osml <- lm(data = dat_CA_liz, osmolality_mmol_kg ~ species)
 osml_emmean <- data.frame(emmeans(sp_lm_osml, "species")) %>%
   rename(osml_emmean = emmean,
          osml_lower = lower.CL,
          osml_upper = upper.CL)
 pairs(emmeans(sp_lm_osml, "species"))
+```
 
-# CEWL
-sp_lm_CEWL <- lm(data = dat_all_liz, CEWL_g_m2h ~ species)
+
+## CEWL
+
+```{r}
+sp_lm_CEWL <- lm(data = dat_CA_liz, CEWL_g_m2h ~ species)
 CEWL_emmean <- data.frame(emmeans(sp_lm_CEWL, "species")) %>%
   rename(CEWL_emmean = emmean,
          CEWL_lower = lower.CL,
          CEWL_upper = upper.CL)
 pairs(emmeans(sp_lm_CEWL, "species"))
+```
 
-# put marginal means together
+put marginal means together
+
+```{r}
 both_emmeans <- osml_emmean %>%
   left_join(CEWL_emmean, by = 'species')
+both_emmeans
 ```
 
 
 
-## CEWL Osml Fig
+## temp
+
+```{r}
+sp_lm_msmt_temp <- lm(data = dat_CA_liz, msmt_temp_C ~ species)
+temp_emmean <- data.frame(emmeans(sp_lm_msmt_temp, "species")) %>%
+  rename(temp_emmean = emmean,
+         temp_lower = lower.CL,
+         temp_upper = upper.CL)
+pairs(emmeans(sp_lm_msmt_temp, "species"))
+
+CEWL_temp_emmeans <- temp_emmean %>%
+  left_join(CEWL_emmean, by = 'species')
+CEWL_temp_emmeans
+```
+
+
+## VPD
+
+```{r}
+sp_lm_msmt_VPD <- lm(data = dat_CA_liz, msmt_VPD_kPa ~ species)
+VPD_emmean <- data.frame(emmeans(sp_lm_msmt_VPD, "species")) %>%
+  rename(VPD_emmean = emmean,
+         VPD_lower = lower.CL,
+         VPD_upper = upper.CL)
+pairs(emmeans(sp_lm_msmt_VPD, "species"))
+
+CEWL_VPD_emmeans <- VPD_emmean %>%
+  left_join(CEWL_emmean, by = 'species')
+CEWL_VPD_emmeans
+```
+
+
+
+
+
+
+
+# Figures
+
+
+
+
+## Temp Covariate
+
+CEWL ~ temperature:
+
+```{r}
+ggplot() +
+  geom_point(data = dat_CA_liz,
+             aes(x = msmt_temp_C,
+                  y = CEWL_g_m2h,
+                  color = species,
+                  shape = species,
+                  fill = species),
+      alpha = 0.3,
+      size = 0.9) +
+  geom_point(data = CEWL_temp_emmeans,
+             aes(x = temp_emmean,
+                 y = CEWL_emmean,
+                 shape = species,
+                 fill = species),
+             size = 3,
+             alpha = 1,
+             color = "black") +
+  scale_color_manual(values = my_colors, name = NULL, labels = my_labels) +
+  scale_fill_manual(values = my_colors, name = NULL, labels = my_labels) +
+  scale_shape_manual(values = my_shapes, name = NULL, labels = my_labels) +
+  #scale_x_continuous(limits = c(1.37,4.32)) +
+  scale_y_continuous(limits = c(0,35)) +
+  labs(x = "Temperature (°C)",
+       y = bquote('CEWL (g '*m^-2*' '*h^-1*')')) +
+  savs_ggplot_theme -> CEWL_temp_check
+```
+
+
+
+
+## VPD Covariate
+
+```{r}
+ggplot() +
+  geom_point(data = dat_CA_liz,
+             aes(x = msmt_VPD_kPa,
+                  y = CEWL_g_m2h,
+                  color = species,
+                  shape = species,
+                  fill = species),
+      alpha = 0.3,
+      size = 0.9) +
+  geom_errorbar(data = CEWL_VPD_emmeans,
+             aes(x = VPD_emmean,
+                 ymin = CEWL_lower,
+                 ymax = CEWL_upper,
+                 color = species),
+             width = 0.1) +
+  geom_errorbarh(data = CEWL_VPD_emmeans,
+             aes(y = CEWL_emmean,
+                 xmin = VPD_lower,
+                 xmax = VPD_upper,
+                 color = species),
+             height = 2
+             ) +
+  geom_point(data = CEWL_VPD_emmeans,
+             aes(x = VPD_emmean,
+                 y = CEWL_emmean,
+                 #color = species,
+                 shape = species,
+                 fill = species),
+             size = 3,
+             alpha = 1,
+             color = "black") +
+  scale_color_manual(values = my_colors, name = NULL, labels = my_labels) +
+  scale_fill_manual(values = my_colors, name = NULL, labels = my_labels) +
+  scale_shape_manual(values = my_shapes, name = NULL, labels = my_labels) +
+  scale_x_continuous(limits = c(1.37,4.32)) +
+  scale_y_continuous(limits = c(0,35)) +
+  labs(x = "VPD (kPa)",
+       y = bquote('CEWL (g '*m^-2*' '*h^-1*')')) +
+  savs_ggplot_theme -> CEWL_VPD_check
+```
+
+
+
+
+
+
+
+
+## CEWL ~ Osml
 
 
 
 ```{r}
-# custom, consistent legend labels
-my_labels <- c(expression(italic("Gambelia sila")),
-               expression(italic("Sceloporus occidentalis")))
-
 ggplot() +
   # all data
-  geom_point(data = dat_all_liz,
+  geom_point(data = dat_CA_liz,
              aes(x = osmolality_mmol_kg,
-                  y = CEWL_g_m2h,
-                  fill = species,
+                 y = CEWL_g_m2h,
+                 fill = species,
                  color = species,
-                  shape = species),
+                 shape = species),
              alpha = 0.3) + 
   # group
-  stat_ellipse(data = dat_all_liz,
-             aes(x = osmolality_mmol_kg,
-                  y = CEWL_g_m2h,
-                  color = species),
-             size = 0.5,
-               show.legend = FALSE) +
+  #stat_ellipse(data = dat_CA_liz,
+   #          aes(x = osmolality_mmol_kg,
+    #              y = CEWL_g_m2h,
+     #             color = species),
+      #       size = 0.5,
+       #        show.legend = FALSE) +
+  geom_errorbar(data = both_emmeans,
+                aes(x = osml_emmean,
+                    ymin = CEWL_lower,
+                    ymax = CEWL_upper,
+                    color = species),
+                width = 7) +
+  geom_errorbarh(data = both_emmeans,
+                aes(y = CEWL_emmean,
+                    xmin = osml_lower,
+                    xmax = osml_upper,
+                    color = species),
+                height = 2) +
   # mean points
   geom_point(data = both_emmeans,
              aes(x = osml_emmean,
@@ -283,46 +467,57 @@ ggplot() +
                  shape = species),
              size = 5,
              color = "black") + 
-  #geom_errorbar(data = both_emmeans,
-   #             aes(x = osml_emmean,
-    #                y = CEWL_emmean,
-     #               xmin = osml_lower,
-      #              xmax = osml_upper,
-       #             ymin = CEWL_lower,
-        #            ymax = CEWL_upper)) +
-  scale_fill_manual(values = c("Orange", "Blue"), labels = my_labels, name = NULL) +
-  scale_color_manual(values = c("Orange", "Blue"), labels = my_labels, name = NULL) +
-  scale_shape_manual(values = c(21:22), labels = my_labels, name = NULL) +
-  xlab(bquote('Plasma Osmolality (mmol '*kg^-1*')')) +
-  ylab(bquote('CEWL (g '*m^-2*' '*h^-1*')')) +
-  theme_classic() +
-  theme(text = element_text(color = "black", 
-                                               family = "sans", 
-                                               size = 12),
-                           axis.text = element_text(color = "black", 
-                                                    family = "sans", 
-                                                    size = 8),
-                           legend.text = element_text(color = "black", 
-                                                      family = "sans", 
-                                                      size = 8),
-                           legend.text.align = 0,
-                           legend.position = "bottom",
-                           #plot.margin = margin(t = 6, r = 6, b = 0, l = 1, unit = "pt")
-                           ) -> Scelop_BNLL_pts
-
-ggsave(filename = "Scelop_BNLL_compare.pdf",
-       plot = Scelop_BNLL_pts,
-       path = "./results_figures",
-       device = "pdf",
-       dpi = 600,
-       units = "mm",
-       width = 160, height = 120)
+  
+  scale_fill_manual(values = my_colors, labels = my_labels, name = NULL) +
+  scale_color_manual(values = my_colors, labels = my_labels, name = NULL) +
+  scale_shape_manual(values = my_shapes, labels = my_labels, name = NULL) +
+  scale_x_continuous(limits = c(300, 450)) +
+  scale_y_continuous(limits = c(0, 35)) +
+  labs(x = bquote('Plasma Osmolality (mmol '*kg^-1*')'),
+       y = bquote('CEWL (g '*m^-2*' '*h^-1*')')) +
+  savs_ggplot_theme -> Scelop_BNLL_pts
+Scelop_BNLL_pts
 ```
 
 
 
 
+## Export Grouped Figure
 
+
+```{r}
+Scelop_BNLL_pts_pub <- Scelop_BNLL_pts +
+  theme(plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"))
+CEWL_temp_check_pub <- CEWL_temp_check +
+  theme(legend.position = "none",
+        plot.margin = margin(t = 0, r = 0, b = 6, l = 3, unit = "pt")) +
+  labs(y = NULL)
+CEWL_VPD_check_pub <- CEWL_VPD_check +
+  theme(legend.position = "none",
+        plot.margin = margin(t = 0, r = 0, b = 6, l = 3, unit = "pt")) +
+  labs(y = NULL)
+
+ggarrange(Scelop_BNLL_pts_pub, 
+          ggarrange(CEWL_temp_check_pub, CEWL_VPD_check_pub,
+                    ncol = 1, nrow = 2, labels = c("B", "C"),
+                    label.y = 1.03,
+                    label.x = -0.05),
+          ncol = 2, nrow = 1,
+          widths = c(2, 1),
+          labels = c("A"),
+          label.y = 1.015, label.x = 0.03,
+          common.legend = TRUE,
+          legend = "bottom"
+          ) -> CEWL_BNLL_WFL_comparison
+
+ggsave(filename = "Scelop_BNLL_compare.pdf",
+       plot = CEWL_BNLL_WFL_comparison,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 160, height = 100)
+```
 
 
 
