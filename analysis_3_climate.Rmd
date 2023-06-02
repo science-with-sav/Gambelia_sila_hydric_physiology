@@ -15,31 +15,17 @@ output:
 ```{r setup, echo=T, results='hide', message=FALSE}
 `%nin%` = Negate(`%in%`)
 if (!require("tidyverse")) install.packages("tidyverse") 
-library("tidyverse")# for dplyr workflow of calculations
-if (!require("UsingR")) install.packages("UsingR") 
-library("UsingR")
-if (!require("lme4")) install.packages("lme4") 
-library("lme4")
-if (!require("lmerTest")) install.packages("lmerTest") 
-library("lmerTest")
-if (!require("broom")) install.packages("broom")
-library("broom") # lmer model export
-if (!require("broom.mixed")) install.packages("broom.mixed")
-library("broom.mixed") # lmer model export
-if (!require("ggplot2")) install.packages("ggplot2")
-library("ggplot2")
-if (!require("viridis")) install.packages("viridis")
-library("viridis")
-if (!require("RColorBrewer")) install.packages("RColorBrewer")
-library("RColorBrewer")
-if (!require("ggpubr")) install.packages("ggpubr")
-library("ggpubr") # for multi-ggplot figs
-if (!require("Hmisc")) install.packages("Hmisc")
-library("Hmisc") # correlation matrix
-if (!require("emmeans")) install.packages("emmeans")
-library("emmeans") # marginal means & confints
+library("tidyverse") # for dplyr workflow + ggplot
 if (!require("weathermetrics")) install.packages("weathermetrics")
 library("weathermetrics") # convert F to C
+if (!require("lmerTest")) install.packages("lmerTest") 
+library("lmerTest") #LMMs with p-values
+if (!require("emmeans")) install.packages("emmeans")
+library("emmeans") # marginal means & confints
+if (!require("RColorBrewer")) install.packages("RColorBrewer")
+library("RColorBrewer") # plot colors
+if (!require("ggpubr")) install.packages("ggpubr")
+library("ggpubr") # for multi-ggplot figs
 ```
 
 
@@ -60,7 +46,6 @@ savs_ggplot_theme <- theme_classic() +
                                                       size = 8),
                            legend.text.align = 0,
                            legend.position = "bottom"
-                           #plot.margin = margin(t = 6, r = 6, b = 0, l = 1, unit = "pt")
                            )
 ```
 
@@ -72,9 +57,11 @@ savs_ggplot_theme <- theme_classic() +
 
 
 
-# Background
+# Background & Introduction
 
-
+This data is for the local climate and burrow microclimates at our study site in the Carrizo Plain National Monument, CA, USA. The local climate comes from the Meso West online database, and we personally deployed data loggers in burrows to assess that microhabitat. Both datasets help us to contextualize the physiology, ecology, and behavior of endangered Blunt-nosed Leopard Lizards (*Gambelia sila*). 
+\n
+In this file, I will load data for: sunrise and sunset times at our study site, burrow microclimates, and local climate. I will run statistics on differences and plot the data to assess change in the study site climate throughout the active season our study took place.
 
 
 
@@ -91,9 +78,12 @@ savs_ggplot_theme <- theme_classic() +
 
 These times were obtained from [NOAA ESRL](https://gml.noaa.gov/grad/solcalc/table.php?lat=35.304442&lon=-120.65925&year=2021).
 
-All sunrise & set times during our study are with saylight savings time in effect (1 hour shift).
+All sunrise & set times during our study are with daylight savings time in effect (1 hour shift).
 
-sunrise times:
+I only load in sunrise and sunset times for 2021, when we want to characterize the daytime versus nighttime local climate. 
+
+\n
+Sunrises:
 
 ```{r}
 sunrises <- read.csv("./data/climate/Carrizo_sunrise_2021.csv")
@@ -117,8 +107,8 @@ sunrises_formatted <- sunrises_full %>%
 head(sunrises_formatted)
 ```
 
-
-sunset times:
+\n
+Sunsets:
 
 ```{r}
 sunsets <- read.csv("./data/climate/Carrizo_sunset_2021.csv")
@@ -144,61 +134,6 @@ head(sunsets_formatted)
 
 
 
-Then, make versions of the sunrise and sunset times for 2018-2020:
-
-```{r}
-# sunsets
-sunsets_formatted_2018 <- sunsets_full %>% 
-  mutate(date = as.POSIXct(paste("2018", month, Day, sep = "-"),
-                           format = "%Y-%b-%d"),
-         sunset = as.POSIXct(paste(as.character(date), time, sep = " "))) %>%
-  dplyr::select(-time, -Day, -month)
-
-sunsets_formatted_2019 <- sunsets_full %>% 
-  mutate(date = as.POSIXct(paste("2019", month, Day, sep = "-"),
-                           format = "%Y-%b-%d"),
-         sunset = as.POSIXct(paste(as.character(date), time, sep = " "))) %>%
-  dplyr::select(-time, -Day, -month)
-
-sunsets_formatted_2020 <- sunsets_full %>% 
-  mutate(date = as.POSIXct(paste("2020", month, Day, sep = "-"),
-                           format = "%Y-%b-%d"),
-         sunset = as.POSIXct(paste(as.character(date), time, sep = " "))) %>%
-  dplyr::select(-time, -Day, -month)
-
-
-sunsets_formatted_all_years <- sunsets_formatted %>%
-  rbind(sunsets_formatted_2020) %>%
-  rbind(sunsets_formatted_2019) %>%
-  rbind(sunsets_formatted_2018)
-
-# sunrises
-sunrises_formatted_2018 <- sunrises_full %>% 
-  mutate(date = as.POSIXct(paste("2018", month, Day, sep = "-"),
-                           format = "%Y-%b-%d"),
-         sunrise = as.POSIXct(paste(as.character(date), time, sep = " "))) %>%
-  dplyr::select(-time, -Day, -month)
-
-sunrises_formatted_2019 <- sunrises_full %>% 
-  mutate(date = as.POSIXct(paste("2019", month, Day, sep = "-"),
-                           format = "%Y-%b-%d"),
-         sunrise = as.POSIXct(paste(as.character(date), time, sep = " "))) %>%
-  dplyr::select(-time, -Day, -month)
-
-sunrises_formatted_2020 <- sunrises_full%>% 
-  mutate(date = as.POSIXct(paste("2020", month, Day, sep = "-"),
-                           format = "%Y-%b-%d"),
-         sunrise = as.POSIXct(paste(as.character(date), time, sep = " "))) %>%
-  dplyr::select(-time, -Day, -month)
-
-sunrises_formatted_all_years <- sunrises_formatted %>%
-  rbind(sunrises_formatted_2020) %>%
-  rbind(sunrises_formatted_2019) %>%
-  rbind(sunrises_formatted_2018)
-```
-
-
-
 
 
 
@@ -213,25 +148,34 @@ All burrow data is with daylight savings time in effect (1 hour shift), so it wi
 
 variables in this dataframe, as named in the following summary:
 
-- vapor pressure deficit, Campbell & Normal 1998
+- date_time = date and time temp/RH was logged
+- date_only
+- HOBO_ID = ID number for the burrow/data logger that the measurements come from
+- temp_C = burrow microclimate temperature in degrees Celsius
+- RH_percent = burrow relative humidity in percent
+- VPD_kPa = burrow vapor pressure deficit in kilo-Pascals, calculated from the temperature and relative humidity values for each time using equations published by Campbell & Normal (1998)
+- daytime = whether data is from daytime or nighttime, based on the sunrise and sunset times loaded above
 
 ```{r}
 dat_HOBO <- read_rds("./data/climate/burrow_HOBOs_BNLL_activeszn_2021.RDS") %>%
   # add sunrise and sunset times
   left_join(sunrises_formatted, by = c('date_only' = 'date')) %>%
   left_join(sunsets_formatted, by = c('date_only' = 'date')) %>%
+  # for each date, add whether that date_time is day or night
   group_by(date_only) %>%
   mutate(daytime = case_when(date_time_PST >= sunrise & date_time_PST <= sunset ~ "day",
                              date_time_PST < sunrise ~ "night",
                              date_time_PST > sunset ~ "night"),
          daytime = as.factor(daytime)) %>%
   ungroup() %>%
+  # select only variables of interest
   dplyr::select(date_time = date_time_PST,
                 date_only, HOBO_ID,
                 temp_C, RH_percent, VPD_kPa,
                 daytime)
+
 summary(dat_HOBO)
-length(unique(dat_HOBO$HOBO_ID))
+length(unique(dat_HOBO$HOBO_ID)) # how many burrows did we log in?
 ```
 
 
@@ -243,37 +187,51 @@ length(unique(dat_HOBO$HOBO_ID))
 
 This climate data was collected by a weather station 3.7 km due east of the study site: [Cochora Ranch, station ID: CXXC1](https://mesowest.utah.edu/cgi-bin/droman/meso_base_dyn.cgi?stn=CXXC1).
 
-I download data from this weather station from Sept 2017 to Sept 2021 in order to look at trends over time, but I will also subset it.
+I download data from this weather station from Sept 2017 to Sept 2021 in order to look at precipitation trends over time. For the local temperature and humidity, I will only use 2021 data.
 
 I had to download it from the website in 1-year chunks, and there is 1 hour of overlap between each sequential file, so I will have to fix that.
 
 
 variables in this dataframe:
 
-- 
+- Station_ID = the weather station ID, designated by the organization collecting the data
+- date_time = date and time weather station (ws) logged data
+- air_temp_F = local ambient temperature in degrees Fahrenheit
+- RH_percent = local relative humidity in percent
+- wind_speed_mph = local wind speed in miles per hour
+- precip_accum_one_hour_inches = amount of precipitation accumulated by the weather station over the last hour, in inches; resets to zero every hour when the weather station records data
+- date_only
+- temp_C = local ambient temperature in degrees Celsius
+- e_s_kPa = saturation vapor pressure deficit, an intermediate step to calculate VPD
+- VPD_kPa = local vapor pressure deficit in kilo-Pascals, calculated from the temperature and relative humidity values for each time using equations published by Campbell & Normal (1998)
+
 
 The weather station data is with daylight savings time in effect (1 hour shift), so it will pair with the burrow data correctly. :D
 
 ```{r}
-# get 
+# get all data
 dat_ws <- read_csv("./data/climate/CXXC1_weather_2017to2018.csv") %>%
   rbind(read_csv("./data/climate/CXXC1_weather_2018to2019.csv")) %>%
   rbind(read_csv("./data/climate/CXXC1_weather_2019to2020.csv")) %>%
   rbind(read_csv("./data/climate/CXXC1_weather_2020to2021.csv")) 
+
 # pretty-fy
 dat_ws_clean <- dat_ws %>%
-  distinct() %>%
+  # remove repeat data rows
+  distinct() %>% 
+  # only get variables of interest
   dplyr::select(Station_ID,
                 date_time = Date_Time, 
                 air_temp_F, 
                 RH_percent = relative_humidity_percent, 
                 wind_speed_mph,
                 precip_accum_one_hour_inches) %>%
+  # remove rows with missing data
   dplyr::filter(complete.cases(air_temp_F, RH_percent)) %>%
+  # format things
   mutate(date_time = as.POSIXct(date_time, format = "%m/%d/%Y %H:%M"),
          date_only = as.Date(substr(as.character(date_time), 1, 10),
                       format = "%Y-%m-%d"),
-         month = as.numeric(substr(as.character(date_only), 6, 7)),
          temp_C = fahrenheit.to.celsius(air_temp_F, round = 2),
          # calculate vapor pressure deficit, Campbell & Normal 1998
          e_s_kPa = 0.611 * exp((17.502*temp_C)/(temp_C + 240.97)), # saturation VP
@@ -306,14 +264,16 @@ summary(dat_ws_clean)
 # Prep Data
 
 
-## Cochora Subset
+## Weather Station Subset
 
-Take a subset for weather only during our study to look at more closely:
+Take a subset of weather station data only during our study to look at more closely:
 
 ```{r}
 dat_ws_2021BNLL <- dat_ws_clean %>%
+  # only during our study
   dplyr::filter(date_only > as.Date("2021-04-25") & 
                   date_only < as.Date("2021-07-14")) %>%
+  # add sunrise/set times
   left_join(sunrises_formatted, by = c('date_only' = 'date')) %>%
   left_join(sunsets_formatted, by = c('date_only' = 'date')) %>%
   group_by(date_only) %>%
@@ -322,35 +282,32 @@ dat_ws_2021BNLL <- dat_ws_clean %>%
                              date_time > sunset ~ "night"),
          daytime = as.factor(daytime)) %>%
   ungroup() %>%
+  # select only relevant variables
   dplyr::select(date_time,
                 date_only, Station_ID,
                 temp_C, RH_percent, VPD_kPa, wind_speed_mph,
                 daytime)
+
 summary(dat_ws_2021BNLL)
 ```
 
 
 
 
-## Join Burrow & Cochora Data
-
-Join the two dataframes for the active season that we studied Blunt-nosed Leopard Lizards.
-*not sure I need to do this*
-
 
 
 ## Daily Means
 
-*If I decide not to split day/nighttime temps, all I need to do is delete the daytime grouping factor from the code in this and the next sections.*
+Calculate daily mean temperature, humidity, and VPD for the weather station and each burrow where microclimate was recorded. 
 
 
 ### Burrows 
 
 ```{r}
 dat_HOBO_means_by_burrow <- dat_HOBO %>%
-  # get daily means for each burrow/HOBO, for each date, daytime and nighttime
-  # I could consider this step averaging across technical replicates
-  group_by(HOBO_ID, date_only#, daytime
+  # get daily means for each burrow/HOBO, for each date
+  # I would consider this step averaging across technical replicates
+  group_by(HOBO_ID, date_only#, daytime # no diff for day vs night
            ) %>%
   summarise(temp_C_daily_mean_by_HOBO = mean(temp_C),
             RH_daily_mean_by_HOBO = mean(RH_percent),
@@ -364,8 +321,8 @@ dat_HOBO_means_by_burrow <- dat_HOBO %>%
 ```{r}
 dat_ws_means <- dat_ws_2021BNLL %>%
   # get daily means for each date, daytime and nighttime
-  # I could consider this step averaging across technical replicates
-  group_by(date_only, daytime
+  # I would consider this step averaging across technical replicates
+  group_by(date_only, daytime # only one WS, compared to multiple burrow loggers
            ) %>%
   summarise(temp_C_daily_mean = mean(temp_C),
             RH_daily_mean = mean(RH_percent),
@@ -376,23 +333,26 @@ dat_ws_means <- dat_ws_2021BNLL %>%
 
 
 
-## Date Chunk Means
+## Time Period Means
 
-Now, use daily means to get means across date chunks.
-
-First, create the date chunks:
-
+Now, use daily means to get means across different time periods throughout the 
+G. sila active season that we studied.
+\n
+First, create the time periods:
 
 ```{r}
-# capture weekend dates
+# capture weekend dates = don't want data for days we measured lizards
 cap_dates <- as.Date(c("2021-04-23", "2021-04-24", "2021-04-25", # April
                         "2021-05-07", "2021-05-08", "2021-05-09"), # May
                      format = "%Y-%m-%d")
 
-# grouping notes by date
+# grouping by date
+# create an inclusive range of the desired dates
 group_dates <- data.frame(date_only = c(seq(as.Date("2021-04-26"), 
                                             as.Date("2021-07-13"), by = 1))) %>%
+  # remove unwanted dates
   dplyr::filter(date_only %nin% cap_dates) %>%
+  # add group labels for designated time periods
   mutate(date_chunks = factor(c(rep("Apr 26 - May 6", 11), 
                                 rep("May 10 - 20", 11), 
                                 rep("May 21 - 31", 11),
@@ -403,6 +363,7 @@ group_dates <- data.frame(date_only = c(seq(as.Date("2021-04-26"),
                               levels = c("Apr 26 - May 6", "May 10 - 20", 
                                          "May 21 - 31", "Jun 1 - 11", "Jun 12 - 22", 
                                          "Jun 23 - Jul 3", "Jul 4 - 13")))
+
 head(group_dates)
 ```
 
@@ -411,24 +372,25 @@ head(group_dates)
 
 ### Burrows
 
-Join date chunks & daily mean data, then get the mean daily temps for that date chunk:
+Join time periods & daily mean burrow data, then get the mean daily temps for each time period:
 
 ```{r}
 dat_HOBO_chunks_by_burrow <- dat_HOBO_means_by_burrow %>%
-  # add date chunks
+  # add time periods
   left_join(group_dates, by = 'date_only') %>%
-  # remove NA values for date chunks (data on capture days, just for consistency)
+  # remove NA values for time periods (data on capture days, just for consistency)
   dplyr::filter(complete.cases(date_chunks)) %>%
-  # get avg across days within a chunk for each HOBO
+  # get avg across days within a time periods for each HOBO/burrow
   group_by(HOBO_ID, date_chunks#, daytime
            ) %>%
-  # get the avg of the avg daily mean (not sure if this is how I want to calculate?)
+  # get the avg daily mean for each time period for each burrow
   summarise(temp_C_chunk_mean_by_HOBO = mean(temp_C_daily_mean_by_HOBO),
             RH_chunk_mean_by_HOBO = mean(RH_daily_mean_by_HOBO),
             VPD_kPa_chunk_mean_by_HOBO = mean(VPD_kPa_daily_mean_by_HOBO),
+            # how many days were successfully logged per time period per burrow?
             n = n()
             ) %>%
-  # only use an avg for a date chunk for a HOBO with at least 3 days in that chunk
+  # only use time periods for burrows with at least 3 days logged for that time period
   # removes 6 values
   dplyr::filter(n >= 3) %>%
   arrange(HOBO_ID, date_chunks) 
@@ -437,20 +399,18 @@ dat_HOBO_chunks_by_burrow <- dat_HOBO_means_by_burrow %>%
 
 ### Weather Station
 
-*NOTES* SEM might be better for the error bars after all, since this would be SD for the weather station... or would it?
-
-Maybe I just plot these averages as single points... 
+Join time periods & daily mean local weather station data, then get the mean daily temps for each time period:
 
 ```{r}
 dat_ws_chunk_means <- dat_ws_means %>%
-  # add date chunks
+  # add time periods
   left_join(group_dates, by = 'date_only') %>%
-  # remove NA values for date chunks (data on capture days, just for consistency)
+  # remove NA values for time periods (data on capture days, just for consistency)
   dplyr::filter(complete.cases(date_chunks)) %>%
-  # get avg across days within a chunk for both daytime and nighttime 
+  # get avg across days within a time periods for each daytime and nighttime 
   group_by(date_chunks, daytime
            ) %>%
-  # get the avg of the avg daily mean (not sure if this is how I want to calculate?)
+  # get the avg daily mean per time period
   summarise(temp_C_chunk_mean = mean(temp_C_daily_mean),
             RH_chunk_mean = mean(RH_daily_mean),
             VPD_kPa_chunk_mean = mean(VPD_kPa_daily_mean),
@@ -465,22 +425,23 @@ dat_ws_chunk_means <- dat_ws_means %>%
 
 # Statistics
 
-My goal now is to calculate the emmeans, CI, and pairwise differences across HOBOs for each date chunk. **I need to do this for each climate variable, temperature, RH, and VPD.**
+To assess burrow microclimate throughout the G. sila active season, I can run a linear mixed effects model of each microclimate variable based on time period, with burrow ID as a random effect. From these models, I will calculate the marginal mean and confidence interval of each microclimate variable across burrows for each time period. The same statistics are not feasible for the weather station data, because only one weather station was logging, compared to ~12 burrow loggers.
 
-Then, I can use the emmeans +/- CI for plotting.
-
-**NOTE** day vs night values are NOT different for burrows, so I think I should go back and remove that as a grouping variable, but that would require me also not using it as a grouping variable for the weather station data...
+\n
+Daytime vs nighttime values were NOT different for burrows, so I commented-out that as a grouping variable. To see those (essentially nonexistent) differences, simply add it back to the model.
 
 ## HOBO Temperature
 
 ```{r}
-HOBO_temp_lm <- lm(data = dat_HOBO_chunks_by_burrow,
-                   temp_C_chunk_mean_by_HOBO ~ date_chunks #* daytime
+HOBO_temp_lm <- lmerTest::lmer(data = dat_HOBO_chunks_by_burrow,
+                   temp_C_chunk_mean_by_HOBO ~ date_chunks + #* daytime 
+                   (1|HOBO_ID)
                    )
-#summary(HOBO_temp_lm)
+
 HOBO_temp_emmean <- data.frame(emmeans(HOBO_temp_lm, "date_chunks")) %>%
-  # add ref for plots
+  # add reference for plots
   mutate(type = "Burrow")
+
 HOBO_temp_pairwise <- pairs(emmeans(HOBO_temp_lm, "date_chunks"))
 HOBO_temp_pairwise
 ```
@@ -488,8 +449,7 @@ HOBO_temp_pairwise
 burrow temperature pairwise comparisons that are *not* different, so will have the same letter when I make figures:
 
 - (May 10 - 20) - (May 21 - 31)
-- (Jun 1 - 11) - (Jun 12 - 22)
-- (Jun 23 - Jul 3) - (Jul 4 - 13)
+
 
 burrow temperature pairwise comparison groups for when I make figures:
 
@@ -497,21 +457,23 @@ burrow temperature pairwise comparison groups for when I make figures:
 - May 10 - 20 = B
 - May 21 - 31 = B
 - Jun 1 - 11 = C
-- Jun 12 - 22 = C
-- Jun 23 - Jul 3 = D
-- Jul 4 - 13 = D
+- Jun 12 - 22 = D
+- Jun 23 - Jul 3 = E
+- Jul 4 - 13 = F
 
 
 ## HOBO RH
 
 ```{r}
-HOBO_RH_lm <- lm(data = dat_HOBO_chunks_by_burrow,
-                   RH_chunk_mean_by_HOBO ~ date_chunks #* daytime
+HOBO_RH_lm <- lmerTest::lmer(data = dat_HOBO_chunks_by_burrow,
+                   RH_chunk_mean_by_HOBO ~ date_chunks + #* daytime
+                   (1|HOBO_ID)
                    )
-#summary(HOBO_temp_lm)
+
 HOBO_RH_emmean <- data.frame(emmeans(HOBO_RH_lm, "date_chunks")) %>%
-  # add ref for plots
+  # add reference for plots
   mutate(type = "Burrow")
+
 HOBO_RH_pairwise <- pairs(emmeans(HOBO_RH_lm, "date_chunks"))
 HOBO_RH_pairwise
 ```
@@ -522,8 +484,8 @@ burrow humidity pairwise comparison groups for when I make figures:
 - May 10 - 20 = AB
 - May 21 - 31 = AB
 - Jun 1 - 11 = AB
-- Jun 12 - 22 = AB
-- Jun 23 - Jul 3 = AB
+- Jun 12 - 22 = B
+- Jun 23 - Jul 3 = B
 - Jul 4 - 13 = B
 
 
@@ -534,13 +496,15 @@ burrow humidity pairwise comparison groups for when I make figures:
 ## HOBO VPD
 
 ```{r}
-HOBO_VPD_lm <- lm(data = dat_HOBO_chunks_by_burrow,
-                   VPD_kPa_chunk_mean_by_HOBO ~ date_chunks #* daytime
+HOBO_VPD_lm <- lmerTest::lmer(data = dat_HOBO_chunks_by_burrow,
+                   VPD_kPa_chunk_mean_by_HOBO ~ date_chunks + #* daytime
+                   (1|HOBO_ID)
                    )
-#summary(HOBO_temp_lm)
+
 HOBO_VPD_emmean <- data.frame(emmeans(HOBO_VPD_lm, "date_chunks")) %>%
-  # add ref for plots
+  # add reference for plots
   mutate(type = "Burrow")
+
 HOBO_VPD_pairwise <- pairs(emmeans(HOBO_VPD_lm, "date_chunks"))
 HOBO_VPD_pairwise
 ```
@@ -549,25 +513,21 @@ burrow VPD pairwise comparison groups for when I make figures:
 
 - (Apr 26 - May 6) - (May 10 - 20) - (May 21 - 31) = A
 - (May 10 - 20) - (May 21 - 31) - (Jun 1 - 11) = B
-- (Jun 1 - 11) - (Jun 12 - 22) = C
-- (Jun 12 - 22) - (Jun 23 - Jul 3) - (Jul 4 - 13) = D
+- (Jun 12 - 22) - (Jun 23 - Jul 3) = C
+- (Jun 23 - Jul 3) - (Jul 4 - 13) = D
+
+A
+AB
+AB
+B
+C
+CD
+D
 
 
 
 
-## WS?
 
-```{r}
-ws_VPD_lm <- lm(data = dat_ws_chunk_means,
-                   VPD_kPa_chunk_mean ~ date_chunks * daytime
-                   )
-summary(ws_VPD_lm)
-ws_VPD_emmean <- data.frame(emmeans(ws_VPD_lm, "date_chunks")) %>%
-  # add ref for plots
-  mutate(type = "Burrow")
-ws_VPD_pairwise <- pairs(emmeans(ws_VPD_lm, "date_chunks"))
-ws_VPD_pairwise
-```
 
 
 
@@ -591,10 +551,13 @@ ws_VPD_pairwise
 
 # Figures
 
+For the temperature, RH, and VPD plots, I include data from individual burrows, statistics for across burrows based on time period, and average local climate from the weather station. 
+
 ## Temperature
 
 ```{r}
 ggplot() +
+  # data from individual burrows
   geom_jitter(data = dat_HOBO_chunks_by_burrow,
              aes(x = date_chunks,
                  y = temp_C_chunk_mean_by_HOBO
@@ -602,6 +565,7 @@ ggplot() +
              alpha = 0.3,
              size = 0.9,
               position = position_jitter(height = 0, width = 0.2)) +
+  # show trend across time
   geom_line(data = HOBO_temp_emmean,
              aes(x = as.numeric(date_chunks)-0.1,
                  y = emmean,
@@ -609,6 +573,7 @@ ggplot() +
                  ),
              alpha = 0.2,
              size = 0.5) +
+  # marginal mean burrow conditions per time period, from LMM
   geom_point(data = HOBO_temp_emmean,
              aes(x = as.numeric(date_chunks)-0.1,
                  y = emmean,
@@ -616,6 +581,7 @@ ggplot() +
                  ),
              alpha = 1,
              size = 2) +
+  # marginal mean confidence intervals
   geom_errorbar(data = HOBO_temp_emmean,
                 aes(x = as.numeric(date_chunks)-0.1,
                     y = emmean, 
@@ -623,6 +589,7 @@ ggplot() +
                     ymax = upper.CL
                     ),
                 width = .2) +
+  # weather station data
   geom_point(data = dat_ws_chunk_means,
              aes(x = as.numeric(date_chunks)+0.1,
                  y = temp_C_chunk_mean,
@@ -641,14 +608,14 @@ ggplot() +
                               "Jul\n4-13"
                               ),
                    name = "") +
-  # date chunk HOBO differences
+  # time period pairwise differences
   annotate(geom = "text", x = 1, y = 37, label = "A", size = 3) +
   annotate(geom = "text", x = 2, y = 37, label = "B", size = 3) +
   annotate(geom = "text", x = 3, y = 37, label = "B", size = 3) +
   annotate(geom = "text", x = 4, y = 37, label = "C", size = 3) +
-  annotate(geom = "text", x = 5, y = 37, label = "C", size = 3) +
-  annotate(geom = "text", x = 6, y = 37, label = "D", size = 3) +
-  annotate(geom = "text", x = 7, y = 37, label = "D", size = 3) +
+  annotate(geom = "text", x = 5, y = 37, label = "D", size = 3) +
+  annotate(geom = "text", x = 6, y = 37, label = "E", size = 3) +
+  annotate(geom = "text", x = 7, y = 37, label = "F", size = 3) +
   # lines to show when we took hydric physiology measurements
   geom_vline(xintercept = 0.5,
              linetype = "dashed",
@@ -669,7 +636,7 @@ ggplot() +
   # these are for the burrow emmean points
   scale_color_manual(values = "black", name = NULL, labels = "Burrow"
                      ) +
-
+  # additional formatting
   ylim(16, 37) +
   savs_ggplot_theme +
   theme(plot.margin = margin(t = 0, r = 0, b = 0, l = 5, unit = "pt"),
@@ -737,13 +704,13 @@ ggplot() +
                               "Jul\n4-13"
                               ),
                    name = "") +
-  # date chunk differences
+  # time period differences
   annotate(geom = "text", x = 1, y = 107, label = "A", size = 3) +
   annotate(geom = "text", x = 2, y = 107, label = "AB", size = 3) +
   annotate(geom = "text", x = 3, y = 107, label = "AB", size = 3) +
   annotate(geom = "text", x = 4, y = 107, label = "AB", size = 3) +
-  annotate(geom = "text", x = 5, y = 107, label = "AB", size = 3) +
-  annotate(geom = "text", x = 6, y = 107, label = "AB", size = 3) +
+  annotate(geom = "text", x = 5, y = 107, label = "B", size = 3) +
+  annotate(geom = "text", x = 6, y = 107, label = "B", size = 3) +
   annotate(geom = "text", x = 7, y = 107, label = "B", size = 3) +
   # lines to show when we took hydric physiology measurements
   geom_vline(xintercept = 0.5,
@@ -834,13 +801,13 @@ ggplot() +
                               "Jul\n4-13"
                               ),
                    name = "") +
-  # date chunk differences
+  # time period differences
   annotate(geom = "text", x = 1, y = 5, label = "A", size = 3) +
   annotate(geom = "text", x = 2, y = 5, label = "AB", size = 3) +
   annotate(geom = "text", x = 3, y = 5, label = "AB", size = 3) +
-  annotate(geom = "text", x = 4, y = 5, label = "BC", size = 3) +
-  annotate(geom = "text", x = 5, y = 5, label = "CD", size = 3) +
-  annotate(geom = "text", x = 6, y = 5, label = "D", size = 3) +
+  annotate(geom = "text", x = 4, y = 5, label = "B", size = 3) +
+  annotate(geom = "text", x = 5, y = 5, label = "C", size = 3) +
+  annotate(geom = "text", x = 6, y = 5, label = "CD", size = 3) +
   annotate(geom = "text", x = 7, y = 5, label = "D", size = 3) +
   # lines to show when we took hydric physiology measurements
   geom_vline(xintercept = 0.5,
@@ -882,6 +849,8 @@ ggsave(filename = "climate_vpd_standalone.pdf",
 
 
 ## Wind
+
+This data is only from the weather station
 
 ```{r}
 ggplot() +
@@ -930,6 +899,8 @@ daily_wind_fig
 
 
 # Export Multi-Figure
+
+Put the temperature, RH, and VPD figures arranged into one for publication.
 
 ```{r}
 daily_temps_fig_multi <- daily_temps_fig + 
@@ -980,31 +951,27 @@ ggsave(filename = "climate_multi_figure_vertical.pdf",
 
 # Across Years
 
+In addition to looking at how climate changed throughout the G. sila active season of our study, we also want to quantify the local rainfall to help provide evidence for the drought during our study. 
+
 
 ## Prep Data
 
-Winter is ~ Dec to March. We will look at precipitation in this time period.
-
-BNLL active season is April - July. We will look at temp, RH, and VPD during this time period.
-
-So, I want to add grouping variables for time period: "winter" / "active season"; and year (of active season): 2018, 2019, 2020, 2021.
-
+I am defining winter as Dec to March. We will look at precipitation in this time period each year for our study year and the 3 years prior.
 
 ```{r}
 dat_ws_compare_years <- dat_ws_clean %>%
+  # add a variable for the "year" of the winter period, since it technically spans years
   mutate(year = case_when(date_only >= as.Date("2017-12-01") &
-                            date_only < as.Date("2018-08-01") ~ 2018,
+                            date_only < as.Date("2018-03-30") ~ 2018,
                           date_only >= as.Date("2018-12-01") &
-                            date_only < as.Date("2019-08-01") ~ 2019,
+                            date_only < as.Date("2019-03-30") ~ 2019,
                           date_only >= as.Date("2019-12-01") &
-                            date_only < as.Date("2020-08-01") ~ 2020,
+                            date_only < as.Date("2020-03-30") ~ 2020,
                           date_only >= as.Date("2020-12-01") &
-                            date_only < as.Date("2021-08-01") ~ 2021),
+                            date_only < as.Date("2021-03-30") ~ 2021),
          year = factor(year)) %>%
-  dplyr::filter(complete.cases(year)) %>%
-  mutate(season = case_when(month %in% c(12, 1, 2, 3) ~ "Winter",
-                            month %in% c(4:7) ~ "Active Season"),
-         season = factor(season))
+  dplyr::filter(complete.cases(year))
+
 summary(dat_ws_compare_years)
 ```
 
@@ -1018,7 +985,6 @@ What was the cumulative amount of rain for each winter?
 
 ```{r}
 cum_rain <- dat_ws_compare_years %>%
-  dplyr::filter(season == "Winter") %>%
   group_by(year) %>%
   summarise(winter_precip_in = sum(precip_accum_one_hour_inches, na.rm = TRUE)) %>%
   mutate(winter_precip_mm = winter_precip_in*25.4)
@@ -1038,149 +1004,9 @@ prior_mean_mm <- cum_rain %>%
 
 
 
+Precipitation in 2021, our study year, was ~50% that of the previous 3-year average.
 
 
-
-# below = move to BNLL rain paper
-
-
-## Means Per Year/Season
-
-Make a table of the (monthly?) means per year per season.
-
-```{r}
-annual_climate <- dat_ws_compare_years %>%
-  # during the active season only
-  dplyr::filter(season == "Active Season") %>%
-  # add sunrise/sunset to calculate daytimes only
-  left_join(sunsets_formatted_all_years, by = c('date_only' = 'date')) %>%
-  left_join(sunrises_formatted_all_years, by = c('date_only' = 'date')) %>%
-  mutate(daytime = case_when(date_time >= sunrise & date_time <= sunset ~ "day",
-                             date_time < sunrise ~ "night",
-                             date_time > sunset ~ "night"),
-         daytime = as.factor(daytime)) %>%
-  # get daily means first
-  group_by(date_only, year, month, daytime) %>%
-  summarise(temp_C_daily_mean = mean(temp_C),
-            RH_daily_mean = mean(RH_percent),
-            VPD_kPa_daily_mean = mean(VPD_kPa)) %>%
-  # avg daily means per month
-  group_by(year, month, daytime) %>%
-  summarise(temp_C_mean = mean(temp_C_daily_mean),
-            RH_mean = mean(RH_daily_mean),
-            VPD_kPa_mean = mean(VPD_kPa_daily_mean),
-            temp_C_sd = sd(temp_C_daily_mean),
-            RH_sd = sd(RH_daily_mean),
-            VPD_kPa_sd = sd(VPD_kPa_daily_mean))
-
-summary(annual_climate)
-annual_climate
-```
-
-
-rearrange the monthly values into cleaner format for joining:
-
-```{r}
-annual_climate_cleaned <- annual_climate %>%
-  dplyr::filter(daytime == "day") %>%
-  mutate(temp = paste(round(temp_C_mean, 1), 
-                             round(temp_C_sd, 1),
-                             sep = " ± "),
-         RH = paste(round(RH_mean, 1), 
-                             round(RH_sd, 1),
-                             sep = " ± "),
-         VPD = paste(round(VPD_kPa_mean, 1), 
-                             round(VPD_kPa_sd, 1),
-                             sep = " ± ")) %>%
-  dplyr::select(year, month, temp, RH, VPD) %>%
-  # get rid of month grouping so it lets me delete that column
-  ungroup()
-annual_climate_cleaned
-
-# split for April
-annual_climate_cleaned_April <- annual_climate_cleaned %>%
-  dplyr::filter(month == 4) %>%
-  dplyr::select(year,
-                April_temp = temp,
-                April_RH = RH,
-                April_VPD = VPD)
-# split for May
-annual_climate_cleaned_May <- annual_climate_cleaned %>%
-  dplyr::filter(month == 5) %>%
-  dplyr::select(year,
-                May_temp = temp,
-                May_RH = RH,
-                May_VPD = VPD)
-# split for June
-annual_climate_cleaned_June <- annual_climate_cleaned %>%
-  dplyr::filter(month == 6) %>%
-  dplyr::select(year,
-                June_temp = temp,
-                June_RH = RH,
-                June_VPD = VPD)
-# split for July
-annual_climate_cleaned_July <- annual_climate_cleaned %>%
-  dplyr::filter(month == 7) %>%
-  dplyr::select(year,
-                July_temp = temp,
-                July_RH = RH,
-                July_VPD = VPD)
-```
-
-
-
-
-## Pretty Table
-
-Now, put all the monthly values back together with the rainfall stats and microhabitat use stats.
-
-Rainfall and climate stats were calculated above. For the microhabitat use, I am estimating the proportion of time (out of 1) that BNLL spent belowground; I eyeball this from Kat and Nicole's figures for now, and use my average monthly values from 'analysis_2'. 2020 does not have microhabitat use data published yet...
-
-
-- Kat results (2018):
-    - May = 37-39% in burrows
-    - June = 65% in burrows
-    - July = 81% in burrows
-- Nicole results (2019):
-    - May = 25-26% time in burrows at Shrubbed (my site)
-    - June = 31% time in burrows at Shrubbed
-    - July = 43% time in burrows at Shrubbed
-- my results ('analysis_2' file, 2021):
-    - May = 
-    - June = 
-    - July = 
-    
-
-```{r}
-annual_climate_rainfall <- cum_rain %>%
-  left_join(annual_climate_cleaned_April, by = 'year') %>%
-  left_join(annual_climate_cleaned_May, by = 'year') %>%
-  left_join(annual_climate_cleaned_June, by = 'year') %>%
-  left_join(annual_climate_cleaned_July, by = 'year') %>%
-  # reorder by variable
-  dplyr::select(year, winter_precip_in,
-                April_temp, May_temp, June_temp, July_temp,
-                April_RH, May_RH, June_RH, July_RH,
-                April_VPD, May_VPD, June_VPD, July_VPD) %>%
-  # no microhabitat use for April in any years
-  # add microhabitat use for May-July
-  mutate(May_prop_below = c(0.38, 0.25, NA, 0.22),
-         June_prop_below = c(0.65, 0.31, NA, 0.52),
-         July_prop_below = c(0.81, 0.43, NA, 0.74))
-annual_climate_rainfall
-annual_climate_rainfall_transposed <- data.frame(t(annual_climate_rainfall)) %>%
-  mutate(X0 = rownames(.))
-```
-
-
-
-
-And export that pretty table! :D
-
-```{r}
-write_csv(annual_climate_rainfall_transposed, 
-          "./results_statistics/climate_across_years_vertical.csv")
-```
 
 
 
