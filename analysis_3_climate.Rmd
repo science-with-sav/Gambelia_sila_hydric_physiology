@@ -2,7 +2,7 @@
 title: "Blunt-nosed Leopard Lizard Data Analysis: Climate at the Study Site"
 author: "Savannah Weaver"
 output: 
-  rmdformats::html_clean:
+  rmarkdown::html_vignette:
     highlight: tango
     thumbnails: FALSE
     toc: TRUE
