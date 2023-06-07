@@ -2,7 +2,7 @@
 title: "BNLL CEWL Data Wrangling"
 author: "Savannah Weaver"
 output: 
-  rmdformats::html_clean:
+  rmarkdown::html_vignette:
     highlight: tango
     thumbnails: FALSE
     toc: TRUE
@@ -364,11 +364,21 @@ Another big improvement. :)
 ## Average Replicates (outliers removed)
 
 ```{r get replicate means}
-CEWL_final <- evs_omitted %>%
+CEWL_avgs <- evs_omitted %>%
   group_by(date, individual_ID) %>%
-  summarise(CEWL_g_m2h = mean(CEWL_g_m2h),
+  summarise(CEWL_g_m2h_mean = mean(CEWL_g_m2h),
+            CEWL_SD = sd(CEWL_g_m2h),
+            CEWL_CV = (CEWL_SD/CEWL_g_m2h_mean)*100,
             msmt_temp_C = mean(msmt_temp_C),
-            msmt_RH_percent = mean(msmt_RH_percent)) %>%
+            msmt_RH_percent = mean(msmt_RH_percent)) 
+
+# tech rep stats
+mean(CEWL_avgs$CEWL_CV)
+
+CEWL_final <- CEWL_avgs %>%
+  dplyr::select(date, individual_ID,
+                CEWL_g_m2h = CEWL_g_m2h_mean,
+                msmt_temp_C, msmt_RH_percent) %>% 
   # calculate VPD based on Campbell & Norman 1998
   mutate(e_s_kPa = 0.611 * exp((17.502*msmt_temp_C)/(msmt_temp_C + 240.97)),
          msmt_VPD_kPa = e_s_kPa*(1 - (msmt_RH_percent/100))
