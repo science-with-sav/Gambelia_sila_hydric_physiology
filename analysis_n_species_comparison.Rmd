@@ -1,12 +1,12 @@
 ---
 title: "Species Comparison of Water Balance"
 author: "Savannah Weaver"
-output: 
-  rmdformats::html_clean:
-    highlight: tango
-    thumbnails: FALSE
-    toc: TRUE
-    toc_depth: 3
+output:
+  rmarkdown::html_vignette:
+      highlight: tango
+      thumbnails: FALSE
+      toc: TRUE
+      toc_depth: 3
 ---
 
 
