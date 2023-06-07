@@ -1196,3 +1196,23 @@ write_csv(annual_climate_rainfall_transposed,
 
 
 
+
+# Micorhabitat Use code
+
+### rain paper chunk
+get monthly values for comparison across BNLL study years:
+
+```{r}
+MH_use_across_indivs_MONTH <- microhab %>%
+  mutate(month = factor(substr(as.character(date_only), 6,7))) %>%
+  group_by(month, microhabitat) %>%
+  summarise(n_obs_micro = n()) %>%
+  group_by(month) %>%
+  mutate(n_obs_total = sum(n_obs_micro)) %>%
+  ungroup() %>%
+  mutate(MH_use_proportion = n_obs_micro/n_obs_total) %>%
+  dplyr::filter(microhabitat == "Burrow")
+MH_use_across_indivs_MONTH
+```
+
+
