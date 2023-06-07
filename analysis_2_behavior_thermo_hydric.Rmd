@@ -2,7 +2,7 @@
 title: "Blunt-nosed Leopard Lizard Data Analysis: Behavior and Thermoregulation vs Water Physiology"
 author: "Savannah Weaver"
 output: 
-  rmdformats::html_clean:
+  rmarkdown::html_vignette:
     highlight: tango
     thumbnails: FALSE
     toc: TRUE
@@ -15,22 +15,12 @@ output:
 `%nin%` = Negate(`%in%`)
 if (!require("tidyverse")) install.packages("tidyverse") 
 library("tidyverse")# for dplyr workflow of calculations
-if (!require("UsingR")) install.packages("UsingR") 
-library("UsingR")
-if (!require("lme4")) install.packages("lme4") 
-library("lme4")
 if (!require("lmerTest")) install.packages("lmerTest") 
-library("lmerTest")
-if (!require("broom")) install.packages("broom")
-library("broom") # lmer model export
-if (!require("broom.mixed")) install.packages("broom.mixed")
-library("broom.mixed") # lmer model export
+library("lmerTest") # LMMs
 if (!require("ggplot2")) install.packages("ggplot2")
-library("ggplot2")
-if (!require("viridis")) install.packages("viridis")
-library("viridis")
+library("ggplot2") # plots
 if (!require("RColorBrewer")) install.packages("RColorBrewer")
-library("RColorBrewer")
+library("RColorBrewer") # pretty colors
 if (!require("ggpubr")) install.packages("ggpubr")
 library("ggpubr") # for multi-ggplot figs
 if (!require("Hmisc")) install.packages("Hmisc")
@@ -39,8 +29,6 @@ if (!require("emmeans")) install.packages("emmeans")
 library("emmeans") # marginal means & confints
 if (!require("car")) install.packages("car")
 library("car") # Anova
-if (!require("MuMIn")) install.packages("MuMIn")
-library("MuMIn") # Anova
 ```
 
 # Set Colors & Themes
@@ -58,7 +46,6 @@ savs_ggplot_theme <- theme_classic() +
                                                       size = 8),
                            legend.text.align = 0,
                            legend.position = "bottom"
-                           #plot.margin = margin(t = 6, r = 6, b = 0, l = 1, unit = "pt")
                            )
 
 savs_ggplot_theme2 <- theme_classic() + 
@@ -73,50 +60,15 @@ savs_ggplot_theme2 <- theme_classic() +
                                                       size = 8),
                            legend.text.align = 0,
                            legend.position = "bottom"
-                           #plot.margin = margin(t = 6, r = 6, b = 0, l = 1, unit = "pt")
                            )
 
-my_vir_cols_7 <- viridis(n = 7, 
-                        #alpha, 
-                        #begin, # determine how dark it can go
-                        end = 0.8, # makes it so it cannot get too light in color
-                        #direction = -1,
-                        option = "mako"
-                        )
-my_vir_cols_41 <- viridis(n = 4, # how many different colors do I need?
-                      alpha = 1, # transparency
-                      begin = 0, # how dark it's allowed to get
-                      end = 0.95, # how light it's allowed to get
-                      direction = -1
-                      )
-my_vir_cols_42 <- magma(n = 4, # how many different colors do I need?
-                      alpha = 1, # transparency
-                      begin = 0, # how dark it's allowed to get
-                      end = 0.95, # how light it's allowed to get
-                      direction = -1
-                      )
-my_vir_cols_43 <- plasma(n = 4, # how many different colors do I need?
-                      alpha = 1, # transparency
-                      begin = 0, # how dark it's allowed to get
-                      end = 0.95, # how light it's allowed to get
-                      direction = -1
-                      )
-my_vir_cols_44 <- cividis(n = 4, # how many different colors do I need?
-                      alpha = 1, # transparency
-                      begin = 0, # how dark it's allowed to get
-                      end = 0.95, # how light it's allowed to get
-                      direction = -1
-                      )
-my_vir_cols_45 <- mako(n = 4, # how many different colors do I need?
-                      alpha = 1, # transparency
-                      begin = 0, # how dark it's allowed to get
-                      end = 0.95, # how light it's allowed to get
-                      direction = -1
-                      )
 my_brew_cols_4 <- brewer.pal(11, "RdYlBu")[c(5,4,10,11)] # this one!
-my_brew_cols_4a <- brewer.pal(12, "Paired")[c(7,8,1,2)]
-my_brew_cols_4b <- brewer.pal(11, "Spectral")[c(2,4,9,11)]
 ```
+
+
+
+
+
 
 # Background
 
@@ -124,7 +76,11 @@ This data was collected on Blunt-nosed Leopard Lizards (*Gambelia sila*) during 
 
 All of the data wrangling and preparation for the thermal and microhabitat use data is done within this document, but is done in the 'wrangling\_' documents for the hydric data.
 
-First, we compute maximum temperatures (thermal metrics) and microhabitat use for each lizard at different time points, then we pair that with our hydric physiology data, and look for any relationships.
+First, we compute maximum temperatures and thermoregulatory accuracy (thermal metrics) and microhabitat use for each lizard at different time intervals, then we pair that with our hydric physiology data, and look for any relationships.
+
+
+
+
 
 # Load & Wrangle Data
 
@@ -263,7 +219,7 @@ temp_check2
 unique(temps2$Serial)
 ```
 
-Subset the temperature data so that we do not use the temperatures from during hydric measurement periods. Also add columns for time chunks to make averaging easier later.
+Subset the temperature data so that we do not use the temperatures from during hydric measurement periods. Also add columns for time interval chunks to make averaging easier later.
 
 ```{r}
 # capture weekend dates
@@ -397,7 +353,7 @@ microhab_clean <- read.csv("./data/telemetry/behavior_observations.csv") %>%
                                           "Open", # change from Burrow-Partial
                                           "Burrow", # change from Burrow/ephedra
                                           "Burrow", # change from Burrow/shrub
-                                          "", ### change from Dead/Missing ###  ### ### ###
+                                          "", ### change from Dead/Missing ###
                                           "Open", # change from Grass trims
                                           "", # change from IDK
                                           "", # change from No Visual
@@ -423,11 +379,11 @@ microhab_clean <- read.csv("./data/telemetry/behavior_observations.csv") %>%
                                           ))) %>%
   dplyr::select(Serial, DateTime, date_only, hour_of_day, microhabitat, 
                 bpmTempC, dwsTempOut, ModTempC) %>%
-  # add date chunk grouping notes
+  # add date interval chunk grouping notes
   dplyr::filter(date_only %nin% cap_dates)
 ```
 
-This is the messy data collected in late April and very early May. Unfortunately, the following radio-frequencies were unable to be linked to a serial number: 150.14, 150.19, 150.21, and 150.28. But, that only applied to 11 observations.
+This is the messy data collected in late April and very early May. Unfortunately, the following radio-frequencies were unable to be linked to a radio collar serial number: 150.14, 150.19, 150.21, and 150.28. But, that only applied to 11 observations.
 
 ```{r}
 microhab_early0 <- read.csv("./data/telemetry/behavior_observations_early_0.csv") %>%
@@ -555,10 +511,14 @@ micro_obs_ns <- microhab %>%
   summarise(n = n(),
             min_date = min(date_only),
             max_date = max(date_only),
-            date_range = max_date - min_date)
+            date_range = max_date - min_date) %>%
+  mutate(per_day = n/as.numeric(date_range),
+         per_wk = per_day*7)
 micro_obs_ns %>%
+  dplyr::filter(Serial != "252-882") %>%
   summarise(mean(n), sd(n),
-            mean(date_range), sd(date_range))
+            mean(date_range), sd(date_range),
+            mean(per_wk), sd(per_wk))
 ```
 
 # Thermal Metrics
@@ -599,12 +559,6 @@ From Nicole Gaudenti's 2021 paper, Tset range: 33.2-37.9 deg C.
 
 I will use the widest margin created by both: 32.3 (Ivey) - 37.9 (Gaudenti)
 
-Sunrise during our study: 6:05-6:40 am --\> middle \~\~6:20? Sunset during our study: 20:24-21:07 (8:24-9:07 pm) --\> middle \~\~20:40? (entire study during DST) from [NOAA solar calculator](https://gml.noaa.gov/grad/solcalc/)
-
-Or, just use the same daily time range as Ivey did? (0700-1900)
-
-Although Db is usually taken as the absolute value, I will use pos/neg values, because I want to know the directionality of Db.
-
 ```{r}
 Db <- temp_clean %>%
   # we only want daytime Tb for this
@@ -613,8 +567,8 @@ Db <- temp_clean %>%
   mutate(Tpref_low = 32.3,
          Tpref_high = 37.9) %>%
   # calculate Db for every Tb measurement
-  mutate(Db = case_when(ppTempC < Tpref_low ~ ppTempC - Tpref_low, # for pos/neg version
-                        #ppTempC < Tpref_low ~ Tpref_low - ppTempC, # for abs value version
+  mutate(Db = case_when(#ppTempC < Tpref_low ~ ppTempC - Tpref_low, # for pos/neg version
+                        ppTempC < Tpref_low ~ Tpref_low - ppTempC, # for abs value version
                         ppTempC > Tpref_high ~ ppTempC - Tpref_high,
                         ppTempC < Tpref_high & ppTempC > Tpref_low ~ 0)) %>%
   # then avg Db by lizard & date chunk
@@ -695,22 +649,16 @@ MH_use_across_indivs_sex <- microhab %>%
 summary(MH_use_across_indivs_sex)
 ```
 
-get monthly values for comparison across BNLL study years:
 
-```{r}
-MH_use_across_indivs_MONTH <- microhab %>%
-  mutate(month = factor(substr(as.character(date_only), 6,7))) %>%
-  group_by(month, microhabitat) %>%
-  summarise(n_obs_micro = n()) %>%
-  group_by(month) %>%
-  mutate(n_obs_total = sum(n_obs_micro)) %>%
-  ungroup() %>%
-  mutate(MH_use_proportion = n_obs_micro/n_obs_total) %>%
-  dplyr::filter(microhabitat == "Burrow")
-MH_use_across_indivs_MONTH
-```
 
-calculate the proportion of time aboveground:
+
+
+
+
+
+## Proportion of time aboveground
+
+A version of microhabitat use that's basically burrow/not.
 
 ```{r}
 prop_above_by_indiv <- MH_use_by_indiv %>%
@@ -724,7 +672,12 @@ prop_above_across_indiv_by_sex <- MH_use_across_indivs_sex %>%
   mutate(prop_above = 1 - MH_use_proportion)
 ```
 
+
+
 ## Onset of Estivation
+
+This didn't make it into the paper, because the estivation onset dates we got were somewhat questionable, and we have no way of knowing whether it is due to our tracking methods and the dropping/loss of collars throughout the season.
+
 
 ```{r}
 # first, get some key dates for each lizard
@@ -735,6 +688,7 @@ last_date <- microhab %>%
   summarise(date_last_obs = max(date_only),
             # and how many observations did they have total?
             n_obs_total = n())
+
 last_date_above <- microhab %>%
   # first, subset aboveground obs only
   dplyr::filter(microhabitat != "Burrow") %>%
@@ -767,7 +721,15 @@ estivating %>%
             max(n_obs_est))
 ```
 
+
+
+
+
+
+
 # Max Temps ~ Hydric
+
+Now, look for relationships between hydric physiology and thermoregulation.
 
 ## Prep Data
 
@@ -818,7 +780,7 @@ max_temp_CEWL_mod <- lmerTest::lmer(data = max_temps_hydric,
                                 chunk_avg_Tb_percentile_80_90 ~ CEWL_g_m2h +
                                   (1|individual_ID))
 summary(max_temp_CEWL_mod)
-#anova(max_temp_CEWL_mod, type = "1", ddf = "Kenward-Roger")
+#anova(max_temp_CEWL_mod, type = "3", ddf = "Kenward-Roger")
 plot(max_temp_CEWL_mod)
 
 # osmolality
@@ -826,16 +788,15 @@ max_temp_osml_mod <- lmerTest::lmer(data = max_temps_hydric,
                                 chunk_avg_Tb_percentile_80_90 ~ osmolality_mmol_kg_mean +
                                   (1|individual_ID))
 summary(max_temp_osml_mod)
-#anova(max_temp_osml_mod, type = "1", ddf = "Kenward-Roger")
+#anova(max_temp_osml_mod, type = "3", ddf = "Kenward-Roger")
 plot(max_temp_osml_mod)
-simple.eda(residuals(max_temp_osml_mod))
 
 # mass
 max_temp_mass_mod <- lmerTest::lmer(data = max_temps_hydric,
                                 chunk_avg_Tb_percentile_80_90 ~ mass_g +
                                   (1|individual_ID))
 summary(max_temp_mass_mod)
-#anova(max_temp_mass_mod, type = "1", ddf = "Kenward-Roger")
+#anova(max_temp_mass_mod, type = "3", ddf = "Kenward-Roger")
 plot(max_temp_mass_mod)
 
 # SMI
@@ -843,8 +804,17 @@ max_temp_SMI_mod <- lmerTest::lmer(data = max_temps_hydric,
                                 chunk_avg_Tb_percentile_80_90 ~ SMI +
                                   (1|individual_ID))
 summary(max_temp_SMI_mod)
-#anova(max_temp_SMI_mod, type = "1", ddf = "Kenward-Roger")
+#anova(max_temp_SMI_mod, type = "3", ddf = "Kenward-Roger")
 plot(max_temp_SMI_mod)
+
+
+# supplemental hydration tmt
+max_temp_tmt_mod <- lmerTest::lmer(data = max_temps_hydric,
+                                chunk_avg_Tb_percentile_80_90 ~ tmt +
+                                  (1|individual_ID))
+summary(max_temp_tmt_mod)
+#anova(max_temp_tmt_mod, type = "3", ddf = "Kenward-Roger")
+plot(max_temp_tmt_mod)
 ```
 
 # Db ~ Hydric
@@ -906,7 +876,6 @@ db_osml_mod <- lmerTest::lmer(data = db_hydric,
                                   (1|individual_ID))
 summary(db_osml_mod)
 plot(db_osml_mod)
-simple.eda(residuals((db_osml_mod)))
 
 # mass
 db_mass_mod <- lmerTest::lmer(data = db_hydric,
@@ -921,6 +890,12 @@ db_SMI_mod <- lmerTest::lmer(data = db_hydric,
                                   (1|individual_ID))
 summary(db_SMI_mod)
 plot(db_SMI_mod)
+
+# supplemental water tmt
+db_tmt_mod <- lmerTest::lmer(data = db_hydric,
+                                chunk_mean_Db_deg_C_diff ~ tmt +
+                                  (1|individual_ID))
+summary(db_tmt_mod)
 ```
 
 # Microhabitat ~ Hydric
@@ -1012,6 +987,12 @@ micro_SMI_mod <- lmerTest::lmer(data = micro_hydric,
                                   (1|individual_ID))
 summary(micro_SMI_mod)
 plot(micro_SMI_mod)
+
+# supplemental hydration tmt
+micro_tmt_mod <- lmerTest::lmer(data = micro_hydric,
+                                prop_above ~ tmt +
+                                  (1|individual_ID))
+summary(micro_tmt_mod)
 ```
 
 # All Anovas
@@ -1021,36 +1002,36 @@ Just so they're all in one place, get all the anovas from the models above to ru
 ## CEWL
 
 ```{r}
-anova(max_temp_CEWL_mod, type = "1", ddf = "Kenward-Roger")
-anova(db_CEWL_mod, type = "1", ddf = "Kenward-Roger")
-anova(micro_CEWL_mod, type = "1", ddf = "Kenward-Roger")
+anova(max_temp_CEWL_mod, type = "3", ddf = "Kenward-Roger")
+anova(db_CEWL_mod, type = "3", ddf = "Kenward-Roger")
+anova(micro_CEWL_mod, type = "3", ddf = "Kenward-Roger")
 ```
 
 ## Osmolality
 
 ```{r}
-anova(max_temp_osml_mod, type = "1", ddf = "Kenward-Roger")
+anova(max_temp_osml_mod, type = "3", ddf = "Kenward-Roger")
 #summary(max_temp_osml_mod)
-anova(db_osml_mod, type = "1", ddf = "Kenward-Roger")
+anova(db_osml_mod, type = "3", ddf = "Kenward-Roger")
 #summary(db_osml_mod)
-anova(micro_osml_mod, type = "1", ddf = "Kenward-Roger")
+anova(micro_osml_mod, type = "3", ddf = "Kenward-Roger")
 ```
 
 ## Body Mass
 
 ```{r}
-anova(max_temp_mass_mod, type = "1", ddf = "Kenward-Roger")
-anova(db_mass_mod, type = "1", ddf = "Kenward-Roger")
-anova(micro_mass_mod, type = "1", ddf = "Kenward-Roger")
+anova(max_temp_mass_mod, type = "3", ddf = "Kenward-Roger")
+anova(db_mass_mod, type = "3", ddf = "Kenward-Roger")
+anova(micro_mass_mod, type = "3", ddf = "Kenward-Roger")
 ```
 
 ## Body Condition
 
 ```{r}
-anova(max_temp_SMI_mod, type = "1", ddf = "Kenward-Roger")
+anova(max_temp_SMI_mod, type = "3", ddf = "Kenward-Roger")
 #summary(max_temp_SMI_mod)
-anova(db_SMI_mod, type = "1", ddf = "Kenward-Roger")
-anova(micro_SMI_mod, type = "1", ddf = "Kenward-Roger")
+anova(db_SMI_mod, type = "3", ddf = "Kenward-Roger")
+anova(micro_SMI_mod, type = "3", ddf = "Kenward-Roger")
 ```
 
 
@@ -1117,25 +1098,29 @@ ggplot(corrs) +
                                            )) +
   scale_x_discrete(name = NULL, labels = c("CEWL", "Plasma\nOsmolality",
                                            "Body\nMass", "Body\nCondition")) +
-  annotate("text", x = 1, y = 1, label = "-0.02", 
+  # CEWL
+  annotate("text", x = 1, y = 1, label = "-0.03", 
            size = 2, family = "sans", color = "black") +
   annotate("text", x = 1, y = 2, label = "-0.02", 
            size = 2, family = "sans", color = "black") +
   annotate("text", x = 1, y = 3, label = "-0.01", 
            size = 2, family = "sans", color = "black") +
-  annotate("text", x = 2, y = 1, label = "0.005", 
-           size = 2, family = "sans", color = "black") +
+  # plasma osmolality
+  annotate("text", x = 2, y = 1, label = "0.007*", 
+           size = 3, family = "sans", color = "black") +
   annotate("text", x = 2, y = 2, label = "0.01", 
            size = 2, family = "sans", color = "black") +
   annotate("text", x = 2, y = 3, label = "-0.001", 
            size = 2, family = "sans", color = "black") +
-  annotate("text", x = 3, y = 1, label = "0.01", 
+  # body mass
+  annotate("text", x = 3, y = 1, label = "0.04", 
            size = 2, family = "sans", color = "black") +
   annotate("text", x = 3, y = 2, label = "0.03", 
            size = 2, family = "sans", color = "black") +
   annotate("text", x = 3, y = 3, label = "0.004", 
            size = 2, family = "sans", color = "black") +
-  annotate("text", x = 4, y = 1, label = "0.03", 
+  # body condition
+  annotate("text", x = 4, y = 1, label = "0.02", 
            size = 2, family = "sans", color = "black") +
   annotate("text", x = 4, y = 2, label = "0.08*", 
            size = 3, family = "sans", color = "black") +
@@ -1166,237 +1151,41 @@ ggsave(filename = "thermal_hydric_corr_plot.pdf",
 
 
 
-
-
-# Estivation ~ Hydric
-
-## Prep Data
-
-```{r}
-est_hydric <- liz_dat_apr_may_only %>%
-  group_by(radio_collar_serial) %>%
-  summarise(mean_mass = mean(mass_g),
-            mean_SMI = mean(SMI),
-            mean_CEWL = mean(CEWL_g_m2h),
-            mean_osml = mean(osmolality_mmol_kg_mean, na.rm = T),
-            ) %>%
-  left_join(estivating, by = c('radio_collar_serial' = 'Serial')) %>%
-  # remove NAs
-  dplyr::filter(complete.cases(est_onset)) %>%
-  mutate(est_onset_scaled = scale(as.numeric(est_onset))) 
-
-summary(est_hydric)
-```
-
-also look at just July for hydric \~ estivating or not:
-
-```{r}
-est_hydric_July <- liz_dat_july_only %>%
-  left_join(estivating, by = c('radio_collar_serial' = 'Serial')) %>%
-  mutate(est_or_not = case_when(is.na(est_onset) == TRUE ~ "Active",
-                                is.na(est_onset) == FALSE ~ "Estivating"))
-est_hydric_Apr_may <- liz_dat_apr_may_only %>%
-  group_by(radio_collar_serial) %>%
-  summarise(mean_mass = mean(mass_g),
-            mean_SMI = mean(SMI),
-            mean_CEWL = mean(CEWL_g_m2h),
-            mean_osml = mean(osmolality_mmol_kg_mean, na.rm = T),
-            ) %>%
-  left_join(est_hydric_July, by = 'radio_collar_serial')
-```
-
-## Plots
-
-```{r}
-ggplot(est_hydric) +
-  geom_point(aes(x = mean_CEWL,
-                 y = est_onset_scaled)) +
-  geom_smooth(aes(x = mean_CEWL,
-                 y = est_onset_scaled),
-              se = F,
-              method = "lm",
-              formula = y~x)
-ggplot(est_hydric) +
-  geom_point(aes(x = mean_osml,
-                 y = est_onset_scaled)) +
-  geom_smooth(aes(x = mean_osml,
-                 y = est_onset_scaled),
-              se = F,
-              method = "lm",
-              formula = y~x)
-```
-
-## Models - Onset
-
-```{r}
-# CEWL
-est_CEWL_mod <- lm(data = est_hydric, est_onset_scaled ~ mean_CEWL)
-summary(est_CEWL_mod)
-anova(est_CEWL_mod)
-plot(est_CEWL_mod)
-
-# osmolality
-est_osml_mod <- lm(data = est_hydric, est_onset_scaled ~ mean_osml)
-summary(est_osml_mod)
-anova(est_osml_mod)
-plot(est_osml_mod)
-
-# mass
-est_mass_mod <- lm(data = est_hydric, est_onset_scaled ~ mean_mass)
-summary(est_mass_mod)
-anova(est_mass_mod)
-plot(est_mass_mod)
-
-# SMI
-est_SMI_mod <- lm(data = est_hydric, est_onset_scaled ~ mean_SMI)
-summary(est_SMI_mod)
-anova(est_SMI_mod)
-plot(est_SMI_mod)
-```
-
-## Models - July Status
-
-compare boxplots of the same individuals in April/May (avg) vs July to make sure we have no outliers, and if no outliers, what trends look like:
-
-first, have to make the data:
-
-```{r}
-liz_dat_apr_only <- liz_dat_apr_may_only %>%
-  dplyr::filter(individual_ID %in% est_hydric_July$individual_ID) %>%
-  group_by(individual_ID) %>%
-  summarise(mean_mass = mean(mass_g),
-            mean_SMI = mean(SMI),
-            mean_CEWL = mean(CEWL_g_m2h),
-            mean_osml = mean(osmolality_mmol_kg_mean, na.rm = T),
-            ) %>%
-  left_join(est_hydric_July, by = 'individual_ID') %>%
-  dplyr::filter(individual_ID != "F-10")
-```
-
-now plot:
-
-```{r}
-# CEWL
-ggplot(liz_dat_apr_only) +
-  aes(x = est_or_not,
-      y = mean_CEWL,
-      color = individual_ID) +
-  geom_point()
-ggplot(est_hydric_July) +
-  aes(x = est_or_not,
-      y = CEWL_g_m2h,
-      color = individual_ID) +
-  geom_point()
-
-# osml
-ggplot(liz_dat_apr_only) +
-  aes(x = est_or_not,
-      y = mean_osml,
-      color = individual_ID) +
-  geom_point()
-ggplot(est_hydric_July) +
-  aes(x = est_or_not,
-      y = osmolality_mmol_kg_mean,
-      color = individual_ID) +
-  geom_point()
-
-# mass
-ggplot(liz_dat_apr_only) +
-  aes(x = est_or_not,
-      y = mean_mass,
-      color = individual_ID) +
-  geom_point()
-ggplot(est_hydric_July) +
-  aes(x = est_or_not,
-      y = mass_g,
-      color = individual_ID) +
-  geom_point()
-
-# body condition
-ggplot(liz_dat_apr_only) +
-  aes(x = est_or_not,
-      y = mean_SMI,
-      color = individual_ID) +
-  geom_point()
-ggplot(est_hydric_July) +
-  aes(x = est_or_not,
-      y = SMI,
-      color = individual_ID) +
-  geom_point()
-```
-
-I'm worried about the distribution of the data for the active lizards.
-
-```{r}
-est_hydric_July %>%
-  summarise(mean(CEWL_g_m2h), sd(CEWL_g_m2h),
-            mean(osmolality_mmol_kg_mean), sd(osmolality_mmol_kg_mean),
-            mean(mass_g), sd(mass_g),
-            mean(SMI), sd(SMI))
-est_hydric_July %>%
-  dplyr::filter(individual_ID == "F-10")
-```
-
-It looks like F-10 is quite far outside the distribution of other points for mass and SMI, and would be likely to affect statistics, so remove her data:
-
-```{r}
-est_hydric_July2 <- est_hydric_July %>%
-  dplyr::filter(individual_ID != "F-10")
-```
-
-now run statistics:
-
-```{r}
-# CEWL
-est_CEWL_JULY_mod <- lm(data = est_hydric_July, 
-                        CEWL_g_m2h ~ est_or_not)
-anova(est_CEWL_JULY_mod)
-
-# osmolality
-est_osml_JULY_mod <- lm(data = est_hydric_July, 
-                        osmolality_mmol_kg_mean ~ est_or_not)
-anova(est_osml_JULY_mod)
-
-# mass
-est_mass_JULY_mod <- lm(data = est_hydric_July2, 
-                        mass_g ~ est_or_not)
-anova(est_mass_JULY_mod)
-
-# SMI
-est_SMI_JULY_mod <- lm(data = est_hydric_July2, 
-                        SMI ~ est_or_not)
-anova(est_SMI_JULY_mod)
-```
-
-What were those lizards like in April? Do the same models for April/May data:
-
-```{r}
-# CEWL
-est_CEWL_April_mod <- lm(data = liz_dat_apr_only, 
-                        mean_CEWL ~ est_or_not)
-anova(est_CEWL_April_mod)
-
-# osmolality
-est_osml_April_mod <- lm(data = liz_dat_apr_only, 
-                        mean_osml ~ est_or_not)
-anova(est_osml_April_mod)
-
-# mass
-est_mass_April_mod <- lm(data = liz_dat_apr_only, 
-                        mean_mass ~ est_or_not)
-anova(est_mass_April_mod)
-
-# SMI
-est_SMI_April_mod <- lm(data = liz_dat_apr_only, 
-                        mean_SMI ~ est_or_not)
-anova(est_SMI_April_mod)
-```
-
-Seems like no carry-over differences from April into July, which is good!
-
 # Hydric Conclusion
 
 There are basically **no detectable relationships** between water balance (CEWL, osml, or mass) and thermoregulation or microhabitat use in BNLL.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # Microhabitat Use ONLY
 
@@ -1540,128 +1329,4 @@ ggsave(filename = "microhabitat_use.pdf",
        units = "mm",
        width = 160, height = 80)
 ```
-
-look at different color options:
-
-```{r}
-ggplot(MH_use_across_indivs) + 
-    geom_bar(aes(x = date_chunks,
-                 y = MH_use_proportion,
-                 fill = microhabitat
-                 ),
-             position = "fill", 
-             stat = "identity") +
-  scale_fill_manual(values = my_vir_cols_41) +
-  ggtitle("v1") +
-  savs_ggplot_theme -> v1
-
-ggplot(MH_use_across_indivs) + 
-    geom_bar(aes(x = date_chunks,
-                 y = MH_use_proportion,
-                 fill = microhabitat
-                 ),
-             position = "fill", 
-             stat = "identity") +
-  scale_fill_manual(values = my_vir_cols_42) +
-  ggtitle("v2") +
-  savs_ggplot_theme -> v2
-
-ggplot(MH_use_across_indivs) + 
-    geom_bar(aes(x = date_chunks,
-                 y = MH_use_proportion,
-                 fill = microhabitat
-                 ),
-             position = "fill", 
-             stat = "identity") +
-  scale_fill_manual(values = my_vir_cols_43) +
-  ggtitle("v3") +
-  savs_ggplot_theme -> v3
-
-ggplot(MH_use_across_indivs) + 
-    geom_bar(aes(x = date_chunks,
-                 y = MH_use_proportion,
-                 fill = microhabitat
-                 ),
-             position = "fill", 
-             stat = "identity") +
-  scale_fill_manual(values = my_vir_cols_44) +
-  ggtitle("v4") +
-  savs_ggplot_theme -> v4
-
-ggplot(MH_use_across_indivs) + 
-    geom_bar(aes(x = date_chunks,
-                 y = MH_use_proportion,
-                 fill = microhabitat
-                 ),
-             position = "fill", 
-             stat = "identity") +
-  scale_fill_manual(values = my_vir_cols_45) +
-  ggtitle("v5") +
-  savs_ggplot_theme  -> v5
-
-
-ggplot(MH_use_across_indivs) + 
-    geom_bar(aes(x = date_chunks,
-                 y = MH_use_proportion,
-                 fill = microhabitat
-                 ),
-             position = "fill", 
-             stat = "identity") +
-  scale_fill_manual(values = my_brew_cols_4) +
-  ggtitle("brew4") +
-  savs_ggplot_theme  -> b4
-
-ggplot(MH_use_across_indivs) + 
-    geom_bar(aes(x = date_chunks,
-                 y = MH_use_proportion,
-                 fill = microhabitat
-                 ),
-             position = "fill", 
-             stat = "identity") +
-  scale_fill_manual(values = my_brew_cols_4a) +
-  ggtitle("brew4a") +
-  savs_ggplot_theme  -> b4a
-
-ggplot(MH_use_across_indivs) + 
-    geom_bar(aes(x = date_chunks,
-                 y = MH_use_proportion,
-                 fill = microhabitat
-                 ),
-             position = "fill", 
-             stat = "identity") +
-  scale_fill_manual(values = my_brew_cols_4b) +
-  ggtitle("brew4b") +
-  savs_ggplot_theme  -> b4b
-
-
-
-ggarrange(v1, v2, v3, v4, v5, b4, b4a, b4b,
-          ncol = 2, nrow = 4,
-          #labels = c("A", "B", "C", "D", "E", "F"),
-          common.legend = FALSE
-          #legend = "bottom"
-          ) -> test_multi
-
-ggsave(filename = "test_multi.pdf",
-       plot = test_multi,
-       path = "./results_figures",
-       device = "pdf",
-       dpi = 600,
-       units = "mm",
-       width = 200, height = 400)
-```
-
-Notes on measurements of microhabitat use:
-
--   Kat tracked May - July & split micro use May/June/July
-    -   overlaid daytime and nighttime temps on the micro use fig
-    -   results:
-        -   May = 37-39% in burrows
-        -   June = 65% in burrows
-        -   July = 81% in burrows
--   Nicole tracked from May - mid-July & split micro use May/June/July
-    -   results:
-        -   May = 25-26% time in burrows at Shrubbed (my site)
-        -   June = 31% time in burrows at Shrubbed
-        -   July = 43% time in burrows at Shrubbed
 
