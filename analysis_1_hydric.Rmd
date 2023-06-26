@@ -2,7 +2,7 @@
 title: "Blunt-nosed Leopard Lizard Data Analysis: Water Physiology Nuances"
 author: "Savannah Weaver"
 output: 
-  rmdformats::html_clean:
+  rmarkdown::html_vignette:
     highlight: tango
     thumbnails: FALSE
     toc: TRUE
@@ -14,25 +14,15 @@ output:
 
 ```{r setup, echo=T, results='hide', message=FALSE}
 if (!require("tidyverse")) install.packages("tidyverse") 
-library("tidyverse")# for dplyr workflow of calculations
-if (!require("UsingR")) install.packages("UsingR") 
-library("UsingR")
-if (!require("lme4")) install.packages("lme4") 
-library("lme4")
+library("tidyverse") # for tidy/dplyr workflow of calculations
 if (!require("lmerTest")) install.packages("lmerTest") 
-library("lmerTest")
-if (!require("broom")) install.packages("broom")
-library("broom") # lmer model export
-if (!require("broom.mixed")) install.packages("broom.mixed")
-library("broom.mixed") # lmer model export
+library("lmerTest") # LMMs
 if (!require("ggplot2")) install.packages("ggplot2")
-library("ggplot2")
+library("ggplot2") # plots
 if (!require("RColorBrewer")) install.packages("RColorBrewer")
-library("RColorBrewer")
+library("RColorBrewer") # pretty colors
 if (!require("ggpubr")) install.packages("ggpubr")
 library("ggpubr") # for multi-ggplot figs
-if (!require("Hmisc")) install.packages("Hmisc")
-library("Hmisc") # correlation matrix
 if (!require("emmeans")) install.packages("emmeans")
 library("emmeans") # marginal means & confints
 ```
@@ -98,7 +88,7 @@ my_labels_full_M <- c("April\n(n=41)",
 
 
 
-# Background 
+# Background & Introduction
 
 This data was collected on Blunt-nosed Leopard Lizards (*Gambelia sila*) during their active season in 2021. In this document, we will investigate the nuances and trends in the hydric physiology of these desert lizards. 
 
@@ -131,7 +121,8 @@ dat <- read_rds("./data/G_sila_clean_full_dat.RDS") %>%
                                               month == "May" ~ "May 7-9",
                                               month == "July" ~ "Jul 14"),
                                     levels = c("Apr 23-25", "May 7-9", "Jul 14")),
-         gravid_Y_N = factor(gravid_Y_N, levels = c("Not Gravid", "Gravid")))
+         gravid_Y_N = factor(gravid_Y_N, levels = c("Not Gravid", "Gravid")),
+         percent_water_mass_change = (tmt_mass_change_g/mass_g)*100)
 summary(dat)
 unique(dat$radio_collar_serial)
 
@@ -154,42 +145,46 @@ dat %>%
 
 
 
+
+
+
+
 ## Variable Explanation
 
 This is an explanation of each variable in our dataframe:
 
-- "capture_date_time" 
-- "capture_date"                
-- "radio_collar_serial"          
-- "PIT_tag_ID"                  
-- "individual_ID"                
-- "sex_M_F"                     
-- "mass_g"                      
-- "SVL_mm"                      
-- "tmt"                          
-- "tmt_mass_change_g"           
-- "capture_to_msmt"              
-- "hematocrit_percent"          
-- "cloacal_temp_C"              
-- "CEWL_g_m2h"                  
-- "msmt_temp_C"                  
-- "msmt_RH_percent"             
-- "e_s_kPa"                      
-- "msmt_VPD_kPa"                
-- "osmolality_mmol_kg_mean"      
-- "month"                       
-- "week"                         
-- "week_num"                    
-- "ultrasound_date"              
-- "gravid_Y_N"                  
-- "number_eggs"                  
-- "largest_egg_diameter_cm"     
-- "largest_egg_circumference_cm" 
-- "stage"                       
-- "dev_point"                    
-- "SMI"                         
-- "month_sex"                    
-- "date_chunk_pretty"     
+- "capture_date_time" = date and time the lizard was captured
+- "capture_date" = date of capture
+- "radio_collar_serial" = serial number of the radio-collar that lizard was fitted with, if applicable; only some lizards were fitted with collars
+- "PIT_tag_ID" = serial number of the PIT tag injected into the lizard at initial capture; all lizards got PIT-tagged
+- "individual_ID" = ID number assigned to lizards
+- "sex_M_F" = lizard sex
+- "mass_g" = lizard body mass        
+- "SVL_mm" = lizard snout-vent length  
+- "tmt" = treatment given to the lizard: water supplementation, sham, or none (for the lizards that were not radio-collared)
+- "tmt_mass_change_g" = the change in mass for lizards from before to after treatment; only for lizards given water or sham treatments
+- "capture_to_msmt" = time between a lizard being captured and being measured
+- "hematocrit_percent" = percent of blood sample that was red blood cells
+- "cloacal_temp_C" = internal body temperature of the lizard at the time CEWL was taken, taken with a thermocouple in the cloaca
+- "CEWL_g_m2h" = cutaneous evaporative water loss; see wrangling_CEWL for data cleaning
+- "msmt_temp_C" = ambient temperature at the time of CEWL measurement         
+- "msmt_RH_percent" = ambient humidity at the time of CEWL measurement   
+- "e_s_kPa" = saturation vapor pressure for that ambient temperature
+- "msmt_VPD_kPa" = ambient vapor pressure deficit at the time of CEWL measurement   
+- "osmolality_mmol_kg_mean" = plasma osmolality; see wrangling_osml for data cleaning
+- "month" = measurement period as categorical month (April, May, June)
+- "week" = measurement period as categorical week throughout the summer (1, 3, 12)
+- "week_num" = measurement period as numerical week
+- "ultrasound_date" = date that a female was ultrasounded; may differ from capture and measurement dates
+- "gravid_Y_N" = whether or not a female was measured with eggs, if measured (not measured for the non-radio-collared ones)           
+- "number_eggs" = if female is gravid, the number of eggs visible with the ultrasound
+- "largest_egg_diameter_cm" = if female is gravid, the diameter of the largest egg in the clutch
+- "largest_egg_circumference_cm" = if female is gravid, the circumference of the largest egg in the clutch
+- "stage" = if female is gravid, approximate stage of development of the eggs
+- "dev_point" = numerical version of development stage             
+- "SMI" = body condition of lizards as scaled mass index (calculated in wrangling_general)
+- "month_sex" = variable that I created to make categories for each sex each month
+- "date_chunk_pretty" = nicely formatted measurement period labels
 
 
 
@@ -365,9 +360,9 @@ CEWL_cov_check_VPD <- lm(data = dat,
 summary(CEWL_cov_check_VPD)
 
 # F stats
-anova(CEWL_cov_check_clotemp)
-anova(CEWL_cov_check_msmttemp)
-anova(CEWL_cov_check_VPD)
+car::Anova(CEWL_cov_check_clotemp, type = "III")
+car::Anova(CEWL_cov_check_msmttemp, type = "III")
+car::Anova(CEWL_cov_check_VPD, type = "III")
 ```
 
 CEWL had a positive relationship with each of body temp, ambient temp, and ambient VPD, *but only for the measurements taken in May* (week 3).
@@ -417,28 +412,28 @@ Check a simple linear model between each set of paired measurements. I started w
 
 ```{r}
 # CEWL ~
-anova(lm(data = dat,
-           CEWL_g_m2h ~ osmolality_mmol_kg_mean*month))
+car::Anova(lm(data = dat,
+           CEWL_g_m2h ~ osmolality_mmol_kg_mean*month), type = "III")
 summary(lm(data = dat,
-           CEWL_g_m2h ~ osmolality_mmol_kg_mean*month*sex_M_F))
-anova(lm(data = dat,
-           CEWL_g_m2h ~ hematocrit_percent))
-anova(lm(data = dat,
-           CEWL_g_m2h ~ mass_g))
-anova(lm(data = dat,
-           CEWL_g_m2h ~ SMI))
+           CEWL_g_m2h ~ osmolality_mmol_kg_mean*month*sex_M_F), type = "III")
+car::Anova(lm(data = dat,
+           CEWL_g_m2h ~ hematocrit_percent), type = "III")
+car::Anova(lm(data = dat,
+           CEWL_g_m2h ~ mass_g), type = "III")
+car::Anova(lm(data = dat,
+           CEWL_g_m2h ~ SMI), type = "III")
 
 # osmolality ~
-anova(lm(data = dat,
-           osmolality_mmol_kg_mean ~ hematocrit_percent))
-anova(lm(data = dat,
-           osmolality_mmol_kg_mean ~ mass_g))
-anova(lm(data = dat,
-           osmolality_mmol_kg_mean ~ SMI))
+car::Anova(lm(data = dat,
+           osmolality_mmol_kg_mean ~ hematocrit_percent), type = "III")
+car::Anova(lm(data = dat,
+           osmolality_mmol_kg_mean ~ mass_g), type = "III")
+car::Anova(lm(data = dat,
+           osmolality_mmol_kg_mean ~ SMI), type = "III")
 
 # hct
-anova(lm(data = dat,
-           hematocrit_percent ~ SMI*sex_M_F))
+car::Anova(lm(data = dat,
+           hematocrit_percent ~ SMI*sex_M_F), type = "III")
 ```
 
 Notes on these relationships:
@@ -798,9 +793,20 @@ What was mass change *during* treatment, when we either gave lizards water to dr
 This quantifies the difference in mass gain/loss when we gave them water to drink versus sham treatment.
 
 ```{r tmt mass change stats}
-tmt_change <- lm(data = dat_tmt_change, tmt_mass_change_g ~ tmt)
+tmt_effect_mass <- dat %>% 
+  dplyr::filter(tmt != "No Tmt") %>% 
+  dplyr::filter(complete.cases(tmt_mass_change_g))
+summary(tmt_effect_mass)
+
+# change in grams (actual amount of water "drank")
+tmt_change <- lm(data = tmt_effect_mass, tmt_mass_change_g ~ tmt)
 summary(tmt_change)
 emmeans(tmt_change, "tmt")
+
+# change in percent body mass (relative amount)
+percent_change <- lm(data = tmt_effect_mass, percent_water_mass_change ~ tmt)
+summary(percent_change)
+emmeans(percent_change, "tmt")
 ```
 
 So, it did result in a significant change in mass within the same-day water supplementation tmt (vs sham), but only ~1.4g difference, on average.
@@ -810,6 +816,9 @@ So, it did result in a significant change in mass within the same-day water supp
 
 
 
+# Change Over Time
+
+Did hydric physiology change throughout these lizards' active season? Based on hydration treatment? Sex?
 
 
 ## Plot Change ~ Tmt
@@ -892,35 +901,115 @@ ggarrange(tmt_delta_CEWL,
           legend = "bottom"
           ) -> tmt_delta_multi_fig
 tmt_delta_multi_fig
-
-#ggsave(filename = "tmt_delta_multi_fig.pdf",
- #      plot = tmt_delta_multi_fig,
-  #     path = "./results_figures",
-   #    device = "pdf",
-    #   dpi = 600,
-     #  units = "mm",
-      # width = 80, height = 210)
 ```
 
 
 
-## Stat Tests of Change
 
-Quantify whether change over time differed based on treatment.
 
-These lm's are doing the same thing as a two-sample t-test, checking whether the means are statistically different. 
+
+
+
+
+
+## Tmt Marginal Means
+
+I want to know whether the average values for the lizards we measured changes over time based on supplemental hydration treatment. To test this, I can run a linear model, then use emmeans to get the marginal means and confidence intervals for each time point. 
+
+**Do this only for lizards with repeat measurements, because those are the ones that received tmt.**
+
+
+
+
+
+### Mass
 
 ```{r}
-summary(lm(data = dat_tmt_change_May_only, mass_change_from_April ~ tmt))
-summary(lm(data = dat_tmt_change_May_only, CEWL_change_from_April ~ tmt))
-summary(lm(data = dat_tmt_change_May_only, osml_change_from_April ~ tmt))
-# stats in paper are from these 3 models
-summary(lm(data = dat_tmt_change, mass_change_from_April ~ tmt))
-summary(lm(data = dat_tmt_change, CEWL_change_from_April ~ tmt))
-summary(lm(data = dat_tmt_change, osml_change_from_April ~ tmt))
+tmt_diffs_mass <- lmerTest::lmer(data = dat_repeats, mass_g ~ month*tmt +
+                                        (1|individual_ID))
+anova(tmt_diffs_mass, type = "3", ddf = "Kenward-Roger")
+
+# mean values
+(emmeans(tmt_diffs_mass, pairwise ~ month | tmt)$emmean)
+
+# stat diffs by month
+(emmeans(tmt_diffs_mass, pairwise ~ month | tmt)$contrasts)
+
+# stat diffs by tmt
+(emmeans(tmt_diffs_mass, pairwise ~ tmt | month)$contrasts)
 ```
 
-Change was not significantly different between treatments for any of the variables. 
+
+### Body Condition
+
+```{r}
+tmt_diffs_SMI <- lmerTest::lmer(data = dat_repeats, SMI ~ month*tmt +
+                                        (1|individual_ID))
+anova(tmt_diffs_SMI, type = "3", ddf = "Kenward-Roger")
+
+# mean values
+(emmeans(tmt_diffs_SMI, pairwise ~ month | tmt)$emmean)
+
+# stat diffs by month
+(emmeans(tmt_diffs_SMI, pairwise ~ month | tmt)$contrasts)
+
+# stat diffs by tmt
+(emmeans(tmt_diffs_SMI, pairwise ~ tmt | month)$contrasts)
+```
+
+
+
+
+### Osmolality
+
+
+```{r}
+tmt_diffs_osml <- lmerTest::lmer(data = dat_repeats, 
+                                      osmolality_mmol_kg_mean ~ month*tmt +
+                                        (1|individual_ID))
+anova(tmt_diffs_osml, type = "3", ddf = "Kenward-Roger")
+
+# mean values
+(emmeans(tmt_diffs_osml, pairwise ~ month | tmt)$emmean)
+
+# stat diffs by month
+(emmeans(tmt_diffs_osml, pairwise ~ month | tmt)$contrasts)
+
+# stat diffs by tmt
+(emmeans(tmt_diffs_osml, pairwise ~ tmt | month)$contrasts)
+```
+
+
+
+
+### CEWL
+
+```{r}
+tmt_diffs_CEWL <- lmerTest::lmer(data = dat_repeats, 
+                                      CEWL_g_m2h ~ month*tmt +
+                                        (1|individual_ID))
+anova(tmt_diffs_CEWL, type = "3", ddf = "Kenward-Roger")
+
+# check covariates
+tmt_diffs_CEWL_check_covaries <- lmerTest::lmer(data = dat_repeats, 
+                                                     CEWL_g_m2h ~ month*tmt
+                                         + msmt_temp_C + msmt_VPD_kPa +
+                                        (1|individual_ID))
+anova(tmt_diffs_CEWL_check_covaries, type = "3", ddf = "Kenward-Roger") # not important
+
+# mean values
+(emmeans(tmt_diffs_CEWL, pairwise ~ month | tmt)$emmean)
+
+# stat diffs by month
+(emmeans(tmt_diffs_CEWL, pairwise ~ month | tmt)$contrasts)
+
+# stat diffs by sex
+(emmeans(tmt_diffs_CEWL, pairwise ~ tmt | month)$contrasts)
+```
+
+
+
+Hydric physiology was not significantly different between treatments at any time.
 
 
 Was change overall (across tmts) different from zero?
@@ -946,9 +1035,6 @@ On average, lizards who were measured in both April and May increased mass, but 
 
 
 
-# Change Over Time
-
-Did hydric physiology change throughout these lizards' active season?
 
 
 ## Plot Delta ~ Time*Sex
@@ -1075,7 +1161,8 @@ dat_repeats %>%
 ```{r}
 time_sex_diffs_mass <- lmerTest::lmer(data = dat_repeats, mass_g ~ month*sex_M_F +
                                         (1|individual_ID))
-anova(time_sex_diffs_mass, type = "1", ddf = "Kenward-Roger")
+anova(time_sex_diffs_mass, type = "3", ddf = "Kenward-Roger")
+
 
 # mean values
 emmeans_mass <- data.frame(emmeans(time_sex_diffs_mass, 
@@ -1099,7 +1186,7 @@ sex_emmeans_mass <- data.frame(emmeans(time_sex_diffs_mass,
 ```{r}
 time_sex_diffs_SMI <- lmerTest::lmer(data = dat_repeats, SMI ~ month*sex_M_F +
                                         (1|individual_ID))
-anova(time_sex_diffs_SMI, type = "1", ddf = "Kenward-Roger")
+anova(time_sex_diffs_SMI, type = "3", ddf = "Kenward-Roger")
 
 # mean values
 emmeans_SMI <- data.frame(emmeans(time_sex_diffs_SMI, 
@@ -1122,13 +1209,12 @@ sex_emmeans_SMI <- data.frame(emmeans(time_sex_diffs_SMI,
 
 ### Osmolality
 
-*Remember, for some reason VPD was very significant when added to the osmolality lm...*
 
 ```{r}
 time_sex_diffs_osml <- lmerTest::lmer(data = dat_repeats, 
                                       osmolality_mmol_kg_mean ~ month*sex_M_F +
                                         (1|individual_ID))
-anova(time_sex_diffs_osml, type = "1", ddf = "Kenward-Roger")
+anova(time_sex_diffs_osml, type = "3", ddf = "Kenward-Roger")
 
 # mean values
 emmeans_osml <- data.frame(emmeans(time_sex_diffs_osml, 
@@ -1155,14 +1241,14 @@ sex_emmeans_osml <- data.frame(emmeans(time_sex_diffs_osml,
 time_sex_diffs_CEWL <- lmerTest::lmer(data = dat_repeats, 
                                       CEWL_g_m2h ~ month*sex_M_F +
                                         (1|individual_ID))
-anova(time_sex_diffs_CEWL, type = "1", ddf = "Kenward-Roger")
+anova(time_sex_diffs_CEWL, type = "3", ddf = "Kenward-Roger")
 
 # check covariates
 time_sex_diffs_CEWL_check_covaries <- lmerTest::lmer(data = dat_repeats, 
                                                      CEWL_g_m2h ~ month*sex_M_F
                                          + msmt_temp_C + msmt_VPD_kPa +
                                         (1|individual_ID))
-anova(time_sex_diffs_CEWL_check_covaries, type = "1", ddf = "Kenward-Roger") # not important at all
+anova(time_sex_diffs_CEWL_check_covaries, type = "3", ddf = "Kenward-Roger") # not important at all
 59/0.09 # 655.5
 54/0.14 # 385.7
 
@@ -1500,7 +1586,7 @@ dat %>%
 full_time_sex_diffs_mass <- lmerTest::lmer(data = dat, mass_g ~ month*sex_M_F +
                                         (1|individual_ID))
 full_time_sex_diffs_mass_aov <- data.frame(anova(full_time_sex_diffs_mass, 
-                                                 type = "1", ddf = "Kenward-Roger")) %>%
+                                                 type = "3", ddf = "Kenward-Roger")) %>%
   mutate(explanatory = factor(row.names(.)))
 
 # mean values
@@ -1528,7 +1614,7 @@ full_sex_emmeans_mass <- data.frame(emmeans(full_time_sex_diffs_mass,
 full_time_sex_diffs_SMI <- lmerTest::lmer(data = dat, SMI ~ month*sex_M_F +
                                         (1|individual_ID))
 full_time_sex_diffs_SMI_aov <- data.frame(anova(full_time_sex_diffs_SMI, 
-                                          type = "1", ddf = "Kenward-Roger")) %>%
+                                          type = "3", ddf = "Kenward-Roger")) %>%
   mutate(explanatory = factor(row.names(.)))
 
 # mean values
@@ -1557,7 +1643,7 @@ full_time_sex_diffs_osml <- lmerTest::lmer(data = dat,
                                       osmolality_mmol_kg_mean ~ month*sex_M_F +
                                         (1|individual_ID))
 full_time_sex_diffs_osml_aov <- data.frame(anova(full_time_sex_diffs_osml, 
-                                           type = "1", ddf = "Kenward-Roger")) %>%
+                                           type = "3", ddf = "Kenward-Roger")) %>%
   mutate(explanatory = factor(row.names(.)))
 
 # mean values
@@ -1586,7 +1672,7 @@ full_time_sex_diffs_CEWL <- lmerTest::lmer(data = dat,
                                       CEWL_g_m2h ~ month*sex_M_F +
                                         (1|individual_ID))
 full_time_sex_diffs_CEWL_aov <- data.frame(anova(full_time_sex_diffs_CEWL, 
-                                           type = "1", ddf = "Kenward-Roger")) %>%
+                                           type = "3", ddf = "Kenward-Roger")) %>%
   mutate(explanatory = factor(row.names(.)))
 
 # check covariates
@@ -1668,13 +1754,13 @@ summary(full_time_sex_diffs_all)
 
 ```{r}
 full_time_sex_diffs_4exp <- full_time_sex_diffs_all %>%
-  mutate(seq_sum_of_squares = round(Sum.Sq, 0), 
+  mutate(partial_sum_of_squares = round(Sum.Sq, 0), 
          F_statistic = round(F.value, 2),
          DenDF = round(DenDF, 0),
          F_full = paste(F_statistic, " (", NumDF, ",", DenDF, ")", sep = ""),
          p_value = round(Pr..F., 4)) %>%
   dplyr::select(response, explanatory,
-                seq_sum_of_squares,
+                partial_sum_of_squares,
                 #NumDF, DenDF,
                 #F_statistic, 
                 F_full,
