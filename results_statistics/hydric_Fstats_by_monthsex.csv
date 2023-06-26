@@ -1,13 +1,13 @@
-"","response","explanatory","seq_sum_of_squares","F_full","p_value"
-"month","CEWL","month",163,"7.67 (2,79)",9e-04
-"sex_M_F","CEWL","sex_M_F",55,"5.18 (1,73)",0.0257
+"","response","explanatory","partial_sum_of_squares","F_full","p_value"
+"month","CEWL","month",120,"5.63 (2,85)",0.0051
+"sex_M_F","CEWL","sex_M_F",34,"3.22 (1,99)",0.0758
 "month:sex_M_F","CEWL","month:sex_M_F",47,"2.2 (2,85)",0.1169
-"month1","Plasma Osmolality","month",8287,"7.16 (2,88)",0.0013
-"sex_M_F1","Plasma Osmolality","sex_M_F",5545,"9.59 (1,70)",0.0028
+"month1","Plasma Osmolality","month",6749,"5.83 (2,92)",0.0041
+"sex_M_F1","Plasma Osmolality","sex_M_F",1441,"2.49 (1,88)",0.118
 "month:sex_M_F1","Plasma Osmolality","month:sex_M_F",770,"0.67 (2,92)",0.5164
-"month2","Mass","month",299,"9.05 (2,49)",5e-04
-"sex_M_F2","Mass","sex_M_F",32,"1.91 (1,77)",0.1706
+"month2","Mass","month",388,"11.72 (2,50)",1e-04
+"sex_M_F2","Mass","sex_M_F",53,"3.19 (1,102)",0.0769
 "month:sex_M_F2","Mass","month:sex_M_F",83,"2.5 (2,50)",0.0921
-"month3","Body Condition","month",336,"15.61 (2,73)",0
-"sex_M_F3","Body Condition","sex_M_F",9,"0.8 (1,75)",0.3747
+"month3","Body Condition","month",400,"18.58 (2,80)",0
+"sex_M_F3","Body Condition","sex_M_F",12,"1.08 (1,103)",0.3013
 "month:sex_M_F3","Body Condition","month:sex_M_F",138,"6.42 (2,80)",0.0026
