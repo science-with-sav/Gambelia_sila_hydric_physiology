@@ -1,0 +1,187 @@
+---
+title: "conceptual diagram of VPD"
+author: "Savannah Weaver"
+date: "2023-08-22"
+output: html_document
+---
+
+
+# Packages
+
+```{r}
+if (!require("tidyverse")) install.packages("tidyverse") 
+library("tidyverse") # for dplyr workflow + ggplot
+if (!require("RColorBrewer")) install.packages("RColorBrewer")
+library("RColorBrewer") # plot colors
+```
+
+
+
+
+# Create Fake, Conceptual Data
+
+Values I want to visualize:
+
+- vapor pressure deficit (kPa)
+- air temperature (C)
+- relative humidity, as a few set points (0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100)
+
+```{r}
+# RH formatting
+RH_list <- c(seq(0,100,10))
+RH_levels <- paste(as.character(sort(RH_list, decreasing = TRUE)), "%", sep = "")
+  
+# first, get every combo of temp and RH
+dat <- data.frame(temp_C = sort(rep(c(20:40), 11)),
+                  RH = rep(RH_list, 21)
+                  ) %>% 
+  # now get the VPD (Campbell & Normal 1998) for each temp x RH combo
+  mutate(e_s_kPa = 0.611 * exp((17.502*temp_C)/(temp_C + 240.97)), # saturation VP
+         e_a_kPa = e_s_kPa*((RH/100)), # actual VP
+         VPD_kPa = e_s_kPa - e_a_kPa # VP deficit
+         ) %>%
+  # format things
+  mutate(RH_ch = paste(as.character(RH), "%", sep = ""),
+         RH_fact = factor(RH_ch, levels = RH_levels))
+summary(dat)
+```
+
+
+get a subset of the dataframe that is 100% RH only:
+
+```{r}
+dat_100_only <- dat %>% 
+  dplyr::filter(RH == 100)
+```
+
+
+
+
+
+
+
+# Make a Pretty Plot
+
+## Themes & Colors
+
+```{r}
+savs_ggplot_theme <- theme_classic() + 
+                     theme(text = element_text(color = "black", 
+                                               family = "sans", 
+                                               size = 14),
+                           axis.text = element_text(color = "black", 
+                                                    family = "sans", 
+                                                    size = 10),
+                           legend.text = element_text(color = "black", 
+                                                      family = "sans", 
+                                                      size = 10),
+                           legend.text.align = 0,
+                           legend.position = "right",
+                           legend.spacing.y = unit(1, "mm")
+                           )
+
+my_brew_cols <- brewer.pal(11, "RdYlBu")[c(1:5, 7:11)] # this one! delete 6 bc too faint
+black <- brewer.pal(9, "Greys")[9]
+my_brew_cols_combo <- c(my_brew_cols, black)
+```
+
+
+
+
+
+
+## Saturation VP
+
+```{r}
+ggplot() + 
+  # all lines
+  geom_smooth(data = dat,
+              aes(x = temp_C,
+                  y = e_a_kPa,
+                  color = RH_fact),
+              method = "loess",
+              formula = y~x,
+              se = F,
+              size = 0.5) +
+  # 100% RH only
+  geom_smooth(data = dat_100_only,
+              aes(x = temp_C,
+                  y = e_a_kPa),
+              method = "loess",
+              formula = y~x,
+              se = F,
+              size = 1.2,
+              color = "black") +
+  # make pretty
+  scale_color_manual(values = rev(my_brew_cols_combo), name = "Relative\nHumidity") +
+  #scale_y_continuous(breaks = c(0:7), labels = c(0:7)) +
+  xlab("Air Temperature (°C)") +
+  ylab("Saturation Vapor Pressure (kPa)") +
+  savs_ggplot_theme -> sat_VP_fig
+sat_VP_fig
+```
+
+
+
+
+## VP Deficit 
+
+```{r}
+ggplot(data = dat) + 
+  geom_point(aes(x = temp_C,
+             y = VPD_kPa,
+             color = RH))
+```
+
+
+
+
+
+
+
+# Export Figure
+
+```{r}
+ggsave(filename = "concept_VPD.pdf",
+       plot = sat_VP_fig,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 150, height = 90)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
