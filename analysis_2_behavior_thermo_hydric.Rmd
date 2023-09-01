@@ -503,6 +503,15 @@ microhab_check2 <- microhab %>%
 microhab_check2
 ```
 
+
+### Export full microhab df
+
+```{r}
+#write_rds(microhab, "./data/telemetry_clean_2021.RDS")
+```
+
+
+
 *methods stats*: How many observations and days was each lizard tracked for?
 
 ```{r}
