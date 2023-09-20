@@ -1054,8 +1054,9 @@ For each model, get the marginal Rsq for the amount of variance that's explained
 
 ```{r}
 corrs <- data.frame(hydric_var = c(rep("CEWL", 3), rep("Plasma Osmolality", 3), 
-                                   rep("Body Mass", 3), rep("Body Condition", 3)),
-                    thermal_var = c(rep(c("Max Temp", "Db", "Micro Use"), 4)),
+                                   #rep("Body Mass", 3), 
+                                   rep("Body Condition", 3)),
+                    thermal_var = c(rep(c("Max Temp", "Db", "Micro Use"), 3)),
                     R = c(
                       # CEWL
                       cor(max_temps_hydric$CEWL_g_m2h,
@@ -1072,17 +1073,18 @@ corrs <- data.frame(hydric_var = c(rep("CEWL", 3), rep("Plasma Osmolality", 3),
                       cor(micro_hydric$osmolality_mmol_kg_mean, micro_hydric$prop_above,
                           use = "complete.obs"),
                       # mass
-                      cor(max_temps_hydric$mass_g,
-                          max_temps_hydric$chunk_avg_Tb_percentile_80_90),
-                      cor(db_hydric$mass_g, db_hydric$chunk_mean_Db_deg_C_diff),
-                      cor(micro_hydric$mass_g, micro_hydric$prop_above),
+                      # cor(max_temps_hydric$mass_g,
+                      #     max_temps_hydric$chunk_avg_Tb_percentile_80_90),
+                      # cor(db_hydric$mass_g, db_hydric$chunk_mean_Db_deg_C_diff),
+                      # cor(micro_hydric$mass_g, micro_hydric$prop_above),
                       # body condition
                       cor(max_temps_hydric$SMI,
                           max_temps_hydric$chunk_avg_Tb_percentile_80_90),
                       cor(db_hydric$SMI, db_hydric$chunk_mean_Db_deg_C_diff),
                       cor(micro_hydric$SMI, micro_hydric$prop_above))) %>%
   mutate(hydric_var = factor(hydric_var, levels = c("CEWL", "Plasma Osmolality",
-                                                    "Body Mass", "Body Condition")))
+                                                    #"Body Mass", 
+                                                    "Body Condition")))
                    
 corrs
 ```
@@ -1091,6 +1093,8 @@ corrs
 
 
 Plot it:
+
+*removed body mass because body condition was more relevant*
 
 ```{r}
 ggplot(corrs) +
@@ -1101,12 +1105,13 @@ ggplot(corrs) +
   scale_fill_distiller(palette = "RdYlBu", limits = c(-1, 1),
                        name = "Correlation\nCoefficient") +
   savs_ggplot_theme2 +
-  scale_y_discrete(name = NULL, labels = c("Thermoregulatory\nAccuracy",
-                                           bquote("High T"[b]),
+  scale_y_discrete(name = NULL, labels = c("Thermoregulatory\n            Accuracy",
+                                           bquote("Maximum T"[b]),
                                            "Microhabitat Use"
                                            )) +
   scale_x_discrete(name = NULL, labels = c("CEWL", "Plasma\nOsmolality",
-                                           "Body\nMass", "Body\nCondition")) +
+                                           #"Body\nMass", 
+                                           "Body\nCondition")) +
   # CEWL
   annotate("text", x = 1, y = 1, label = "-0.03", 
            size = 2, family = "sans", color = "black") +
@@ -1122,18 +1127,18 @@ ggplot(corrs) +
   annotate("text", x = 2, y = 3, label = "-0.001", 
            size = 2, family = "sans", color = "black") +
   # body mass
-  annotate("text", x = 3, y = 1, label = "0.04", 
-           size = 2, family = "sans", color = "black") +
-  annotate("text", x = 3, y = 2, label = "0.03", 
-           size = 2, family = "sans", color = "black") +
-  annotate("text", x = 3, y = 3, label = "0.004", 
-           size = 2, family = "sans", color = "black") +
+  # annotate("text", x = 3, y = 1, label = "0.04", 
+  #          size = 2, family = "sans", color = "black") +
+  # annotate("text", x = 3, y = 2, label = "0.03", 
+  #          size = 2, family = "sans", color = "black") +
+  # annotate("text", x = 3, y = 3, label = "0.004", 
+  #          size = 2, family = "sans", color = "black") +
   # body condition
-  annotate("text", x = 4, y = 1, label = "0.02", 
+  annotate("text", x = 3, y = 1, label = "0.02", 
            size = 2, family = "sans", color = "black") +
-  annotate("text", x = 4, y = 2, label = "0.08*", 
+  annotate("text", x = 3, y = 2, label = "0.08*", 
            size = 3, family = "sans", color = "black") +
-  annotate("text", x = 4, y = 3, label = "0.005", 
+  annotate("text", x = 3, y = 3, label = "0.005", 
            size = 2, family = "sans", color = "black") -> corr_plot
 
 # arrange to get legend centered
@@ -1150,7 +1155,7 @@ ggsave(filename = "thermal_hydric_corr_plot.pdf",
        device = "pdf",
        dpi = 600,
        units = "mm",
-       width = 110, height = 80)
+       width = 100, height = 80)
 ```
 
 
