@@ -1614,6 +1614,13 @@ full_time_sex_diffs_SMI_aov <- data.frame(anova(full_time_sex_diffs_SMI,
                                           type = "3", ddf = "Kenward-Roger")) %>%
   mutate(explanatory = factor(row.names(.)))
 
+# double check that type 2 vs 3 anovas are essentially the same results
+full_time_sex_diffs_SMI_aov2 <- data.frame(anova(full_time_sex_diffs_SMI, 
+                                          type = "2", ddf = "Kenward-Roger")) %>%
+  mutate(explanatory = factor(row.names(.)))
+full_time_sex_diffs_SMI_aov
+full_time_sex_diffs_SMI_aov2
+
 # mean values
 full_emmeans_SMI <- data.frame(emmeans(full_time_sex_diffs_SMI, 
                                    pairwise ~ month | sex_M_F)$emmean) %>%
@@ -1642,6 +1649,11 @@ full_time_sex_diffs_osml <- lmerTest::lmer(data = dat,
 full_time_sex_diffs_osml_aov <- data.frame(anova(full_time_sex_diffs_osml, 
                                            type = "3", ddf = "Kenward-Roger")) %>%
   mutate(explanatory = factor(row.names(.)))
+full_time_sex_diffs_osml_aov2 <- data.frame(anova(full_time_sex_diffs_osml, 
+                                           type = "2", ddf = "Kenward-Roger")) %>%
+  mutate(explanatory = factor(row.names(.)))
+full_time_sex_diffs_osml_aov
+full_time_sex_diffs_osml_aov2
 
 # mean values
 full_emmeans_osml <- data.frame(emmeans(full_time_sex_diffs_osml, 
@@ -1671,6 +1683,12 @@ full_time_sex_diffs_CEWL <- lmerTest::lmer(data = dat,
 full_time_sex_diffs_CEWL_aov <- data.frame(anova(full_time_sex_diffs_CEWL, 
                                            type = "3", ddf = "Kenward-Roger")) %>%
   mutate(explanatory = factor(row.names(.)))
+full_time_sex_diffs_CEWL_aov2 <- data.frame(anova(full_time_sex_diffs_CEWL, 
+                                           type = "2", ddf = "Kenward-Roger")) %>%
+  mutate(explanatory = factor(row.names(.)))
+full_time_sex_diffs_CEWL_aov
+full_time_sex_diffs_CEWL_aov2
+
 
 # check covariates
 full_time_sex_diffs_CEWL_check_covaries <- lmerTest::lmer(data = dat, 
@@ -1735,13 +1753,14 @@ full_emmean_sex_stats <- full_sex_emmeans_CEWL %>%
   rbind(full_sex_emmeans_mass) %>%
   rbind(full_sex_emmeans_SMI)
 
-# anova stats
-full_time_sex_diffs_all <- (full_time_sex_diffs_CEWL_aov) %>%
-  rbind((full_time_sex_diffs_osml_aov)) %>%
-  rbind((full_time_sex_diffs_mass_aov)) %>%
-  rbind((full_time_sex_diffs_SMI_aov)) %>%
+# anova stats - type 2 is better for looking at interactions
+full_time_sex_diffs_all <- (full_time_sex_diffs_CEWL_aov2) %>%
+  rbind((full_time_sex_diffs_osml_aov2)) %>%
+  #rbind((full_time_sex_diffs_mass_aov2)) %>%
+  rbind((full_time_sex_diffs_SMI_aov2)) %>%
   mutate(response = factor(c(rep("CEWL", 3), rep("Plasma Osmolality", 3),
-                      rep("Mass", 3), rep("Body Condition", 3))))
+                      #rep("Mass", 3), 
+                      rep("Body Condition", 3))))
 summary(full_time_sex_diffs_all)
 ```
 
