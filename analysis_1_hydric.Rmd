@@ -58,7 +58,7 @@ my_shapes <- c(19,15)
 my_shapes_open <- c(21,22)
 
 # corr colors
-n3 <- brewer.pal(11, "RdYlBu")[c(9, 10, 11)]
+n3 <- brewer.pal(11, "RdYlBu")[c(9, 11, 3)]
 n2 <- brewer.pal(9, "YlGnBu")[c(6, 8)]
 n1 <- brewer.pal(9, "YlGnBu")[c(6)]
 
@@ -479,9 +479,6 @@ ggplot(dat) +
   scale_shape_manual(values = c(15, 16, 17), name = NULL) +
   labs(x = bquote('Plasma Osmolality (mmol '*kg^-1*')'),
        y = bquote('CEWL (g '*m^-2*' '*h^-1*')')) +
-  #guides(color = guide_legend(nrow = 1, byrow = TRUE),
-   #      #fill = guide_legend(title.position = "left") # makes color ramp weird
-    #     ) +
   scale_x_continuous(limits = c(300, 450),
                      breaks = c(300, 350, 400, 450),
                      labels = c(300, 350, 400, 450)) +
