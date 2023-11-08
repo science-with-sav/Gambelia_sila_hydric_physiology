@@ -360,9 +360,9 @@ CEWL_cov_check_VPD <- lm(data = dat,
 summary(CEWL_cov_check_VPD)
 
 # F stats
-car::Anova(CEWL_cov_check_clotemp, type = "III")
-car::Anova(CEWL_cov_check_msmttemp, type = "III")
-car::Anova(CEWL_cov_check_VPD, type = "III")
+car::Anova(CEWL_cov_check_clotemp, type = "II")
+car::Anova(CEWL_cov_check_msmttemp, type = "II")
+car::Anova(CEWL_cov_check_VPD, type = "II")
 ```
 
 CEWL had a positive relationship with each of body temp, ambient temp, and ambient VPD, *but only for the measurements taken in May* (week 3).
@@ -413,27 +413,27 @@ Check a simple linear model between each set of paired measurements. I started w
 ```{r}
 # CEWL ~
 car::Anova(lm(data = dat,
-           CEWL_g_m2h ~ osmolality_mmol_kg_mean*month), type = "III")
+           CEWL_g_m2h ~ osmolality_mmol_kg_mean*month), type = "2")
 summary(lm(data = dat,
-           CEWL_g_m2h ~ osmolality_mmol_kg_mean*month*sex_M_F), type = "III")
+           CEWL_g_m2h ~ osmolality_mmol_kg_mean*month))
 car::Anova(lm(data = dat,
-           CEWL_g_m2h ~ hematocrit_percent), type = "III")
+           CEWL_g_m2h ~ hematocrit_percent), type = "II")
 car::Anova(lm(data = dat,
-           CEWL_g_m2h ~ mass_g), type = "III")
+           CEWL_g_m2h ~ mass_g), type = "2")
 car::Anova(lm(data = dat,
-           CEWL_g_m2h ~ SMI), type = "III")
+           CEWL_g_m2h ~ SMI), type = "II")
 
 # osmolality ~
 car::Anova(lm(data = dat,
-           osmolality_mmol_kg_mean ~ hematocrit_percent), type = "III")
+           osmolality_mmol_kg_mean ~ hematocrit_percent), type = "II")
 car::Anova(lm(data = dat,
-           osmolality_mmol_kg_mean ~ mass_g), type = "III")
+           osmolality_mmol_kg_mean ~ mass_g), type = "II")
 car::Anova(lm(data = dat,
-           osmolality_mmol_kg_mean ~ SMI), type = "III")
+           osmolality_mmol_kg_mean ~ SMI), type = "II")
 
 # hct
 car::Anova(lm(data = dat,
-           hematocrit_percent ~ SMI*sex_M_F), type = "III")
+           hematocrit_percent ~ SMI*sex_M_F), type = "II")
 ```
 
 Notes on these relationships:
@@ -448,6 +448,7 @@ Notes on these relationships:
 For MS:
 
 - Plasma osmolality explained a significant amount of the variation in CEWL (SLR: F(1,110) = 5.07, p = 0.03), with a marginally nonsignificant interaction with measurement time period (SLR: F(2,110) = 2.77, p = 0.07). 
+
 - CEWL could also be explained by hematocrit (SLR: F(1,114) = 9.86, p = 0.002), or body condition (SLR: F(1,116) = 3.89, p = 0.05), but not lizard mass (SLR: F(1,116) = 1.44, p = 0.2). 
 - Variation in plasma osmolality could be explained by hematocrit (SLR: F(1,114) = 15.07, p < 0.001) or body condition (SLR: F(1,114) = 5.30, p = 0.02), but not lizard mass (SLR: F(1,114) < 0.001, p = 1). 
 - Hematocrit and body condition were also significantly related (SLR: F(1,112) = 9.03, p = 0.003), with an interaction of lizard sex (SLR: F(1,112) = 7.97, p = 0.005). 
@@ -523,11 +524,6 @@ ggplot(dat) +
               color = n1) + 
   xlab("Body Condition (g')") + 
   ylab(bquote('CEWL (g/'*m^2*'h)')) + 
-  #ylab("") +
-  #xlim(300, 450) +
-  #annotate(geom = "text", x = 430, y = 24, label = bquote(''*R^2*'=0.033'), 
-   #        size = 7) +
-  #ylim(0, 25) +
   savs_ggplot_theme -> CEWL_SMI_fig
 CEWL_SMI_fig
 ```
@@ -682,46 +678,6 @@ hct_SMI_fig
 
 
 
-
-
-
-
-## Lag (delete?)
-
-What if I tested week 3 CEWL ~ week 1 osml, or visa versa? This is to look for a lag effect on their relationship, although the time period is likely too long.
-
-First, organize the data:
-
-```{r}
-w3_CEWL <- dat %>%
-  dplyr::filter(week == 3) %>%
-  dplyr::select(individual_ID, CEWL_g_m2h)
-w1_osml <- dat %>%
-  dplyr::filter(week == 1) %>%
-  dplyr::select(individual_ID, osmolality_mmol_kg_mean)
-w3_vs_w1 <- w1_osml %>%
-  left_join(w3_CEWL, by = 'individual_ID') %>%
-  dplyr::filter(complete.cases(osmolality_mmol_kg_mean, CEWL_g_m2h))
-w1_CEWL <- dat %>%
-  dplyr::filter(week == 1) %>%
-  dplyr::select(individual_ID, CEWL_g_m2h)
-w3_osml <- dat %>%
-  dplyr::filter(week == 3) %>%
-  dplyr::select(individual_ID, osmolality_mmol_kg_mean) 
-w1_vs_w3 <- w3_osml %>%
-  left_join(w1_CEWL, by = 'individual_ID') %>%
-  dplyr::filter(complete.cases(osmolality_mmol_kg_mean, CEWL_g_m2h))
-```
-
-
-Run models:
-
-```{r}
-summary(lm(data = w3_vs_w1, CEWL_g_m2h ~ osmolality_mmol_kg_mean))
-summary(lm(data = w1_vs_w3, CEWL_g_m2h ~ osmolality_mmol_kg_mean))
-```
-
-It seems very unlikely there is a lag effect, at least at this time scale. t and F stats were both nonsig for each comparisons.
 
 
 
@@ -1204,6 +1160,43 @@ sex_emmeans_SMI <- data.frame(emmeans(time_sex_diffs_SMI,
 
 
 
+
+
+
+
+
+### Hematocrit
+
+
+```{r}
+time_sex_diffs_hct <- lmerTest::lmer(data = dat_repeats, 
+                                      hematocrit_percent ~ month*sex_M_F +
+                                        (1|individual_ID))
+anova(time_sex_diffs_hct, type = "2", ddf = "Kenward-Roger")
+
+# mean values
+emmeans_hct <- data.frame(emmeans(time_sex_diffs_hct, 
+                                   pairwise ~ month | sex_M_F)$emmean) %>%
+  mutate(measurement = "Hematocrit")
+
+# stat diffs by month
+time_emmeans_hct <- data.frame(emmeans(time_sex_diffs_hct, 
+                                   pairwise ~ month | sex_M_F)$contrasts) %>%
+  mutate(measurement = "Hematocrit")
+
+# stat diffs by sex
+sex_emmeans_hct <- data.frame(emmeans(time_sex_diffs_hct, 
+                                   pairwise ~ sex_M_F | month)$contrasts) %>%
+  mutate(measurement = "Hematocrit")
+```
+
+
+
+
+
+
+
+
 ### Osmolality
 
 
@@ -1211,7 +1204,7 @@ sex_emmeans_SMI <- data.frame(emmeans(time_sex_diffs_SMI,
 time_sex_diffs_osml <- lmerTest::lmer(data = dat_repeats, 
                                       osmolality_mmol_kg_mean ~ month*sex_M_F +
                                         (1|individual_ID))
-anova(time_sex_diffs_osml, type = "3", ddf = "Kenward-Roger")
+anova(time_sex_diffs_osml, type = "2", ddf = "Kenward-Roger")
 
 # mean values
 emmeans_osml <- data.frame(emmeans(time_sex_diffs_osml, 
@@ -1238,14 +1231,14 @@ sex_emmeans_osml <- data.frame(emmeans(time_sex_diffs_osml,
 time_sex_diffs_CEWL <- lmerTest::lmer(data = dat_repeats, 
                                       CEWL_g_m2h ~ month*sex_M_F +
                                         (1|individual_ID))
-anova(time_sex_diffs_CEWL, type = "3", ddf = "Kenward-Roger")
+anova(time_sex_diffs_CEWL, type = "2", ddf = "Kenward-Roger")
 
 # check covariates
 time_sex_diffs_CEWL_check_covaries <- lmerTest::lmer(data = dat_repeats, 
                                                      CEWL_g_m2h ~ month*sex_M_F
                                          + msmt_temp_C + msmt_VPD_kPa +
                                         (1|individual_ID))
-anova(time_sex_diffs_CEWL_check_covaries, type = "3", ddf = "Kenward-Roger") # not important at all
+anova(time_sex_diffs_CEWL_check_covaries, type = "2", ddf = "Kenward-Roger") # not important at all
 59/0.09 # 655.5
 54/0.14 # 385.7
 
@@ -1583,7 +1576,7 @@ dat %>%
 full_time_sex_diffs_mass <- lmerTest::lmer(data = dat, mass_g ~ month*sex_M_F +
                                         (1|individual_ID))
 full_time_sex_diffs_mass_aov <- data.frame(anova(full_time_sex_diffs_mass, 
-                                                 type = "3", ddf = "Kenward-Roger")) %>%
+                                                 type = "2", ddf = "Kenward-Roger")) %>%
   mutate(explanatory = factor(row.names(.)))
 
 # mean values
@@ -1696,7 +1689,7 @@ full_time_sex_diffs_CEWL_check_covaries <- lmerTest::lmer(data = dat,
                                          + msmt_temp_C + msmt_VPD_kPa +
                                         (1|individual_ID))
 anova(full_time_sex_diffs_CEWL_check_covaries, 
-      type = "1", ddf = "Kenward-Roger")
+      type = "2", ddf = "Kenward-Roger")
 
 # mean values
 full_emmeans_CEWL <- data.frame(emmeans(full_time_sex_diffs_CEWL, 
@@ -1893,9 +1886,9 @@ ggplot() +
   # sex differences
   annotate(geom = "text", x = 3, y = 54, label = "*", size = 6) +
   # time differences for FEMALES
-  annotate(geom = "text", x = 1, y = 61, label = "A", size = 3) +
-  annotate(geom = "text", x = 2, y = 61, label = "B", size = 3) +
-  annotate(geom = "text", x = 3, y = 61, label = "A", size = 3) +
+  annotate(geom = "text", x = 1, y = 61, label = "a", size = 3) +
+  annotate(geom = "text", x = 2, y = 61, label = "b", size = 3) +
+  annotate(geom = "text", x = 3, y = 61, label = "a", size = 3) +
   scale_color_manual(values = Fem, name = "Sex") +
   scale_fill_manual(values = Fem, name = "Sex") +
   scale_shape_manual(values = 19, name = "Sex") +
@@ -1949,9 +1942,9 @@ ggplot() +
   # sex differences
   annotate(geom = "text", x = 3, y = 54, label = "*", size = 6) +
   # time differences for MALES
-  annotate(geom = "text", x = 1, y = 61, label = "AB", size = 3) +
-  annotate(geom = "text", x = 2, y = 61, label = "A", size = 3) +
-  annotate(geom = "text", x = 3, y = 61, label = "B", size = 3) +
+  annotate(geom = "text", x = 1, y = 61, label = "a,b", size = 3) +
+  annotate(geom = "text", x = 2, y = 61, label = "a", size = 3) +
+  annotate(geom = "text", x = 3, y = 61, label = "b", size = 3) +
   scale_color_manual(values = Male, name = "Sex") +
   scale_fill_manual(values = Male, name = "Sex") +
   scale_shape_manual(values = 15, name = "Sex") +
@@ -2061,9 +2054,9 @@ ggplot() +
   annotate(geom = "text", x = 1, y = 47, label = "*", size = 6) +
   annotate(geom = "text", x = 2, y = 47, label = "*", size = 6) +
   # time differences for FEMALES
-  annotate(geom = "text", x = 1, y = 50, label = "A", size = 3) +
-  annotate(geom = "text", x = 2, y = 50, label = "B", size = 3) +
-  annotate(geom = "text", x = 3, y = 50, label = "A", size = 3) +
+  annotate(geom = "text", x = 1, y = 50, label = "a", size = 3) +
+  annotate(geom = "text", x = 2, y = 50, label = "b", size = 3) +
+  annotate(geom = "text", x = 3, y = 50, label = "a", size = 3) +
   scale_color_manual(values = Fem, name = NULL) +
   scale_fill_manual(values = Fem, name = NULL) +
   scale_shape_manual(values = 21, name = NULL) +
@@ -2071,7 +2064,7 @@ ggplot() +
   ylim(19, 50) +
   savs_ggplot_theme +
   theme(plot.margin = margin(t = 0, r = 0, b = 0, l = 10, unit = "pt"),
-        legend.margin = margin(0,0,0,0, unit = "pt")) -> full_SMI_emmean_plot_F
+        legend.margin = margin(20,0,0,0, unit = "pt")) -> full_SMI_emmean_plot_F
 full_SMI_emmean_plot_F
 
 ggsave(filename = "szn_change_bodycond_F_standalone.pdf",
@@ -2125,9 +2118,9 @@ ggplot() +
   annotate(geom = "text", x = 1, y = 47, label = "*", size = 6) +
   annotate(geom = "text", x = 2, y = 47, label = "*", size = 6) +
   # time differences for MALES
-  annotate(geom = "text", x = 1, y = 50, label = "A", size = 3) +
-  annotate(geom = "text", x = 2, y = 50, label = "A", size = 3) +
-  annotate(geom = "text", x = 3, y = 50, label = "B", size = 3) +
+  annotate(geom = "text", x = 1, y = 50, label = "a", size = 3) +
+  annotate(geom = "text", x = 2, y = 50, label = "a", size = 3) +
+  annotate(geom = "text", x = 3, y = 50, label = "b", size = 3) +
   scale_color_manual(values = Male, name = NULL) +
   scale_fill_manual(values = Male, name = NULL) +
   scale_shape_manual(values = 22, name = NULL) +
@@ -2135,7 +2128,7 @@ ggplot() +
   ylim(19, 50) +
   savs_ggplot_theme  +
   theme(plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
-        legend.margin = margin(0,0,0,0, unit = "pt")) -> full_SMI_emmean_plot_M
+        legend.margin = margin(20,0,0,0, unit = "pt")) -> full_SMI_emmean_plot_M
 full_SMI_emmean_plot_M
 
 ggsave(filename = "szn_change_bodycond_M_standalone.pdf",
@@ -2234,9 +2227,9 @@ ggplot() +
   # sex differences
   annotate(geom = "text", x = 1, y = 435, label = "*", size = 6) +
   # time differences for FEMALES
-  annotate(geom = "text", x = 1, y = 448, label = "A", size = 3) +
-  annotate(geom = "text", x = 2, y = 448, label = "A", size = 3) +
-  annotate(geom = "text", x = 3, y = 448, label = "A", size = 3) +
+  annotate(geom = "text", x = 1, y = 448, label = "a", size = 3) +
+  annotate(geom = "text", x = 2, y = 448, label = "a", size = 3) +
+  annotate(geom = "text", x = 3, y = 448, label = "a", size = 3) +
   scale_color_manual(values = Fem, name = "Sex") +
   scale_fill_manual(values = Fem, name = "Sex") +
   scale_shape_manual(values = 21, name = "Sex") +
@@ -2293,9 +2286,9 @@ ggplot() +
   # sex differences
   annotate(geom = "text", x = 1, y = 435, label = "*", size = 6) +
   # time differences for MALES
-  annotate(geom = "text", x = 1, y = 448, label = "AB", size = 3) +
-  annotate(geom = "text", x = 2, y = 448, label = "A", size = 3) +
-  annotate(geom = "text", x = 3, y = 448, label = "B", size = 3) +
+  annotate(geom = "text", x = 1, y = 448, label = "a,b", size = 3) +
+  annotate(geom = "text", x = 2, y = 448, label = "a", size = 3) +
+  annotate(geom = "text", x = 3, y = 448, label = "b", size = 3) +
   scale_color_manual(values = Male, name = "Sex") +
   scale_fill_manual(values = Male, name = "Sex") +
   scale_shape_manual(values = 22, name = "Sex") +
@@ -2402,9 +2395,9 @@ ggplot() +
   # sex differences
   annotate(geom = "text", x = 2, y = 22.5, label = "*", size = 6) +
   # time differences for FEMALES = none
-  annotate(geom = "text", x = 1, y = 25, label = "A", size = 3) +
-  annotate(geom = "text", x = 2, y = 25, label = "A", size = 3) +
-  annotate(geom = "text", x = 3, y = 25, label = "A", size = 3) +
+  annotate(geom = "text", x = 1, y = 25, label = "a", size = 3) +
+  annotate(geom = "text", x = 2, y = 25, label = "a", size = 3) +
+  annotate(geom = "text", x = 3, y = 25, label = "a", size = 3) +
   xlab("") + 
   ylab(bquote('CEWL (g '*m^-2*' '*h^-1*')')) +
   ylim(0, 25) +
@@ -2463,9 +2456,9 @@ ggplot() +
   # sex differences
   annotate(geom = "text", x = 2, y = 22.5, label = "*", size = 6) +
   # time differences for MALES
-  annotate(geom = "text", x = 1, y = 25, label = "A", size = 3) +
-  annotate(geom = "text", x = 2, y = 25, label = "B", size = 3) +
-  annotate(geom = "text", x = 3, y = 25, label = "A", size = 3) +
+  annotate(geom = "text", x = 1, y = 25, label = "a", size = 3) +
+  annotate(geom = "text", x = 2, y = 25, label = "b", size = 3) +
+  annotate(geom = "text", x = 3, y = 25, label = "a", size = 3) +
   xlab("") + 
   ylab(bquote('CEWL (g '*m^-2*' '*h^-1*')')) +
   ylim(0, 25) +
@@ -2532,21 +2525,20 @@ ggarrange(full_CEWL_emmean_plot_F_multi, full_CEWL_emmean_plot_M_multi,
           full_SMI_emmean_plot_F, full_SMI_emmean_plot_M_multi,
           ncol = 2, nrow = 3,
           widths = c(1.36, 1), # make x-axis widths match when exported
-          heights = c(1, 1, 1.29), # heights
-          labels = c("A", "", "B", "", "C", ""),
-          label.y = c(1.02, 1.02, 1.02)
-          #common.legend = TRUE,
-          #legend = "bottom"
-          ) -> full_szn_change_multi_fig
-#full_szn_change_multi_fig
+          heights = c(1, 1, 1.36), # heights
+          labels = c("(a)", "", "(b)", "", "(c)", ""),
+          label.y = 1.02,
+          label.x = -0.05,
+          font.label = list(color = "black", face = "bold", size = 12)
+          ) -> full_szn_change_multi_fig_best
 
-ggsave(filename = "szn_change_multi_fig.pdf",
-       plot = full_szn_change_multi_fig,
+ggsave(filename = "szn_change_multi_fig_official.pdf",
+       plot = full_szn_change_multi_fig_best,
        path = "./results_figures",
        device = "pdf",
        dpi = 600,
        units = "mm",
-       width = 80, height = 190
+       width = 80, height = 220 # don't change bc might mess up relative sizing
        )
 ```
 
@@ -2565,11 +2557,11 @@ ggarrange(full_CEWL_emmean_plot,
           labels = c("A", "B", "C"),
           common.legend = TRUE,
           legend = "bottom"
-          ) -> full_szn_change_multi_fig
+          ) -> full_szn_change_multi_fig_h
 #full_szn_change_multi_fig
 
 ggsave(filename = "szn_change_multi_fig_full_horizontal.pdf",
-       plot = full_szn_change_multi_fig,
+       plot = full_szn_change_multi_fig_h,
        path = "./results_figures",
        device = "pdf",
        dpi = 600,
@@ -2757,26 +2749,35 @@ Does anything correlate with the likelihood of being/becoming gravid?
 Start with trying each possible logistic model to predict gravidity:
 
 ```{r}
-repro_logit1 <- glm(gravid_Y_N ~ 
-                     mass_g, 
-                   data = dat_repro_females, 
-                   family = "binomial")
-repro_logit2 <- glm(gravid_Y_N ~ 
-                     SMI, 
-                   data = dat_repro_females, 
-                   family = "binomial")
-repro_logit3 <- glm(gravid_Y_N ~ 
-                     osmolality_mmol_kg_mean, 
-                   data = dat_repro_females, 
-                   family = "binomial")
-repro_logit4 <- glm(gravid_Y_N ~ 
-                     CEWL_g_m2h, 
-                   data = dat_repro_females, 
-                   family = "binomial")
-car::Anova(repro_logit1, type = 2, test.statistic = "Wald", error.estimate = "pearson")
-car::Anova(repro_logit2, type = 2, test.statistic = "Wald", error.estimate = "pearson")
-car::Anova(repro_logit3, type = 2, test.statistic = "Wald", error.estimate = "pearson")
-car::Anova(repro_logit4, type = 2, test.statistic = "Wald", error.estimate = "pearson")
+repro_logit1 <- lme4::glmer(data = dat_repro_females, 
+                            gravid_Y_N ~ mass_g +
+                            (1|individual_ID),
+                            family = "binomial")
+
+repro_logit2 <- lme4::glmer(data = dat_repro_females, 
+                            gravid_Y_N ~ SMI +
+                            (1|individual_ID),
+                            family = "binomial")
+
+repro_logit3 <- lme4::glmer(data = dat_repro_females, 
+                            gravid_Y_N ~ osmolality_mmol_kg_mean +
+                            (1|individual_ID),
+                            family = "binomial")
+
+repro_logit4 <- lme4::glmer(data = dat_repro_females, 
+                            gravid_Y_N ~ CEWL_g_m2h +
+                            (1|individual_ID),
+                            family = "binomial")
+
+
+car::Anova(repro_logit1, type = 2, 
+           test.statistic = "Chisq", error.estimate = "pearson")
+car::Anova(repro_logit2, type = 2, 
+           test.statistic = "Chisq", error.estimate = "pearson")
+car::Anova(repro_logit3, type = 2, 
+           test.statistic = "Chisq", error.estimate = "pearson")
+car::Anova(repro_logit4, type = 2, 
+           test.statistic = "Chisq", error.estimate = "pearson")
 ```
 
 What about an ANOVA?
