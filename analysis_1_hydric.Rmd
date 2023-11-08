@@ -2529,7 +2529,7 @@ ggarrange(full_CEWL_emmean_plot_F_multi, full_CEWL_emmean_plot_M_multi,
           labels = c("(a)", "", "(b)", "", "(c)", ""),
           label.y = 1.02,
           label.x = -0.05,
-          font.label = list(color = "black", face = "bold", size = 12)
+          font.label = list(color = "black", face = "bold", size = 10)
           ) -> full_szn_change_multi_fig_best
 
 ggsave(filename = "szn_change_multi_fig_official.pdf",
