@@ -18,10 +18,6 @@ if (!require("tidyverse")) install.packages("tidyverse")
 library("tidyverse") # for dplyr workflow + ggplot
 if (!require("weathermetrics")) install.packages("weathermetrics")
 library("weathermetrics") # convert F to C
-if (!require("lmerTest")) install.packages("lmerTest") 
-library("lmerTest") #LMMs with p-values
-if (!require("emmeans")) install.packages("emmeans")
-library("emmeans") # marginal means & confints
 if (!require("RColorBrewer")) install.packages("RColorBrewer")
 library("RColorBrewer") # plot colors
 if (!require("ggpubr")) install.packages("ggpubr")
@@ -642,111 +638,6 @@ summary(all_clim_dat)
 
 
 
-# Statistics - delete
-
-To assess burrow microclimate throughout the G. sila active season, I can run a linear mixed effects model of each microclimate variable based on time period, with burrow ID as a random effect. From these models, I will calculate the marginal mean and confidence interval of each microclimate variable across burrows for each time period. The same statistics are not feasible for the weather station data, because only one weather station was logging, compared to ~12 burrow loggers.
-
-\n
-Daytime vs nighttime values were NOT different for burrows, so I commented-out that as a grouping variable. To see those (essentially nonexistent) differences, simply add it back to the model.
-
-## HOBO Temperature
-
-```{r}
-HOBO_temp_lm <- lmerTest::lmer(data = dat_HOBO_chunks_by_burrow,
-                   temp_C_chunk_mean_by_HOBO ~ date_chunks * daytime +
-                   (1|HOBO_ID)
-                   )
-
-HOBO_temp_emmean <- data.frame(emmeans(HOBO_temp_lm, 
-                                       pairwise ~ daytime | date_chunks)$emmean) %>% 
-  #data.frame(emmeans(HOBO_temp_lm, "date_chunks")) %>%
-  # add reference for plots
-  mutate(type = "Burrow")
-
-HOBO_temp_pairwise <- data.frame(emmeans(HOBO_temp_lm, 
-                                       pairwise ~ daytime | date_chunks)$contrasts)
-  #pairs(emmeans(HOBO_temp_lm, "date_chunks"))
-HOBO_temp_pairwise
-```
-
-burrow temperature pairwise comparisons that are *not* different, so will have the same letter when I make figures:
-
-- (May 10 - 20) - (May 21 - 31)
-
-
-burrow temperature pairwise comparison groups for when I make figures:
-
-- Apr 26 - May 6 = A
-- May 10 - 20 = B
-- May 21 - 31 = B
-- Jun 1 - 11 = C
-- Jun 12 - 22 = D
-- Jun 23 - Jul 3 = E
-- Jul 4 - 13 = F
-
-
-## HOBO RH
-
-```{r}
-HOBO_RH_lm <- lmerTest::lmer(data = dat_HOBO_chunks_by_burrow,
-                   RH_chunk_mean_by_HOBO ~ date_chunks + #* daytime
-                   (1|HOBO_ID)
-                   )
-
-HOBO_RH_emmean <- data.frame(emmeans(HOBO_RH_lm, "date_chunks")) %>%
-  # add reference for plots
-  mutate(type = "Burrow")
-
-HOBO_RH_pairwise <- pairs(emmeans(HOBO_RH_lm, "date_chunks"))
-HOBO_RH_pairwise
-```
-
-burrow humidity pairwise comparison groups for when I make figures:
-
-- Apr 26 - May 6 = A
-- May 10 - 20 = AB
-- May 21 - 31 = AB
-- Jun 1 - 11 = AB
-- Jun 12 - 22 = B
-- Jun 23 - Jul 3 = B
-- Jul 4 - 13 = B
-
-
-
-
-
-
-## HOBO VPD
-
-```{r}
-HOBO_VPD_lm <- lmerTest::lmer(data = dat_HOBO_chunks_by_burrow,
-                   VPD_kPa_chunk_mean_by_HOBO ~ date_chunks + #* daytime
-                   (1|HOBO_ID)
-                   )
-
-HOBO_VPD_emmean <- data.frame(emmeans(HOBO_VPD_lm, "date_chunks")) %>%
-  # add reference for plots
-  mutate(type = "Burrow")
-
-HOBO_VPD_pairwise <- pairs(emmeans(HOBO_VPD_lm, "date_chunks"))
-HOBO_VPD_pairwise
-```
-
-burrow VPD pairwise comparison groups for when I make figures:
-
-- (Apr 26 - May 6) - (May 10 - 20) - (May 21 - 31) = A
-- (May 10 - 20) - (May 21 - 31) - (Jun 1 - 11) = B
-- (Jun 12 - 22) - (Jun 23 - Jul 3) = C
-- (Jun 23 - Jul 3) - (Jul 4 - 13) = D
-
-A
-AB
-AB
-B
-C
-CD
-D
-
 
 
 
@@ -795,7 +686,7 @@ ggplot(data = all_clim_dat) +
     alpha = 1,
     size = 0.6
   ) +
-  labs(y = "Temperature (°C)") +
+  labs(y = "Temperature (°C)  ") +
   scale_x_discrete(labels = c("Apr 26\n-May 6",
                               "May\n10-20",
                               "May\n21-31",
@@ -860,7 +751,7 @@ ggplot(data = all_clim_dat) +
     alpha = 1,
     size = 0.6
   ) +
-  labs(y = "Relative Humidity (%)") +
+  labs(y = "Humidity (%)") +
   scale_x_discrete(labels = c("Apr 26\n-May 6",
                               "May\n10-20",
                               "May\n21-31",
@@ -920,106 +811,6 @@ daily_RH_fig
 
 
 
-```{r}
-ggplot() +
-  geom_jitter(data = dat_HOBO_chunks_by_burrow,
-             aes(x = date_chunks,
-                 y = RH_chunk_mean_by_HOBO,
-                 ),
-             alpha = 0.3,
-             size = 0.9,
-              position = position_jitter(height = 0, width = 0.2)) +
-  geom_line(data = HOBO_RH_emmean,
-             aes(x = as.numeric(date_chunks)-0.1,
-                 y = emmean,
-                 group = 1 # tell ggplot it's okay to only have 1 obs per x value
-                 ),
-             alpha = 0.2,
-             size = 0.5) +
-  geom_point(data = HOBO_RH_emmean,
-             aes(x = as.numeric(date_chunks)-0.1,
-                 y = emmean,
-                 color = type
-                 ),
-             alpha = 1,
-             size = 2) +
-  geom_errorbar(data = HOBO_RH_emmean,
-                aes(x = as.numeric(date_chunks)-0.1,
-                    y = emmean, 
-                    ymin = lower.CL,
-                    ymax = upper.CL
-                    ),
-                width = .2) +
-  geom_point(data = dat_ws_chunk_means,
-             aes(x = as.numeric(date_chunks)+0.1,
-                 y = RH_chunk_mean,
-                 fill = daytime,
-                 shape = daytime
-                 ),
-             alpha = 1,
-             size = 2) +
-  labs(y = "Relative Humidity (%)") +
-  scale_x_discrete(labels = c("Apr 26\n-May 6",
-                              "May\n10-20",
-                              "May\n21-31",
-                              "Jun\n1-11",
-                              "Jun\n12-22",
-                              "Jun 23\n-Jul 3",
-                              "Jul\n4-13"
-                              ),
-                   name = "") +
-  # time period differences
-  annotate(geom = "text", x = 1, y = 107, label = "A", size = 3) +
-  annotate(geom = "text", x = 2, y = 107, label = "AB", size = 3) +
-  annotate(geom = "text", x = 3, y = 107, label = "AB", size = 3) +
-  annotate(geom = "text", x = 4, y = 107, label = "AB", size = 3) +
-  annotate(geom = "text", x = 5, y = 107, label = "B", size = 3) +
-  annotate(geom = "text", x = 6, y = 107, label = "B", size = 3) +
-  annotate(geom = "text", x = 7, y = 107, label = "B", size = 3) +
-  # lines to show when we took hydric physiology measurements
-  geom_vline(xintercept = 0.5,
-             linetype = "dashed",
-             size = 0.5) +
-  geom_vline(xintercept = 1.5, 
-             linetype = "dashed",
-             size = 0.5) +
-  geom_vline(xintercept = 7.5,
-             linetype = "dashed",
-             size = 0.5) +
-  # these are for the weather station points
-  scale_fill_manual(values = c(brewer.pal(11, "RdYlBu")[c(1,10)]), name = NULL,
-                    labels = c("Aboveground\nDaytime", "Aboveground\nNighttime")
-                     ) +
-  scale_shape_manual(values = 24:25, name = NULL,
-                    labels = c("Aboveground\nDaytime", "Aboveground\nNighttime")
-                     ) +
-  # these are for the burrow emmean points
-  scale_color_manual(values = "black", name = NULL, labels = "Burrow"
-                     ) +
-  scale_y_continuous(limits = c(0, 107),
-                     breaks = c(seq(0, 100, 20)),
-                     labels = c(seq(0, 100, 20))) + 
-  savs_ggplot_theme +
-  theme(plot.margin = margin(t = 0, r = 0, b = 0, l = 0.5, unit = "pt"),
-        legend.margin = margin(0,0,0,0, unit = "pt")) 
-
-# ggsave(filename = "climate_RH_standalone.pdf",
-#        plot = daily_RH_fig,
-#        path = "./results_figures",
-#        device = "pdf",
-#        dpi = 600,
-#        units = "mm",
-#        width = 80, height = 80
-#        )
-
-
-
-
-
-# where are the zeros coming from?!
-dat_HOBO_chunks_by_burrow %>% 
-  dplyr::filter(RH_chunk_mean_by_HOBO == 0)
-```
 
 
 ## Vapor Pressure Deficit
@@ -1086,97 +877,6 @@ daily_VPD_fig
 
 
 
-```{r}
-ggplot() +
-  geom_jitter(data = dat_HOBO_chunks_by_burrow,
-             aes(x = date_chunks,
-                 y = VPD_kPa_chunk_mean_by_HOBO
-                 ),
-             alpha = 0.3,
-             size = 0.9,
-              position = position_jitter(height = 0, width = 0.2)) +
-  geom_line(data = HOBO_VPD_emmean,
-             aes(x = as.numeric(date_chunks)-0.1,
-                 y = emmean,
-                 group = 1 # tell ggplot it's okay to only have 1 obs per x value
-                 ),
-             alpha = 0.2,
-             size = 0.5) +
-  geom_point(data = HOBO_VPD_emmean,
-             aes(x = as.numeric(date_chunks)-0.1,
-                 y = emmean,
-                 color = type
-                 ),
-             alpha = 1,
-             size = 2) +
-  geom_errorbar(data = HOBO_VPD_emmean,
-                aes(x = as.numeric(date_chunks)-0.1,
-                    y = emmean, 
-                    ymin = lower.CL,
-                    ymax = upper.CL
-                    ),
-                width = .2) +
-  geom_point(data = dat_ws_chunk_means,
-             aes(x = as.numeric(date_chunks)+0.1,
-                 y = VPD_kPa_chunk_mean,
-                 fill = daytime,
-                 shape = daytime
-                 ),
-             alpha = 1,
-             size = 2) +
-  labs(y = "VPD (kPa)") +
-  scale_x_discrete(labels = c("Apr 26\n-May 6",
-                              "May\n10-20",
-                              "May\n21-31",
-                              "Jun\n1-11",
-                              "Jun\n12-22",
-                              "Jun 23\n-Jul 3",
-                              "Jul\n4-13"
-                              ),
-                   name = "") +
-  # time period differences
-  annotate(geom = "text", x = 1, y = 5, label = "A", size = 3) +
-  annotate(geom = "text", x = 2, y = 5, label = "AB", size = 3) +
-  annotate(geom = "text", x = 3, y = 5, label = "AB", size = 3) +
-  annotate(geom = "text", x = 4, y = 5, label = "B", size = 3) +
-  annotate(geom = "text", x = 5, y = 5, label = "C", size = 3) +
-  annotate(geom = "text", x = 6, y = 5, label = "CD", size = 3) +
-  annotate(geom = "text", x = 7, y = 5, label = "D", size = 3) +
-  # lines to show when we took hydric physiology measurements
-  geom_vline(xintercept = 0.5,
-             linetype = "dashed",
-             size = 0.5) +
-  geom_vline(xintercept = 1.5, 
-             linetype = "dashed",
-             size = 0.5) +
-  geom_vline(xintercept = 7.5,
-             linetype = "dashed",
-             size = 0.5) +
-  # these are for the weather station points
-  scale_fill_manual(values = c(brewer.pal(11, "RdYlBu")[c(1,10)]), name = NULL,
-                    labels = c("Aboveground\nDaytime", "Aboveground\nNighttime")
-                     ) +
-  scale_shape_manual(values = 24:25, name = NULL,
-                    labels = c("Aboveground\nDaytime", "Aboveground\nNighttime")
-                     ) +
-  # these are for the burrow emmean points
-  scale_color_manual(values = "black", name = NULL, labels = "Burrow"
-                     ) +
-  ylim(-0.01, 5) +
-  savs_ggplot_theme +
-  theme(plot.margin = margin(t = 0, r = 0, b = 0, l = 9, unit = "pt"),
-        legend.margin = margin(0,0,0,0, unit = "pt"))
-
-# ggsave(filename = "climate_vpd_standalone.pdf",
-#        plot = daily_VPD_fig,
-#        path = "./results_figures",
-#        device = "pdf",
-#        dpi = 600,
-#        units = "mm",
-#        width = 80, height = 80
-#        )
-```
-
 
 
 
@@ -1237,10 +937,10 @@ daily_RH_fig_multi <- daily_RH_fig +
 
 ggarrange(daily_temps_fig_multi, daily_RH_fig_multi, daily_VPD_fig,
           ncol = 1, nrow = 3,
-          #ncol = 3, nrow = 1,
-          labels = c("A", "B", "C"),
-          label.y = c(1.02, 1.02, 1.02),
-          label.x = c(-0.01, -0.01, -0.01),
+          labels = c("(a)", "(b)", "(c)"),
+          label.y = 1.02,
+          label.x = -0.01,
+          font.label = list(color = "black", face = "bold", size = 10),
           heights = c(1, 1, 1.11),
           common.legend = TRUE,
           legend = "bottom"
@@ -1252,8 +952,7 @@ ggsave(filename = "climate_multi_figure_vertical.pdf",
        device = "pdf",
        dpi = 600,
        units = "mm",
-       width = 160, height = 190
-       #width = 220, height = 80
+       width = 160, height = 150
        )
 ```
 
