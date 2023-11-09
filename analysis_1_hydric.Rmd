@@ -2,7 +2,7 @@
 title: "Blunt-nosed Leopard Lizard Data Analysis: Water Physiology Nuances"
 author: "Savannah Weaver"
 output: 
-  rmarkdown::html_vignette:
+  rmdformats::html_clean:
     highlight: tango
     thumbnails: FALSE
     toc: TRUE
