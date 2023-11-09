@@ -1229,6 +1229,9 @@ ggplot(MH_use_across_indivs) +
   theme_classic()
 ```
 
+
+
+
 ## Logistic Regression
 
 Start with only \~ time period/chunk:
@@ -1260,7 +1263,8 @@ micro_glmm_sex <- lme4::glmer(data = microhab,
                             (1|individual_ID),
                            family="binomial")
 summary(micro_glmm_sex)
-car::Anova(micro_glmm_sex, type = 2, test.statistic = "Chisq", error.estimate = "pearson")
+car::Anova(micro_glmm_sex, type = 2, 
+           test.statistic = "Chisq", error.estimate = "pearson")
 
 anova(micro_glmm, micro_glmm_sex)
 ```
@@ -1269,7 +1273,7 @@ Okay, adding sex was technically a better model based on some metrics, but how m
 
 ```{r}
 emmeans_micro_sex_glmm_sex_diffs <- data.frame(emmeans(micro_glmm_sex, 
-                                   pairwise ~ sex_M_F | date_chunks)$contrasts) %>%
+                          pairwise ~ sex_M_F | date_chunks)$contrasts) %>%
   dplyr::select(date_chunks, contrast, p.value)
 emmeans_micro_sex_glmm_sex_diffs
 ```
@@ -1278,18 +1282,117 @@ May - June, microhabitat use was significantly different based on sex. Females w
 
 To keep it simple, let's keep the main figure to showing *both* males and females aggregated over time, but I can also make a secondary figure showing their differences in microhabitat use specifically in May-early June.
 
+
+
+## Probabilities from GLMM
+
+Now, I want to use the model estimates/coefficients to calculate the predicted probability of lizards being belowground. First, save the estimates and standard errors. I can do this by getting the model-estimated means. Then, I can use this equation to calculate the model-predicted probability of being belowground:
+
+p = exp(emmean) / (1 + exp(emmean))
+
+```{r}
+# one set for M-F differences
+emmeans_probabilities_MF <- data.frame(emmeans(micro_glmm_sex, 
+                          pairwise ~ sex_M_F | date_chunks)$emmeans) %>% 
+  # calculate prob
+  mutate(exp_emmean = exp(emmean),
+         prob = exp_emmean / (1 + exp_emmean),
+         # and confidence intervals, in case helpful
+         exp_LCL = exp(asymp.LCL),
+         prob_LCL = exp_LCL / (1 + exp_LCL),
+         exp_UCL = exp(asymp.UCL),
+         prob_UCL = exp_UCL / (1 + exp_UCL)
+         ) %>% 
+  # only save the probabilities for when M & F were sig diff
+  dplyr::filter(date_chunks %in% c("May 10 - 20", "May 21 - 31", "Jun 1 - 11"))
+emmeans_probabilities_MF
+
+# one set for overall probabilities
+emmeans_probabilities <- data.frame(emmeans(micro_glmm, "date_chunks")) %>% 
+  # calculate prob
+  mutate(exp_emmean = exp(emmean),
+         prob = exp_emmean / (1 + exp_emmean),
+         # and confidence intervals, in case helpful
+         exp_LCL = exp(asymp.LCL),
+         prob_LCL = exp_LCL / (1 + exp_LCL),
+         exp_UCL = exp(asymp.UCL),
+         prob_UCL = exp_UCL / (1 + exp_UCL)
+         ) %>% 
+  # only save the probabilities for when M & F were the same
+  dplyr::filter(date_chunks %nin% c("May 10 - 20", "May 21 - 31", "Jun 1 - 11")
+                ) %>% 
+  # add "sex" col
+  mutate(sex_M_F = "Both")
+emmeans_probabilities
+
+# put them together
+barplot_probs <- emmeans_probabilities %>% 
+  rbind(emmeans_probabilities_MF) %>% 
+  dplyr::select(date_chunks, sex_M_F,
+                prob, prob_LCL, prob_UCL) %>% 
+  mutate(sex_M_F = factor(sex_M_F))
+
+summary(barplot_probs)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## Pretty Barplot
 
 ```{r}
-ggplot(MH_use_across_indivs) + 
-    geom_bar(aes(x = date_chunks,
-                 y = MH_use_proportion,
-                 fill = microhabitat
+ggplot() + 
+  
+  # raw observed proportions
+  geom_bar(data = MH_use_across_indivs,
+    aes(x = date_chunks,
+        y = MH_use_proportion,
+        fill = microhabitat
                  ),
              position = "fill", 
-             stat = "identity") +
+             stat = "identity"
+    ) +
+  
+  # model-predicted probabilities
+  geom_errorbar(data = barplot_probs,
+             aes(
+               x = date_chunks,
+               ymin = prob_LCL,
+               ymax = prob_UCL,
+             ),
+             color = "black",
+             width = 0.1
+             ) +
+  
+  geom_point(data = barplot_probs,
+             aes(
+               x = date_chunks,
+               y = prob,
+               shape = sex_M_F,
+             ),
+             color = "black",
+             size = 2
+             ) +
+  
+  # labels
   xlab("Time Period") +
   ylab("Microhabitat Use (proportion of time)") +
+  
+  # hydric phys msmsts
   geom_vline(xintercept = 0.5, # first weekend of msmts
              size = 0.5, # default size is 0.5
              linetype = "dashed") +
@@ -1299,6 +1402,9 @@ ggplot(MH_use_across_indivs) +
   geom_vline(xintercept = 7.5, # last few msmts
              size = 0.5, 
              linetype = "dashed") +
+  
+  # pretties 
+  scale_shape_manual(values = c(17, 16, 15), name = "Lizard Sex") +
   scale_fill_manual(values = my_brew_cols_4, name = "Microhabitat",
                     labels = c("Open", "Partial Shade", "Full Shade", "Burrow")) +
   scale_x_discrete(labels = c("Apr 26\n-May 6",
@@ -1313,20 +1419,21 @@ ggplot(MH_use_across_indivs) +
   scale_y_continuous(limits = c(0, 1.1), expand = c(0,0),
                      breaks = c(seq(0, 1, by = 0.2)),
                      labels = c(seq(0, 1, by = 0.2))) +
-  #ylim(0,1.1) +
+  
   # significance annotation for time
-  annotate(geom = "text", x = 1, y = 1.08, label = "A", size = 3) +
-  annotate(geom = "text", x = 2, y = 1.08, label = "A", size = 3) +
-  annotate(geom = "text", x = 3, y = 1.08, label = "A", size = 3) +
-  annotate(geom = "text", x = 4, y = 1.08, label = "A", size = 3) +
-  annotate(geom = "text", x = 5, y = 1.08, label = "B", size = 3) +
-  annotate(geom = "text", x = 6, y = 1.08, label = "B", size = 3) +
-  annotate(geom = "text", x = 7, y = 1.08, label = "C", size = 3) +
+  annotate(geom = "text", x = 1, y = 1.08, label = "a", size = 3) +
+  annotate(geom = "text", x = 2, y = 1.08, label = "a", size = 3) +
+  annotate(geom = "text", x = 3, y = 1.08, label = "a", size = 3) +
+  annotate(geom = "text", x = 4, y = 1.08, label = "a", size = 3) +
+  annotate(geom = "text", x = 5, y = 1.08, label = "b", size = 3) +
+  annotate(geom = "text", x = 6, y = 1.08, label = "b", size = 3) +
+  annotate(geom = "text", x = 7, y = 1.08, label = "c", size = 3) +
   # significance annotation for sex
   annotate(geom = "text", x = 2, y = 1.015, label = "*", size = 5) +
   annotate(geom = "text", x = 3, y = 1.015, label = "*", size = 5) +
   annotate(geom = "text", x = 4, y = 1.015, label = "*", size = 5) +
   savs_ggplot_theme -> fancy_micro_plot
+fancy_micro_plot
 
 # arrange to get legend centered
 ggarrange(fancy_micro_plot,
