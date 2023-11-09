@@ -1,8 +1,13 @@
 ---
-title: "conceptual diagram of VPD"
+title: "making a conceptual diagram of VPD"
 author: "Savannah Weaver"
 date: "2023-08-22"
-output: html_document
+output: 
+  rmdformats::html_clean:
+    highlight: tango
+    thumbnails: FALSE
+    toc: TRUE
+    toc_depth: 3
 ---
 
 
@@ -13,6 +18,8 @@ if (!require("tidyverse")) install.packages("tidyverse")
 library("tidyverse") # for dplyr workflow + ggplot
 if (!require("RColorBrewer")) install.packages("RColorBrewer")
 library("RColorBrewer") # plot colors
+if (!require("rmdformats")) install.packages("rmdformats")
+library("rmdformats") # pretty Rmd format
 ```
 
 
@@ -68,13 +75,13 @@ dat_100_only <- dat %>%
 savs_ggplot_theme <- theme_classic() + 
                      theme(text = element_text(color = "black", 
                                                family = "sans", 
-                                               size = 14),
+                                               size = 10),
                            axis.text = element_text(color = "black", 
                                                     family = "sans", 
-                                                    size = 10),
+                                                    size = 8),
                            legend.text = element_text(color = "black", 
                                                       family = "sans", 
-                                                      size = 10),
+                                                      size = 8),
                            legend.text.align = 0,
                            legend.position = "right",
                            legend.spacing.y = unit(1, "mm")
@@ -137,18 +144,77 @@ ggplot(data = dat) +
 
 
 
+## RH ~ Temp
+
+
+```{r}
+ggplot() + 
+  geom_tile(
+    data = dat,
+    aes(
+      x = temp_C,
+      y = RH,
+      fill = VPD_kPa
+    )
+  ) +
+  
+  # make pretty
+  scale_fill_distiller(palette = "RdYlBu", limits = c(0, 8),
+                       name = "VPD\n(kPa)") +
+  scale_y_continuous(breaks = c(seq(0, 100, 25)), 
+                     labels = c(seq(0, 100, 25)),
+                     expand = c(0, 0.5),
+                     name = "Relative Humidity (%)"
+                     ) +
+  scale_x_continuous(breaks = c(seq(20, 40, 5)),
+                     labels = c(seq(20, 40, 5)),
+                     expand = c(0, 0.1),
+                     name = "Air Temperature (°C)"
+                     ) +
+  savs_ggplot_theme +
+  theme(
+    plot.margin = margin(0, 0, 0, 0, unit = "pt"),
+    legend.spacing.y = unit(10, "pt")
+  ) -> VPD_tile
+VPD_tile
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # Export Figure
 
 ```{r}
-ggsave(filename = "concept_VPD.pdf",
+ggsave(filename = "concept_VPD1.pdf",
        plot = sat_VP_fig,
        path = "./results_figures",
        device = "pdf",
        dpi = 600,
        units = "mm",
        width = 150, height = 90)
+ggsave(filename = "concept_VPD2.pdf",
+       plot = VPD_tile,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 80, height = 50)
 ```
 
 
