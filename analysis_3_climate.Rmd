@@ -2,7 +2,7 @@
 title: "Blunt-nosed Leopard Lizard Data Analysis: Climate at the Study Site"
 author: "Savannah Weaver"
 output: 
-  rmarkdown::html_vignette:
+  rmdformats::html_clean:
     highlight: tango
     thumbnails: FALSE
     toc: TRUE
@@ -22,6 +22,8 @@ if (!require("RColorBrewer")) install.packages("RColorBrewer")
 library("RColorBrewer") # plot colors
 if (!require("ggpubr")) install.packages("ggpubr")
 library("ggpubr") # for multi-ggplot figs
+if (!require("rmdformats")) install.packages("rmdformats")
+library("rmdformats") # clean html R markdown format
 ```
 
 

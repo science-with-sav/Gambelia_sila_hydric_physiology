@@ -2,7 +2,7 @@
 title: "Blunt-nosed Leopard Lizard Data Analysis: Behavior and Thermoregulation vs Water Physiology"
 author: "Savannah Weaver"
 output: 
-  rmarkdown::html_vignette:
+  rmdformats::html_clean:
     highlight: tango
     thumbnails: FALSE
     toc: TRUE
@@ -29,6 +29,8 @@ if (!require("emmeans")) install.packages("emmeans")
 library("emmeans") # marginal means & confints
 if (!require("car")) install.packages("car")
 library("car") # Anova
+if (!require("rmdformats")) install.packages("rmdformats")
+library("rmdformats") # clean html R markdown format
 ```
 
 # Set Colors & Themes

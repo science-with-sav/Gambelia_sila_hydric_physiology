@@ -2,7 +2,7 @@
 title: "BNLL CEWL Data Wrangling"
 author: "Savannah Weaver"
 output: 
-  rmarkdown::html_vignette:
+  rmdformats::html_clean:
     highlight: tango
     thumbnails: FALSE
     toc: TRUE

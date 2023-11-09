@@ -2,11 +2,11 @@
 title: "Species Comparison of Water Balance"
 author: "Savannah Weaver"
 output:
-  rmarkdown::html_vignette:
-      highlight: tango
-      thumbnails: FALSE
-      toc: TRUE
-      toc_depth: 3
+  rmdformats::html_clean:
+    highlight: tango
+    thumbnails: FALSE
+    toc: TRUE
+    toc_depth: 3
 ---
 
 
@@ -23,6 +23,8 @@ if (!require("emmeans")) install.packages("emmeans")
 library("emmeans") # marginal means & confints
 if (!require("RColorBrewer")) install.packages("RColorBrewer")
 library("RColorBrewer") # pretty colors
+if (!require("rmdformats")) install.packages("rmdformats")
+library("rmdformats") # clean html R markdown format
 ```
 
 

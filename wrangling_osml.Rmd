@@ -2,7 +2,7 @@
 title: "BNLL Plasma Osmolality Data Wrangling"
 author: "Savannah Weaver"
 output: 
-  rmarkdown::html_vignette:
+  rmdformats::html_clean:
     highlight: tango
     thumbnails: FALSE
     toc: TRUE
@@ -17,7 +17,7 @@ output:
 if (!require("tidyverse")) install.packages("tidyverse")
 library("tidyverse") # workflow and plots
 if (!require("rmdformats")) install.packages("rmdformats")
-library("rmdformats") # clean html R markdown format - rmdformats::html_clean:
+library("rmdformats") # clean html R markdown format
 ```
 
 
