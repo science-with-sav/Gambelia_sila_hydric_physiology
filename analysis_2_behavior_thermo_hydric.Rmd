@@ -249,6 +249,10 @@ temp_sub <- temps2 %>%
   dplyr::filter(date_only %nin% cap_dates) %>%
   left_join(group_dates, by = 'date_only')
 summary(temp_sub)
+
+
+# export for study comparison
+write_rds(temp_sub, "data/Tb_clean.RDS")
 ```
 
 I also need to remove outliers, which are pretty standard erroneous points when using temperature-sensitive telemetry with devices external to the animal. I will follow Nicole Gaudenti's 2021 paper, and exclude "any outliers greater than two standard deviations away from each lizard's mean Tb"
@@ -322,6 +326,14 @@ freq_serial <- temp_clean %>%
  # summarise(n = n())
 
 ```
+
+
+
+
+
+
+
+
 
 ## Microhabitat Use
 
