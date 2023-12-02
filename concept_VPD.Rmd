@@ -68,6 +68,18 @@ dat_40_100_only <- dat %>%
 
 
 
+and create some comparison data:
+
+
+```{r}
+dat_es_VPD_compare <- dat_100_only %>% 
+  mutate(divide = 2.336479,
+         minimum = 0)
+```
+
+
+
+
 
 
 
@@ -353,6 +365,74 @@ ggsave(filename = "concept_VPD_2c.pdf",
 
 
 
+
+### Overall WVP vs VPD
+
+
+```{r}
+ggplot() + 
+  
+  # water vapor pressure
+  geom_ribbon(data = dat_es_VPD_compare,
+              aes(x = temp_C,
+                  ymin = minimum,
+                  ymax = divide),
+              fill = "deepskyblue3",
+              alpha = 0.4
+              ) +
+  
+   # vapor pressure DEFICIT
+  geom_ribbon(data = dat_es_VPD_compare,
+              aes(x = temp_C,
+                  ymin = divide,
+                  ymax = e_a_kPa),
+              fill = "firebrick",
+              alpha = 0.6
+              ) +
+  
+  # 100% RH only
+  geom_smooth(data = dat_es_VPD_compare,
+              aes(x = temp_C,
+                  y = e_a_kPa),
+              method = "loess",
+              formula = y~x,
+              se = F,
+              size = 2,
+              color = "black") +
+  
+  # divide
+  geom_hline(yintercept = 2.336479, size = 1, color = "black", linetype = "dashed") +
+  
+  # axis labels
+  scale_x_continuous(limits = c(20, 40),
+                     expand = c(0, 0.01),
+                     name = "Air Temperature (°C)") +
+  scale_y_continuous(limits = c(0, 7.6),
+                     expand = c(0, 0),
+                     name = "Water Vapor Pressure (kPa)") +
+  
+  # ribbon labels
+  annotate(geom = "text", parse = F, x = 30, y = 1.15, label = "Ambient") +
+  annotate(geom = "text", parse = F, x = 35, y = 4, label = "Deficit") +
+  annotate(geom = "text", parse = F, x = 30, y = 4.6, angle = 30,
+           label = "Saturation") +
+  
+  # themes
+  savs_ggplot_theme +
+  theme(
+    legend.position = "none"
+  ) -> VP_D_compare_fig
+
+VP_D_compare_fig
+
+ggsave(filename = "concept_VPD_overall.pdf",
+       plot = VP_D_compare_fig,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 110, height = 90)
+```
 
 
 
