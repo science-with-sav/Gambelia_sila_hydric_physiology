@@ -18,6 +18,8 @@ if (!require("tidyverse")) install.packages("tidyverse")
 library("tidyverse") # for dplyr workflow + ggplot
 if (!require("RColorBrewer")) install.packages("RColorBrewer")
 library("RColorBrewer") # plot colors
+if (!require("ggpubr")) install.packages("ggpubr")
+library("ggpubr") # for multi-ggplot figs
 if (!require("rmdformats")) install.packages("rmdformats")
 library("rmdformats") # pretty Rmd format
 ```
@@ -59,6 +61,9 @@ get a subset of the dataframe that is 100% RH only:
 ```{r}
 dat_100_only <- dat %>% 
   dplyr::filter(RH == 100)
+dat_40_100_only <- dat %>% 
+  dplyr::filter(RH %in% c(40,100)) %>% 
+  mutate(RH = factor(RH))
 ```
 
 
@@ -67,7 +72,7 @@ dat_100_only <- dat %>%
 
 
 
-# Make a Pretty Plot
+# Make Pretty Plots
 
 ## Themes & Colors
 
@@ -75,13 +80,13 @@ dat_100_only <- dat %>%
 savs_ggplot_theme <- theme_classic() + 
                      theme(text = element_text(color = "black", 
                                                family = "sans", 
-                                               size = 10),
+                                               size = 16),
                            axis.text = element_text(color = "black", 
                                                     family = "sans", 
-                                                    size = 8),
+                                                    size = 12),
                            legend.text = element_text(color = "black", 
                                                       family = "sans", 
-                                                      size = 8),
+                                                      size = 12),
                            legend.text.align = 0,
                            legend.position = "right",
                            legend.spacing.y = unit(1, "mm")
@@ -184,6 +189,169 @@ VPD_tile
 
 
 
+## Animated Bar Comparisons
+
+
+### Base Plot
+
+To start, make a plot of the saturation vapor pressure and vapor pressure at ~50% RH.
+
+
+```{r}
+ggplot() + 
+  
+  # RH lines
+  geom_smooth(data = dat_40_100_only,
+              aes(x = temp_C,
+                  y = e_a_kPa,
+                  group = RH,
+                  color = RH),
+              method = "loess",
+              formula = y~x,
+              se = F,
+              size = 1.2) +
+  
+  # axis labels
+  scale_x_continuous(limits = c(20, 42),
+                     #expand = c(0, 0),
+                     name = "Air Temperature (°C)") +
+  scale_y_continuous(limits = c(0, 7.6),
+                     expand = c(0, 0),
+                     name = "Water Vapor Pressure (kPa)") +
+  
+  # line labels
+  annotate(geom = "text", parse = F, x = 41.5, y = 3, label = "40%") +
+  annotate(geom = "text", parse = F, x = 41.8, y = 7.43, label = "100%") +
+  annotate(geom = "text", parse = F, x = 29, y = 4.6, angle = 30,
+           label = "Saturation Vapor Pressure") +
+  
+  # colors
+  scale_color_manual(values = c("gray70", "gray0")) +
+  
+  # themes
+  savs_ggplot_theme +
+  theme(
+    legend.position = "none"
+  ) -> VP_base_fig
+
+VP_base_fig
+
+ggsave(filename = "concept_VPD_0a.pdf",
+       plot = VP_base_fig,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 110, height = 90)
+```
+
+
+
+
+
+
+### Add Diff WVP Bars
+
+```{r}
+VP_diff_bar_fig <- VP_base_fig +
+  geom_segment(aes(x = 25, xend = 25, y = 0, yend = 1.266), 
+               color = "deepskyblue3", alpha = 0.8, size = 4) +
+  geom_segment(aes(x = 35, xend = 35, y = 0, yend = 2.25), 
+               color = "deepskyblue3", alpha = 0.8, size = 4) +
+  annotate(geom = "text", parse = F, x = 26.5, y = 0.63, label = "1.2\nkPa") +
+  annotate(geom = "text", parse = F, x = 36.5, y = 1.12, label = "2.2\nkPa")
+VP_diff_bar_fig
+
+ggsave(filename = "concept_VPD_1b.pdf",
+       plot = VP_diff_bar_fig,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 110, height = 90)
+```
+
+
+
+
+
+### Add VPD Bars
+
+```{r}
+VPD_diff_bar_fig <- VP_diff_bar_fig +
+  geom_segment(aes(x = 25, xend = 25, y = 1.266, yend = 3.166), 
+               color = "firebrick", size = 4) +
+  geom_segment(aes(x = 35, xend = 35, y = 2.25, yend = 5.62), 
+               color = "firebrick", size = 4) +
+  annotate(geom = "text", parse = F, x = 26.5, y = 2.22, label = "1.9\nkPa") +
+  annotate(geom = "text", parse = F, x = 36.5, y = 3.94, label = "3.4\nkPa")
+VPD_diff_bar_fig
+
+ggsave(filename = "concept_VPD_1c.pdf",
+       plot = VPD_diff_bar_fig,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 110, height = 90)
+```
+
+
+
+
+
+
+
+
+
+### Add WVP Ribbon
+
+```{r}
+VP_ribbon_fig <- VP_base_fig +
+  # I think lines look better, and are more similar to the bar figs
+  geom_segment(aes(x = 20, xend = 40, y = 2.34, yend = 2.34), 
+               color = "deepskyblue3", alpha = 0.8, size = 2, linetype = "dashed") +
+  geom_segment(aes(x = 40, xend = 40, y = 0, yend = 2.42), 
+               color = "deepskyblue3", alpha = 0.8, size = 4) +
+  # but could also use a ribbon instead
+  # geom_ribbon(aes(x = c(20:40), ymin = 0, ymax = 2.34), 
+  #             fill = "deepskyblue3", alpha = 0.5) +
+  annotate(geom = "text", parse = F, x = 41.5, y = 1.17, label = "2.3\nkPa")
+VP_ribbon_fig
+
+ggsave(filename = "concept_VPD_2b.pdf",
+       plot = VP_ribbon_fig,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 110, height = 90)
+```
+
+
+
+### Add VPD Compare
+
+```{r}
+VPD_compare_fig <- VP_ribbon_fig +
+  annotate(geom = "point", x = 20, y = 2.34, shape = 15, color = "deepskyblue3", size = 5) +
+  geom_segment(aes(x = 35.5, xend = 35.5, y = 2.42, yend = 5.8), 
+               color = "firebrick", size = 4) +
+  annotate(geom = "text", parse = F, x = 37, y = 4.05, label = "3.6\nkPa")
+VPD_compare_fig
+
+ggsave(filename = "concept_VPD_2c.pdf",
+       plot = VPD_compare_fig,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 110, height = 90)
+```
+
+
+
+
 
 
 
@@ -200,15 +368,17 @@ VPD_tile
 
 # Export Figure
 
+## All The Data
+
 ```{r}
-ggsave(filename = "concept_VPD1.pdf",
+ggsave(filename = "concept_VPD_all_lines.pdf",
        plot = sat_VP_fig,
        path = "./results_figures",
        device = "pdf",
        dpi = 600,
        units = "mm",
        width = 150, height = 90)
-ggsave(filename = "concept_VPD2.pdf",
+ggsave(filename = "concept_VPD_tiles.pdf",
        plot = VPD_tile,
        path = "./results_figures",
        device = "pdf",
@@ -219,10 +389,20 @@ ggsave(filename = "concept_VPD2.pdf",
 
 
 
+## Progressive Explanations
 
 
+```{r}
+VPD_concept_multi <- ggarrange(VPD_diff_bar_fig, VPD_compare_fig)
 
-
+ggsave(filename = "concept_VPD_multi.pdf",
+       plot = VPD_concept_multi,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 160, height = 90)
+```
 
 
 
