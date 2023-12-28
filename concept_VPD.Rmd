@@ -224,7 +224,9 @@ ggplot() +
               size = 1.2) +
   
   # axis labels
-  scale_x_continuous(limits = c(20, 42),
+  scale_x_continuous(limits = c(20, 41),
+                     breaks = c(20, 25, 30, 35, 40),
+                     labels = c(20, 25, 30, 35, 40),
                      #expand = c(0, 0),
                      name = "Air Temperature (°C)") +
   scale_y_continuous(limits = c(0, 7.6),
@@ -232,18 +234,22 @@ ggplot() +
                      name = "Water Vapor Pressure (kPa)") +
   
   # line labels
-  annotate(geom = "text", parse = F, x = 41.5, y = 3, label = "40%") +
-  annotate(geom = "text", parse = F, x = 41.8, y = 7.43, label = "100%") +
-  annotate(geom = "text", parse = F, x = 29, y = 4.6, angle = 30,
-           label = "Saturation Vapor Pressure") +
+  annotate(geom = "text", parse = F, x = 40.5, y = 3, 
+           label = "40% RH", hjust = 0) +
+  annotate(geom = "text", parse = F, x = 40.5, y = 7.43, 
+           label = "100% RH", hjust = 0) +
+  # annotate(geom = "text", parse = F, x = 29, y = 4.6, angle = 30,
+  #          label = "Saturation Vapor Pressure") +
   
   # colors
   scale_color_manual(values = c("gray70", "gray0")) +
   
   # themes
   savs_ggplot_theme +
+  coord_cartesian(clip = 'off') + 
   theme(
-    legend.position = "none"
+    legend.position = "none",
+    plot.margin = margin(1, 30, 1, 1)
   ) -> VP_base_fig
 
 VP_base_fig
@@ -254,7 +260,7 @@ ggsave(filename = "concept_VPD_0a.pdf",
        device = "pdf",
        dpi = 600,
        units = "mm",
-       width = 110, height = 90)
+       width = 120, height = 90)
 ```
 
 
@@ -280,7 +286,7 @@ ggsave(filename = "concept_VPD_1b.pdf",
        device = "pdf",
        dpi = 600,
        units = "mm",
-       width = 110, height = 90)
+       width = 120, height = 90)
 ```
 
 
@@ -305,7 +311,7 @@ ggsave(filename = "concept_VPD_1c.pdf",
        device = "pdf",
        dpi = 600,
        units = "mm",
-       width = 110, height = 90)
+       width = 120, height = 90)
 ```
 
 
@@ -337,7 +343,7 @@ ggsave(filename = "concept_VPD_2b.pdf",
        device = "pdf",
        dpi = 600,
        units = "mm",
-       width = 110, height = 90)
+       width = 120, height = 90)
 ```
 
 
@@ -358,7 +364,7 @@ ggsave(filename = "concept_VPD_2c.pdf",
        device = "pdf",
        dpi = 600,
        units = "mm",
-       width = 110, height = 90)
+       width = 120, height = 90)
 ```
 
 
@@ -381,6 +387,46 @@ ggplot() +
               alpha = 0.4
               ) +
   
+  # divide
+  geom_hline(yintercept = 2.336479, size = 1, color = "black", linetype = "dashed") +
+  
+  # axis labels
+  scale_x_continuous(limits = c(20, 40),
+                     expand = c(0, 0.11),
+                     name = "Air Temperature (°C)") +
+  scale_y_continuous(limits = c(0, 7.6),
+                     expand = c(0, 0),
+                     name = "Water Vapor Pressure (kPa)") +
+  
+  # themes
+  savs_ggplot_theme +
+  theme(
+    legend.position = "none"
+  ) -> VP_D_compare_fig_water
+
+VP_D_compare_fig_water
+
+ggsave(filename = "concept_VPD_overall_water.pdf",
+       plot = VP_D_compare_fig_water,
+       path = "./results_figures",
+       device = "pdf",
+       dpi = 600,
+       units = "mm",
+       width = 120, height = 90)
+```
+
+
+
+
+
+
+
+### Overall WVP vs VPD
+
+
+```{r}
+VP_D_compare_fig <- VP_D_compare_fig_water + 
+  
    # vapor pressure DEFICIT
   geom_ribbon(data = dat_es_VPD_compare,
               aes(x = temp_C,
@@ -389,7 +435,7 @@ ggplot() +
               fill = "firebrick",
               alpha = 0.6
               ) +
-  
+
   # 100% RH only
   geom_smooth(data = dat_es_VPD_compare,
               aes(x = temp_C,
@@ -400,28 +446,13 @@ ggplot() +
               size = 2,
               color = "black") +
   
-  # divide
-  geom_hline(yintercept = 2.336479, size = 1, color = "black", linetype = "dashed") +
-  
-  # axis labels
-  scale_x_continuous(limits = c(20, 40),
-                     expand = c(0, 0.01),
-                     name = "Air Temperature (°C)") +
-  scale_y_continuous(limits = c(0, 7.6),
-                     expand = c(0, 0),
-                     name = "Water Vapor Pressure (kPa)") +
-  
   # ribbon labels
-  annotate(geom = "text", parse = F, x = 30, y = 1.15, label = "Ambient") +
-  annotate(geom = "text", parse = F, x = 35, y = 4, label = "Deficit") +
-  annotate(geom = "text", parse = F, x = 30, y = 4.6, angle = 30,
-           label = "Saturation") +
+  #annotate(geom = "text", parse = F, x = 30, y = 1.15, label = "Ambient") +
+  annotate(geom = "text", parse = F, x = 35, y = 4, 
+           label = "Vapor Pressure Deficit")
+  # annotate(geom = "text", parse = F, x = 30, y = 4.6, angle = 30,
+  #          label = "Saturation") 
   
-  # themes
-  savs_ggplot_theme +
-  theme(
-    legend.position = "none"
-  ) -> VP_D_compare_fig
 
 VP_D_compare_fig
 
@@ -431,8 +462,10 @@ ggsave(filename = "concept_VPD_overall.pdf",
        device = "pdf",
        dpi = 600,
        units = "mm",
-       width = 110, height = 90)
+       width = 120, height = 90)
 ```
+
+
 
 
 
