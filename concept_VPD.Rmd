@@ -273,9 +273,9 @@ ggsave(filename = "concept_VPD_0a.pdf",
 ```{r}
 VP_diff_bar_fig <- VP_base_fig +
   geom_segment(aes(x = 25, xend = 25, y = 0, yend = 1.266), 
-               color = "deepskyblue3", alpha = 0.8, size = 4) +
+               color = "deepskyblue3", size = 4) +
   geom_segment(aes(x = 35, xend = 35, y = 0, yend = 2.25), 
-               color = "deepskyblue3", alpha = 0.8, size = 4) +
+               color = "deepskyblue3", size = 4) +
   annotate(geom = "text", parse = F, x = 26.5, y = 0.63, label = "1.2\nkPa") +
   annotate(geom = "text", parse = F, x = 36.5, y = 1.12, label = "2.2\nkPa")
 VP_diff_bar_fig
