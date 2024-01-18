@@ -1,4 +1,4 @@
-# Gambelia sila hydric physiology
+# *Gambelia sila* hydric physiology
 
 This repository houses all the data and code associated with the publication "Hydric Physiology and Ecology of a Federally Endangered Desert Lizard" by Savannah Weaver, Ian Axsom, Lindsay Peria, Tess McIntyre, Justin Chung, Rory Telemeco, Mike Westphal, and Emily Taylor, published in Conservation Physiology in 2024. 
 
