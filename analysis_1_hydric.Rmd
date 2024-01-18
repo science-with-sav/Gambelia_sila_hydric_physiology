@@ -13,18 +13,27 @@ output:
 # Packages
 
 ```{r setup, echo=T, results='hide', message=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
 if (!require("tidyverse")) install.packages("tidyverse") 
 library("tidyverse") # for tidy/dplyr workflow of calculations
 if (!require("lmerTest")) install.packages("lmerTest") 
 library("lmerTest") # LMMs
-if (!require("ggplot2")) install.packages("ggplot2")
-library("ggplot2") # plots
+if (!require("lme4")) install.packages("lme4") 
+library("lme4") # LMMs
+if (!require("Matrix")) install.packages("Matrix") 
+library("Matrix") # LMMs
 if (!require("RColorBrewer")) install.packages("RColorBrewer")
 library("RColorBrewer") # pretty colors
 if (!require("ggpubr")) install.packages("ggpubr")
 library("ggpubr") # for multi-ggplot figs
 if (!require("emmeans")) install.packages("emmeans")
 library("emmeans") # marginal means & confints
+
+#update.packages()
 ```
 
 
@@ -290,8 +299,9 @@ I want to know whether SVL changed over time for the individuals who had more th
 
 ```{r}
 # model
-summary(lmerTest::lmer(data = dat_repeats, 
-                   SVL_mm ~ week_num + (1|individual_ID)))
+SVL_change <- lmerTest::lmer(data = dat_repeats, 
+                   SVL_mm ~ week_num + (1|individual_ID))
+summary(SVL_change)
 ```
 
 

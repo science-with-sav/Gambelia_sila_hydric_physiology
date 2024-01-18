@@ -954,9 +954,8 @@ margin-left: 0 !important;
 <div id="background" class="section level1">
 <h1>Background</h1>
 <p>Because there are so few data measuring CEWL with the same methods we
-use, we decided to compare BNLL to two Mediterranean lizards that we’ve
-measured using the exact same methods.</p>
-<p>look at CEWL-osml distribution for BNLL &amp; WFL</p>
+use, we decided to compare BNLL to Western Fence Lizards (<em>Sceloporus
+occidentalis</em>) that we’ve measured using the exact same methods.</p>
 </div>
 <div id="load-data" class="section level1">
 <h1>Load Data</h1>
@@ -1000,8 +999,8 @@ measured using the exact same methods.</p>
 </div>
 <div id="sceloporus-occidentalis-data" class="section level2">
 <h2><em>Sceloporus occidentalis</em> Data</h2>
-<p>This is from the experiment I ran summer 2021 (submitted to JEB for
-publication).</p>
+<p>This is from the experiment I ran summer 2021 (published in JEB in
+2023).</p>
 <div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>Sceloporus <span class="ot">&lt;-</span> <span class="fu">read_rds</span>(<span class="st">&quot;./data/Sceloporus_2021_exp.RDS&quot;</span>) <span class="sc">%&gt;%</span></span>
 <span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(<span class="fu">complete.cases</span>(osmolality_mmol_kg_mean)) <span class="sc">%&gt;%</span> </span>
 <span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="at">date =</span> capture_date, individual_ID, </span>

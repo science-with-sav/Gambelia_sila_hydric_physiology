@@ -75,9 +75,9 @@ my_labels <- c(expression(italic("Gambelia sila                                 
 
 # Background
 
-Because there are so few data measuring CEWL with the same methods we use, we decided to compare BNLL to two Mediterranean lizards that we've measured using the exact same methods.
+Because there are so few data measuring CEWL with the same methods we use, we decided to compare BNLL to Western Fence Lizards (*Sceloporus occidentalis*) that we've measured using the exact same methods.
 
-look at CEWL-osml distribution for BNLL & WFL
+
 
 
 
@@ -120,7 +120,7 @@ summary(Gambelia)
 
 ## *Sceloporus occidentalis* Data
 
-This is from the experiment I ran summer 2021 (submitted to JEB for publication).
+This is from the experiment I ran summer 2021 (published in JEB in 2023).
 
 ```{r load Sceloporus data}
 Sceloporus <- read_rds("./data/Sceloporus_2021_exp.RDS") %>%

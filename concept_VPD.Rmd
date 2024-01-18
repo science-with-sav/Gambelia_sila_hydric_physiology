@@ -1,7 +1,6 @@
 ---
 title: "making a conceptual diagram of VPD"
 author: "Savannah Weaver"
-date: "2023-08-22"
 output: 
   rmdformats::html_clean:
     highlight: tango
@@ -13,7 +12,7 @@ output:
 
 # Packages
 
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 if (!require("tidyverse")) install.packages("tidyverse") 
 library("tidyverse") # for dplyr workflow + ggplot
 if (!require("RColorBrewer")) install.packages("RColorBrewer")
@@ -23,6 +22,14 @@ library("ggpubr") # for multi-ggplot figs
 if (!require("rmdformats")) install.packages("rmdformats")
 library("rmdformats") # pretty Rmd format
 ```
+
+
+
+
+
+# Background
+
+Vapor pressure deficit (VPD) is the drying power of the air, and it's a function of both temperature and water vapor. We believe VPD is the driver of plasticity in skin permeability to water loss. However, it is uncommon in studies of organismal physiology, so in this document, we create several figures to help explain the concept. 
 
 
 

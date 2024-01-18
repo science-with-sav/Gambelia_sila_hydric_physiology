@@ -12,6 +12,11 @@ output:
 # Packages
 
 ```{r setup, echo=T, results='hide', message=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
 `%nin%` = Negate(`%in%`)
 if (!require("tidyverse")) install.packages("tidyverse") 
 library("tidyverse")# for dplyr workflow of calculations
@@ -25,6 +30,8 @@ if (!require("ggpubr")) install.packages("ggpubr")
 library("ggpubr") # for multi-ggplot figs
 if (!require("Hmisc")) install.packages("Hmisc")
 library("Hmisc") # correlation matrix
+if (!require("PerformanceAnalytics")) install.packages("PerformanceAnalytics")
+library("PerformanceAnalytics") # correlation matrix
 if (!require("emmeans")) install.packages("emmeans")
 library("emmeans") # marginal means & confints
 if (!require("car")) install.packages("car")

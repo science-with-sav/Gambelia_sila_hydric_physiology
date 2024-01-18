@@ -13,6 +13,11 @@ output:
 # Packages
 
 ```{r setup, echo=T, results='hide', message=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
 `%nin%` = Negate(`%in%`)
 if (!require("tidyverse")) install.packages("tidyverse") 
 library("tidyverse") # for dplyr workflow + ggplot
