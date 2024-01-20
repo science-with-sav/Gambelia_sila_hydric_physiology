@@ -48,7 +48,7 @@ savs_ggplot_theme <- theme_classic() +
                                                       family = "sans", 
                                                       size = 8),
                            legend.text.align = 0,
-                           legend.position = "bottom"
+                           legend.position = "none"
                            )
 ```
 
@@ -614,8 +614,8 @@ all_clim_dat <- dat_ws_chunk_means %>%
   rbind(dat_HOBO_chunk_means) %>% 
   mutate(logger_daytime = factor(paste(logger, daytime, sep = " "),
                          levels = c("Burrow Day",
-                                    "Aboveground Day",
                                     "Burrow Night",
+                                    "Aboveground Day",
                                     "Aboveground Night")),
          logger = factor(logger
                          ))
@@ -693,7 +693,7 @@ ggplot(data = all_clim_dat) +
     alpha = 1,
     size = 0.6
   ) +
-  labs(y = "Temperature (°C)  ") +
+  labs(y = "Temperature (°C)  ", x = NULL) +
   scale_x_discrete(labels = c("Apr 26\n-May 6",
                               "May\n10-20",
                               "May\n21-31",
@@ -719,12 +719,16 @@ ggplot(data = all_clim_dat) +
   scale_color_manual(values = c(brewer.pal(11, "RdYlBu")[c(10, 2, 11, 1)]), name = NULL) +
   # additional formatting
   ylim(8, 40) +
-  # guides(shape = guide_legend(nrow = 2),
-  #        fill = guide_legend(nrow = 2)) +
+  guides(shape = guide_legend(ncol = 2),
+         fill = guide_legend(ncol = 2)) +
   savs_ggplot_theme +
   theme(plot.margin = margin(t = 0, r = 0, b = 0, l = 5, 
                              unit = "pt"),
-        legend.margin = margin(0,0,0,0, unit = "pt")
+        legend.position = c(0.8, 0.15),
+        legend.margin = margin(0, 0, 0, 0, "mm"),
+        legend.spacing.y = unit(0, 'mm'),
+        legend.spacing.x = unit(0, 'mm'),
+        legend.key.height = unit(4.5, "mm")
         ) -> daily_temps_fig
 daily_temps_fig
 
@@ -758,7 +762,7 @@ ggplot(data = all_clim_dat) +
     alpha = 1,
     size = 0.6
   ) +
-  labs(y = "Humidity (%)") +
+  labs(y = "Humidity (%)", x = NULL) +
   scale_x_discrete(labels = c("Apr 26\n-May 6",
                               "May\n10-20",
                               "May\n21-31",
@@ -840,7 +844,7 @@ ggplot(data = all_clim_dat) +
     alpha = 1,
     size = 0.6
   ) +
-  labs(y = "VPD (kPa)") +
+  labs(y = "VPD (kPa)", x = NULL) +
   scale_x_discrete(labels = c("Apr 26\n-May 6",
                               "May\n10-20",
                               "May\n21-31",
@@ -948,9 +952,9 @@ ggarrange(daily_temps_fig_multi, daily_RH_fig_multi, daily_VPD_fig,
           label.y = 1.02,
           label.x = -0.01,
           font.label = list(color = "black", face = "bold", size = 10),
-          heights = c(1, 1, 1.11),
-          common.legend = TRUE,
-          legend = "bottom"
+          heights = c(1, 1, 1.14),
+          common.legend = FALSE
+          #legend = "bottom"
           ) -> multi_climate
 
 ggsave(filename = "climate_multi_figure_vertical.pdf",
@@ -959,7 +963,7 @@ ggsave(filename = "climate_multi_figure_vertical.pdf",
        device = "pdf",
        dpi = 600,
        units = "mm",
-       width = 160, height = 150
+       width = 160, height = 140
        )
 ```
 

@@ -493,24 +493,33 @@ ggplot(dat) +
   scale_x_continuous(limits = c(300, 450),
                      breaks = c(300, 350, 400, 450),
                      labels = c(300, 350, 400, 450)) +
-  savs_ggplot_theme -> CEWL_osml_fig
+  savs_ggplot_theme +
+  guides(color = guide_legend(nrow = 3)) +
+  theme(
+    legend.position = c(0.12, 0.13),
+    legend.margin = margin(0, 0, 0, 0, "mm"),
+    legend.spacing.y = unit(0, 'mm'),
+    legend.key.height = unit(4.5, "mm"),
+    #legend.margin = margin(l = 20, t = 3, b = 5, unit = 'mm')
+    #legend.margin = margin(l = 5, r = 50, t = 1, b = 3, unit = 'mm')
+        ) -> CEWL_osml_fig
 CEWL_osml_fig
 
 # arrange to get legend centered
-ggarrange(CEWL_osml_fig,
-          ncol = 1, nrow = 1,
-          common.legend = TRUE,
-          legend = "bottom"
-          ) -> CEWL_osml_fig_arrange
+# ggarrange(CEWL_osml_fig,
+#           ncol = 1, nrow = 1,
+#           common.legend = TRUE,
+#           legend = "bottom"
+#           ) -> CEWL_osml_fig_arrange
 
 # export figure
 ggsave(filename = "CEWL_osml_fig.pdf",
-       plot = CEWL_osml_fig_arrange,
+       plot = CEWL_osml_fig, #_arrange,
        path = "./results_figures",
        device = "pdf",
        dpi = 600,
        units = "mm",
-       width = 80, height = 80)
+       width = 80, height = 70)
 ```
 
 
@@ -1083,15 +1092,15 @@ ggarrange(delta_CEWL_sex,
           legend = "bottom"
           ) -> delta_multi_fig_sex
 
-ggsave(filename = "delta_multi_fig_sex.pdf",
-       plot = delta_multi_fig_sex,
-       path = "./results_figures",
-       device = "pdf",
-       dpi = 600,
-       units = "mm",
-       width = 200, height = 80
-       #width = 80, height = 210
-       )
+# ggsave(filename = "delta_multi_fig_sex.pdf",
+#        plot = delta_multi_fig_sex,
+#        path = "./results_figures",
+#        device = "pdf",
+#        dpi = 600,
+#        units = "mm",
+#        width = 200, height = 80
+#        #width = 80, height = 210
+#        )
 ```
 
 
@@ -1542,15 +1551,15 @@ ggarrange(CEWL_emmean_plot,
           ) -> szn_change_multi_fig
 #szn_change_multi_fig
 
-ggsave(filename = "szn_change_multi_fig.pdf",
-       plot = szn_change_multi_fig,
-       path = "./results_figures",
-       device = "pdf",
-       dpi = 600,
-       units = "mm",
-       width = 200, height = 80
-       #width = 80, height = 210
-       )
+# ggsave(filename = "szn_change_multi_fig.pdf",
+#        plot = szn_change_multi_fig,
+#        path = "./results_figures",
+#        device = "pdf",
+#        dpi = 600,
+#        units = "mm",
+#        width = 200, height = 80
+#        #width = 80, height = 210
+#        )
 ```
 
 
@@ -1907,14 +1916,14 @@ ggplot() +
   savs_ggplot_theme -> full_mass_emmean_plot_F
 full_mass_emmean_plot_F
 
-ggsave(filename = "szn_change_mass_F_standalone.pdf",
-       plot = full_mass_emmean_plot_F,
-       path = "./results_figures",
-       device = "pdf",
-       dpi = 600,
-       units = "mm",
-       width = 60, height = 80
-       )
+# ggsave(filename = "szn_change_mass_F_standalone.pdf",
+#        plot = full_mass_emmean_plot_F,
+#        path = "./results_figures",
+#        device = "pdf",
+#        dpi = 600,
+#        units = "mm",
+#        width = 60, height = 80
+#        )
 ```
 
 
@@ -1963,14 +1972,14 @@ ggplot() +
   savs_ggplot_theme -> full_mass_emmean_plot_M
 full_mass_emmean_plot_M
 
-ggsave(filename = "szn_change_mass_M_standalone.pdf",
-       plot = full_mass_emmean_plot_M,
-       path = "./results_figures",
-       device = "pdf",
-       dpi = 600,
-       units = "mm",
-       width = 60, height = 80
-       )
+# ggsave(filename = "szn_change_mass_M_standalone.pdf",
+#        plot = full_mass_emmean_plot_M,
+#        path = "./results_figures",
+#        device = "pdf",
+#        dpi = 600,
+#        units = "mm",
+#        width = 60, height = 80
+#        )
 ```
 
 
@@ -2077,14 +2086,14 @@ ggplot() +
         legend.margin = margin(20,0,0,0, unit = "pt")) -> full_SMI_emmean_plot_F
 full_SMI_emmean_plot_F
 
-ggsave(filename = "szn_change_bodycond_F_standalone.pdf",
-       plot = full_SMI_emmean_plot_F,
-       path = "./results_figures",
-       device = "pdf",
-       dpi = 600,
-       units = "mm",
-       width = 60, height = 80
-       )
+# ggsave(filename = "szn_change_bodycond_F_standalone.pdf",
+#        plot = full_SMI_emmean_plot_F,
+#        path = "./results_figures",
+#        device = "pdf",
+#        dpi = 600,
+#        units = "mm",
+#        width = 60, height = 80
+#        )
 ```
 
 
@@ -2141,14 +2150,14 @@ ggplot() +
         legend.margin = margin(20,0,0,0, unit = "pt")) -> full_SMI_emmean_plot_M
 full_SMI_emmean_plot_M
 
-ggsave(filename = "szn_change_bodycond_M_standalone.pdf",
-       plot = full_SMI_emmean_plot_M,
-       path = "./results_figures",
-       device = "pdf",
-       dpi = 600,
-       units = "mm",
-       width = 60, height = 80
-       )
+# ggsave(filename = "szn_change_bodycond_M_standalone.pdf",
+#        plot = full_SMI_emmean_plot_M,
+#        path = "./results_figures",
+#        device = "pdf",
+#        dpi = 600,
+#        units = "mm",
+#        width = 60, height = 80
+#        )
 ```
 
 
@@ -2250,14 +2259,14 @@ ggplot() +
         legend.margin = margin(0,0,0,0, unit = "pt")) -> full_osml_emmean_plot_F
 full_osml_emmean_plot_F
 
-ggsave(filename = "szn_change_osml_F_standalone.pdf",
-       plot = full_osml_emmean_plot_F,
-       path = "./results_figures",
-       device = "pdf",
-       dpi = 600,
-       units = "mm",
-       width = 60, height = 80
-       )
+# ggsave(filename = "szn_change_osml_F_standalone.pdf",
+#        plot = full_osml_emmean_plot_F,
+#        path = "./results_figures",
+#        device = "pdf",
+#        dpi = 600,
+#        units = "mm",
+#        width = 60, height = 80
+#        )
 ```
 
 
@@ -2309,14 +2318,14 @@ ggplot() +
         legend.margin = margin(0,0,0,0, unit = "pt")) -> full_osml_emmean_plot_M
 full_osml_emmean_plot_M
 
-ggsave(filename = "szn_change_osml_M_standalone.pdf",
-       plot = full_osml_emmean_plot_M,
-       path = "./results_figures",
-       device = "pdf",
-       dpi = 600,
-       units = "mm",
-       width = 60, height = 80
-       )
+# ggsave(filename = "szn_change_osml_M_standalone.pdf",
+#        plot = full_osml_emmean_plot_M,
+#        path = "./results_figures",
+#        device = "pdf",
+#        dpi = 600,
+#        units = "mm",
+#        width = 60, height = 80
+#        )
 ```
 
 
@@ -2420,14 +2429,14 @@ ggplot() +
         legend.margin = margin(0,0,0,0, unit = "pt")) -> full_CEWL_emmean_plot_F
 full_CEWL_emmean_plot_F
 
-ggsave(filename = "szn_change_CEWL_F_standalone.pdf",
-       plot = full_CEWL_emmean_plot_F,
-       path = "./results_figures",
-       device = "pdf",
-       dpi = 600,
-       units = "mm",
-       width = 60, height = 80
-       )
+# ggsave(filename = "szn_change_CEWL_F_standalone.pdf",
+#        plot = full_CEWL_emmean_plot_F,
+#        path = "./results_figures",
+#        device = "pdf",
+#        dpi = 600,
+#        units = "mm",
+#        width = 60, height = 80
+#        )
 ```
 
 
@@ -2481,14 +2490,14 @@ ggplot() +
         legend.margin = margin(0,0,0,0, unit = "pt")) -> full_CEWL_emmean_plot_M
 full_CEWL_emmean_plot_M
 
-ggsave(filename = "szn_change_CEWL_M_standalone.pdf",
-       plot = full_CEWL_emmean_plot_M,
-       path = "./results_figures",
-       device = "pdf",
-       dpi = 600,
-       units = "mm",
-       width = 60, height = 80
-       )
+# ggsave(filename = "szn_change_CEWL_M_standalone.pdf",
+#        plot = full_CEWL_emmean_plot_M,
+#        path = "./results_figures",
+#        device = "pdf",
+#        dpi = 600,
+#        units = "mm",
+#        width = 60, height = 80
+#        )
 ```
 
 
@@ -2570,15 +2579,15 @@ ggarrange(full_CEWL_emmean_plot,
           ) -> full_szn_change_multi_fig_h
 #full_szn_change_multi_fig
 
-ggsave(filename = "szn_change_multi_fig_full_horizontal.pdf",
-       plot = full_szn_change_multi_fig_h,
-       path = "./results_figures",
-       device = "pdf",
-       dpi = 600,
-       units = "mm",
-       width = 220, height = 80
-       #width = 80, height = 210
-       )
+# ggsave(filename = "szn_change_multi_fig_full_horizontal.pdf",
+#        plot = full_szn_change_multi_fig_h,
+#        path = "./results_figures",
+#        device = "pdf",
+#        dpi = 600,
+#        units = "mm",
+#        width = 220, height = 80
+#        #width = 80, height = 210
+#        )
 ```
 
 
@@ -2862,15 +2871,15 @@ dat_repro_females %>%
         legend.margin = margin(0,0,0,0, unit = "pt")) -> when_gravid
 when_gravid
 
-ggsave(filename = "female_gravidity.pdf",
-       plot = when_gravid,
-       path = "./results_figures",
-       device = "pdf",
-       dpi = 600,
-       units = "mm",
-       #width = 200, height = 80
-       width = 80, height = 60
-       )
+# ggsave(filename = "female_gravidity.pdf",
+#        plot = when_gravid,
+#        path = "./results_figures",
+#        device = "pdf",
+#        dpi = 600,
+#        units = "mm",
+#        #width = 200, height = 80
+#        width = 80, height = 60
+#        )
 ```
 
 

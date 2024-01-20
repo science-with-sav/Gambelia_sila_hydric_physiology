@@ -1124,8 +1124,10 @@ ggplot(corrs) +
       fill = R) +
   geom_tile() +
   scale_fill_distiller(palette = "RdYlBu", limits = c(-1, 1),
-                       name = "Correlation\nCoefficient") +
+                       name = "   Correlation\n   Coefficient"
+                       ) +
   savs_ggplot_theme2 +
+  theme(legend.margin = margin(0, 0, 0, 0, "mm")) +
   scale_y_discrete(name = NULL, labels = c("Thermoregulatory\n            Accuracy",
                                            bquote("Maximum T"[b]),
                                            "Microhabitat Use"
@@ -1163,6 +1165,7 @@ ggplot(corrs) +
            size = 2, family = "sans", color = "black") -> corr_plot
 
 # arrange to get legend centered
+# no longer needed
 ggarrange(corr_plot,
           ncol = 1, nrow = 1,
           common.legend = TRUE,
@@ -1171,7 +1174,7 @@ ggarrange(corr_plot,
 
 # export
 ggsave(filename = "thermal_hydric_corr_plot.pdf",
-       plot = corr_plot_arrange,
+       plot = corr_plot, #_arrange,
        path = "./results_figures",
        device = "pdf",
        dpi = 600,
@@ -1426,7 +1429,8 @@ ggplot() +
   
   # pretties 
   scale_shape_manual(values = c(17, 16, 15), name = "Lizard Sex") +
-  scale_fill_manual(values = my_brew_cols_4, name = "Microhabitat",
+  scale_fill_manual(values = my_brew_cols_4, 
+                    name = "\n\n\n\n\nMicrohabitat", # extra space for lizard pic
                     labels = c("Open", "Partial Shade", "Full Shade", "Burrow")) +
   scale_x_discrete(labels = c("Apr 26\n-May 6",
                               "May\n10-20",
@@ -1453,10 +1457,17 @@ ggplot() +
   annotate(geom = "text", x = 2, y = 1.015, label = "*", size = 5) +
   annotate(geom = "text", x = 3, y = 1.015, label = "*", size = 5) +
   annotate(geom = "text", x = 4, y = 1.015, label = "*", size = 5) +
-  savs_ggplot_theme -> fancy_micro_plot
+  savs_ggplot_theme +
+  theme(
+    legend.position = "right",
+    legend.spacing.y = unit(1, 'mm'), # this affects the space btw title/items
+    legend.key.height = unit(4.5, "mm"),
+    legend.margin = margin(l = 2, r = 2, t = 1, b = 1, unit = 'mm')
+  ) -> fancy_micro_plot
 fancy_micro_plot
 
 # arrange to get legend centered
+# no longer needed
 ggarrange(fancy_micro_plot,
           ncol = 1, nrow = 1,
           common.legend = TRUE,
@@ -1464,7 +1475,7 @@ ggarrange(fancy_micro_plot,
           ) -> fancy_micro_plot_arrange
 
 ggsave(filename = "microhabitat_use.pdf",
-       plot = fancy_micro_plot_arrange,
+       plot = fancy_micro_plot, #_arrange,
        path = "./results_figures",
        device = "pdf",
        dpi = 600,
